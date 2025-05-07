@@ -53,7 +53,7 @@ public class TeamHandler
         AvatarTeamUpdateNotify avatarTeamUpdateNotify = new AvatarTeamUpdateNotify();
         for (uint i = 1; i <= session.player!.teamList.Count; i++)
         {
-            PlayerTeam playerTeam = session.player!.teamList[(int)i-1];
+            PlayerTeam playerTeam = session.player!.teamList[(int)i - 1];
             AvatarTeam avatarTeam = new AvatarTeam()
             {
                 TeamName = $"KazusaGI team {i + 1}"
@@ -64,7 +64,7 @@ public class TeamHandler
                 {
                     avatarTeam.AvatarGuidLists.Add(playerAvatarGuid);
                 }
-            } 
+            }
             else
             {
                 foreach (PlayerAvatar playerAvatar in playerTeam.Avatars)
@@ -83,7 +83,7 @@ public class TeamHandler
         };
 
         // this is the team were working with
-        PlayerTeam targetTeam = session.player!.teamList[(int)req.TeamId-1];
+        PlayerTeam targetTeam = session.player!.teamList[(int)req.TeamId - 1];
 
         List<AvatarEntity> avatarEntities = session.entityMap.Values
             .OfType<AvatarEntity>()
@@ -95,6 +95,7 @@ public class TeamHandler
 
         // its leader
         AvatarEntity oldLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, oldTeamLeader)!;
+
         AvatarEntity newLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, newLeaderAvatar)!;
 
         targetTeam.Avatars = new List<PlayerAvatar>(); // empty the avatars list
@@ -122,11 +123,23 @@ public class TeamHandler
 
         session.SendPacket(notify);
 
-        session.SendPacket(new SceneEntityDisappearNotify()
+        if (oldLeaderEntity == null)
         {
-            EntityLists = { oldLeaderEntity._EntityId },
-            DisappearType = VisionType.VisionReplace
-        });
+            oldLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, session.player!.GetCurrentLineup().Leader!)!;
+            session.SendPacket(new SceneEntityDisappearNotify()
+            {
+                EntityLists = { oldLeaderEntity!._EntityId },
+                DisappearType = VisionType.VisionReplace
+            });
+        }
+        else
+        {
+            session.SendPacket(new SceneEntityDisappearNotify()
+            {
+                EntityLists = { oldLeaderEntity._EntityId },
+                DisappearType = VisionType.VisionReplace
+            });
+        }
 
         SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify()
         {
@@ -135,7 +148,19 @@ public class TeamHandler
         sceneEntityAppearNotify.EntityLists.Add(newLeaderEntity.ToSceneEntityInfo(session));
         session.SendPacket(sceneEntityAppearNotify);
 
-        session.SendPacket(rsp);
+        PlayerWeapon weapon = session.player!.weaponDict[newLeaderAvatar.EquipGuid];
+
+        // AvatarEquipChangeNotify
+        session.SendPacket(new AvatarEquipChangeNotify()
+        {
+            AvatarGuid = newLeaderAvatar.Guid,
+            EquipType = 6, // weapon
+            ItemId = weapon.WeaponId,
+            EquipGuid = weapon.Guid,
+            Weapon = weapon.ToSceneWeaponInfo(session)
+        });
+
+		session.SendPacket(rsp);
     }
 
 }

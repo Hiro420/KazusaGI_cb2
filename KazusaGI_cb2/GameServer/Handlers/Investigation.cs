@@ -24,7 +24,21 @@ public class Investigation
             foreach (InvestigationMonsterConfig investigationMonster in investigationMonsters)
             {
                 SceneGroupLua sceneGroup = GetSceneGroupLua(investigationMonster.groupIdList[0], alreadySpawned);
-                MonsterLua monsterLua = GetFirstMonster(investigationMonster.monsterId, sceneGroup, alreadySpawned);
+                MonsterLua? monsterLua = GetFirstMonster(investigationMonster.monsterId, sceneGroup, alreadySpawned);
+                if (monsterLua == null)
+                {
+					rsp.MonsterLists.Add(new InvestigationMonster()
+					{
+						Id = investigationMonster.id,
+						CityId = investigationMonster.cityId,
+						Level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel,
+						IsAlive = false,
+						Pos = Session.Vector3ToVector(GetFirstMonster(investigationMonster.monsterId, sceneGroup, new List<MonsterLua>())!.pos),
+						MaxBossChestNum = 69420,
+						WorldResin = 1
+					});
+					continue;
+                }
                 rsp.MonsterLists.Add(new InvestigationMonster()
                 {
                     Id = investigationMonster.id,
@@ -76,8 +90,8 @@ public class Investigation
         return sceneluas.scene_blocks.First(x => x.Value.scene_groups.ContainsKey(groupId)).Value.scene_groups[groupId];
     }
 
-    public static MonsterLua GetFirstMonster(uint monsterId, SceneGroupLua groupLua, List<MonsterLua> alreadySpawned)
+    public static MonsterLua? GetFirstMonster(uint monsterId, SceneGroupLua groupLua, List<MonsterLua> alreadySpawned)
     {
-        return groupLua.monsters.First(monster => monster.monster_id == monsterId && !alreadySpawned.Contains(monster));
+        return groupLua.monsters.FirstOrDefault(monster => monster.monster_id == monsterId && !alreadySpawned.Contains(monster));
     }
 }

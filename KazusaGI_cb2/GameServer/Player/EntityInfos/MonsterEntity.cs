@@ -151,8 +151,8 @@ public class MonsterEntity : Entity
                 {
                     EntityId = weaponEntity._EntityId,
                     GadgetId = equipId,
-                    Guid = session.GetGuid(),
-                    Level = this.level,
+                    // Guid = session.GetGuid(),
+                    // Level = this.level,
                     // ItemId = equipId,
                 };
                 sceneMonsterInfo.WeaponLists.Add(sceneWeaponInfo);
@@ -179,13 +179,6 @@ public class MonsterEntity : Entity
         };
         entityFightPropUpdateNotify.FightPropMaps.Add((uint)FightPropType.FIGHT_PROP_CUR_HP, this.Hp);
         this.session!.SendPacket(entityFightPropUpdateNotify);
-        this.session!.SendPacket(new EntityFightPropChangeReasonNotify()
-        {
-            EntityId = this._EntityId,
-            PropType = (uint)FightPropType.FIGHT_PROP_CUR_HP,
-            PropDelta = this.Hp,
-            Reason = PropChangeReason.PropChangeAbility
-        });
         if (isDie)
         {
             this.Die();
@@ -199,7 +192,7 @@ public class MonsterEntity : Entity
         {
             EntityId = this._EntityId,
             LifeState = 2,
-            DieType = PlayerDieType.PlayerDieNone,
+            // DieType = PlayerDieType.PlayerDieNone,
         });
         this.session!.SendPacket(new SceneEntityDisappearNotify()
         {
@@ -211,9 +204,10 @@ public class MonsterEntity : Entity
         if (this._monsterInfo != null)
         {
             LuaManager.executeTriggersLua(
-            session,
-            session.player!.Scene.GetGroup((int)this._monsterInfo!.group_id),
-            new ScriptArgs((int)this._monsterInfo!.group_id, (int)TriggerEventType.EVENT_ANY_MONSTER_DIE));
+                session,
+                session.player!.Scene.GetGroup((int)this._monsterInfo!.group_id)!,
+                new ScriptArgs((int)this._monsterInfo!.group_id, (int)TriggerEventType.EVENT_ANY_MONSTER_DIE)
+            );
         };
     }
 
@@ -229,30 +223,30 @@ public class MonsterEntity : Entity
                     ret.Add((uint)propType, this.excelConfig.hpBase);
                     break;
                 case FightPropType.FIGHT_PROP_CUR_ATTACK:
-                case FightPropType.FIGHT_PROP_ATTACK:
                     ret.Add((uint)propType, this.Atk);
                     break;
                 case FightPropType.FIGHT_PROP_BASE_ATTACK:
                     ret.Add((uint)propType, this.excelConfig.attackBase);
                     break;
-                case FightPropType.FIGHT_PROP_DEFENSE:
+                case FightPropType.FIGHT_PROP_CUR_DEFENSE:
                     ret.Add((uint)propType, this.Def);
                     break;
                 case FightPropType.FIGHT_PROP_BASE_DEFENSE:
                     ret.Add((uint)propType, this.excelConfig.defenseBase);
                     break;
                 case FightPropType.FIGHT_PROP_CUR_HP:
-                case FightPropType.FIGHT_PROP_HP:
                     ret.Add((uint)propType, this.Hp);
                     break;
                 case FightPropType.FIGHT_PROP_MAX_HP:
                     ret.Add((uint)propType, this.MaxHp);
                     break;
-                case FightPropType.FIGHT_PROP_HP_PERCENT:
-                case FightPropType.FIGHT_PROP_CUR_SPEED:
-                    ret.Add((uint)propType, 0.0f);
-                    break;
-                case FightPropType.FIGHT_PROP_CUR_FIRE_ENERGY:
+				case FightPropType.FIGHT_PROP_CUR_SPEED:
+				case FightPropType.FIGHT_PROP_CRITICAL:
+				case FightPropType.FIGHT_PROP_ANTI_CRITICAL:
+				case FightPropType.FIGHT_PROP_CRITICAL_HURT:
+				case FightPropType.FIGHT_PROP_CHARGE_EFFICIENCY:
+				case FightPropType.FIGHT_PROP_ELEMENT_MASTERY:
+				case FightPropType.FIGHT_PROP_CUR_FIRE_ENERGY:
                 case FightPropType.FIGHT_PROP_CUR_ELEC_ENERGY:
                 case FightPropType.FIGHT_PROP_CUR_WATER_ENERGY:
                 case FightPropType.FIGHT_PROP_CUR_GRASS_ENERGY:
@@ -266,7 +260,7 @@ public class MonsterEntity : Entity
                 case FightPropType.FIGHT_PROP_MAX_WIND_ENERGY:
                 case FightPropType.FIGHT_PROP_MAX_ICE_ENERGY:
                 case FightPropType.FIGHT_PROP_MAX_ROCK_ENERGY:
-                    ret.Add((uint)propType, 100.0f);
+                    ret.Add((uint)propType, 0.0f);
                     break;
                 default:
                     break;

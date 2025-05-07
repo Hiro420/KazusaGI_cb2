@@ -83,11 +83,11 @@ public class Scene
         return this.sceneBlockLua!.scene_groups.First(c => c.Value == sceneGroupLua).Key;
     }
 
-    public SceneGroupLua GetGroup(int groupId)
+    public SceneGroupLua? GetGroup(int groupId)
     {
-        foreach (var scene in MainApp.resourceManager.SceneLuas.Values)
+        foreach (SceneLua scene in MainApp.resourceManager.SceneLuas.Values)
         {
-            if (scene.scene_blocks == null)
+            if (scene == null || scene.scene_blocks == null)
                 continue;
             foreach (var block in scene.scene_blocks)
             {

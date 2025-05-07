@@ -53,17 +53,17 @@ public class Evt
     public static void HandleAbilityInvocationsNotify(Session session, Packet packet)
     {
         AbilityInvocationsNotify req = packet.GetDecodedBody<AbilityInvocationsNotify>();
-        session.SendPacket(req);
+        // session.SendPacket(req);
     }
 
     [Packet.PacketCmdId(PacketId.EvtDoSkillSuccNotify)]
     public static void HandleEvtDoSkillSuccNotify(Session session, Packet packet)
     {
         EvtDoSkillSuccNotify req = packet.GetDecodedBody<EvtDoSkillSuccNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtSetAttackTargetNotify)]
+	[Packet.PacketCmdId(PacketId.EvtSetAttackTargetNotify)]
     public static void HandleEvtSetAttackTargetNotify(Session session, Packet packet)
     {
         // do nothing
@@ -73,38 +73,38 @@ public class Evt
     public static void HandleClientAbilitiesInitFinishCombineNotify(Session session, Packet packet)
     {
         ClientAbilitiesInitFinishCombineNotify req = packet.GetDecodedBody<ClientAbilitiesInitFinishCombineNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtFaceToDirNotify)]
+	[Packet.PacketCmdId(PacketId.EvtFaceToDirNotify)]
     public static void HandleEvtFaceToDirNotify(Session session, Packet packet)
     {
         EvtFaceToDirNotify req = packet.GetDecodedBody<EvtFaceToDirNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtAnimatorParameterNotify)]
+	[Packet.PacketCmdId(PacketId.EvtAnimatorParameterNotify)]
     public static void HandleEvtAnimatorParameterNotify(Session session, Packet packet)
     {
         EvtAnimatorParameterNotify req = packet.GetDecodedBody<EvtAnimatorParameterNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtEntityRenderersChangedNotify)]
+	[Packet.PacketCmdId(PacketId.EvtEntityRenderersChangedNotify)]
     public static void HandleEvtEntityRenderersChangedNotify(Session session, Packet packet)
     {
         EvtEntityRenderersChangedNotify req = packet.GetDecodedBody<EvtEntityRenderersChangedNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtAiSyncSkillCdNotify)]
+	[Packet.PacketCmdId(PacketId.EvtAiSyncSkillCdNotify)]
     public static void HandleEvtAiSyncSkillCdNotify(Session session, Packet packet)
     {
         EvtAiSyncSkillCdNotify req = packet.GetDecodedBody<EvtAiSyncSkillCdNotify>();
-        session.SendPacket(req);
-    }
+		// session.SendPacket(req);
+	}
 
-    [Packet.PacketCmdId(PacketId.EvtCreateGadgetNotify)]
+	[Packet.PacketCmdId(PacketId.EvtCreateGadgetNotify)]
     public static void HandleEvtCreateGadgetNotify(Session session, Packet packet)
     {
         EvtCreateGadgetNotify req = packet.GetDecodedBody<EvtCreateGadgetNotify>();
@@ -114,7 +114,7 @@ public class Evt
         GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos));
         gadgetEntity._EntityId = entityId;
         session.entityMap.Add(entityId, gadgetEntity);
-        session.SendPacket(req);
+        // session.SendPacket(req);
     }
 
     [Packet.PacketCmdId(PacketId.EvtDestroyGadgetNotify)]
@@ -123,7 +123,7 @@ public class Evt
         EvtDestroyGadgetNotify req = packet.GetDecodedBody<EvtDestroyGadgetNotify>();
         uint entityId = req.EntityId;
         session.entityMap.Remove(entityId);
-        session.SendPacket(req);
+        // session.SendPacket(req);
     }
 
     [Packet.PacketCmdId(PacketId.MonsterAlertChangeNotify)]

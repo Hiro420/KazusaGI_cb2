@@ -9,7 +9,8 @@ namespace KazusaGI_cb2.GameServer.PlayerInfos;
 
 public class PlayerWeapon
 {
-    private static ResourceManager resourceManager = MainApp.resourceManager;
+    private WeaponExcelConfig weaponExcel;
+	private static ResourceManager resourceManager = MainApp.resourceManager;
     public ulong Guid { get; set; } // critical
     public uint WeaponId { get; set; } // critical
     public uint Level { get; set; }
@@ -24,7 +25,7 @@ public class PlayerWeapon
     public PlayerWeapon(Session session, uint WeaponId)
     {
         WeaponEntity weaponEntity = new(session, WeaponId);
-        WeaponExcelConfig weaponExcel = resourceManager.WeaponExcel[WeaponId];
+        weaponExcel = resourceManager.WeaponExcel[WeaponId];
         this.Guid = session.GetGuid();
         this.WeaponId = WeaponId;
         this.Level = 1;
@@ -54,6 +55,7 @@ public class PlayerWeapon
             Guid = this.Guid,
             Level = this.Level,
             PromoteLevel = this.PromoteLevel,
+            AbilityInfo = new AbilitySyncStateInfo()
         };
         return info;
     }

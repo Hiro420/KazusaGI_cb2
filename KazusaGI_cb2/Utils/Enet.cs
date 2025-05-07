@@ -10,7 +10,6 @@ namespace KazusaGI_cb2.Utils;
 
 public class ENet
 {
-
     //  [StructLayout(LayoutKind.Explicit, Size = 18)]
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ENetAddress

@@ -7,7 +7,7 @@
 - Compile via Visual Studio 2022
 - Download `BinOutput`, `Lua` and `ExcelBinOutput` from [the resources repo](https://github.com/Hiro420/KazusaGI_Data) and place them in `resources` folder, next to the executable
 - Download [0.7.1](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.1.zip) or [0.7.0](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.0.zip) version of a certain anime game 
-- Place a patched [mhyprot2.Sys](https://cdn.discordapp.com/attachments/1105125107506102373/1335738261146177688/mhyprot2.Sys?ex=67a142b2&is=679ff132&hm=a79280fc566301ca8ccaf9e3f03449808d5940217bbd3745de59854331cca69c&) in the game folder, next to the executable
+- Place a patched [mhyprot2.Sys](https://cdn.discordapp.com/attachments/1050739105694240879/1050743432290775070/mhyprot2.Sys?ex=686324d4&is=6861d354&hm=4e62c4d2553fb6857d6802146e9dcb48518db2710c77e6524092b2671f923266&) in the game folder, next to the executable
 - [Download](https://api.getfiddler.com/fc/latest) and [configure](#Configure-Fiddler) Fiddler
 - Profit
 

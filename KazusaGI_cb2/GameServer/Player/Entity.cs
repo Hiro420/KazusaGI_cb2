@@ -96,7 +96,8 @@ namespace KazusaGI_cb2.GameServer
 				EntityType = EntityType,
 				EntityId = this._EntityId,
 				MotionInfo = MakeMotion(luaPos, luaRot),
-				AiInfo = MakeAi(luaPos)
+				AiInfo = MakeAi(luaPos),
+				AbilityInfo = new AbilitySyncStateInfo()
 			};
 
 			BuildKindSpecific(info);

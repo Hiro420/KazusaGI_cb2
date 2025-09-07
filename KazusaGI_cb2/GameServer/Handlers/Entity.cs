@@ -50,14 +50,14 @@ public class Entity
     {
         ExecuteGadgetLuaReq req = packet.GetDecodedBody<ExecuteGadgetLuaReq>();
         // todo: handle
-        //GameServer.Entity? targetEntity = session.player!.Scene.FindEntityByEntityId(req.SourceEntityId);
-        //if (targetEntity == null)
-        //{
-        //    session.c.LogWarning($"[FUCKED EXECUTE GADGET LUA] Entity {req.SourceEntityId} not found for ExecuteGadgetLuaReq");
-        //    return;
-        //}
-        //GadgetEntity gadget = (GameServer.GadgetEntity)targetEntity;
-        session.SendPacket(new ExecuteGadgetLuaRsp());
+        GameServer.Entity? targetEntity = session.player!.Scene.FindEntityByEntityId(req.SourceEntityId);
+        if (targetEntity == null || targetEntity is not GameServer.GadgetEntity)
+        {
+            session.c.LogWarning($"[FUCKED EXECUTE GADGET LUA] Entity {req.SourceEntityId} not found for ExecuteGadgetLuaReq, or is not a gadget");
+            return;
+        }
+        //int ret = (GameServer.GadgetEntity)targetEntity.onClientExecuteRequest(req.Param1, req.Param2, req.Param3);
+		session.SendPacket(new ExecuteGadgetLuaRsp() { Retcode = 0 /* = ret*/ });
     }
 
     // QuestCreateEntityReq

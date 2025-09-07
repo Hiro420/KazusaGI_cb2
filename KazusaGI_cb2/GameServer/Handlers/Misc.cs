@@ -97,4 +97,7 @@ public class Misc
 
     [Packet.PacketCmdId(PacketId.ObstacleModifyNotify)]
     public static void HandleObstacleModifyNotify(Session session, Packet packet) { } // no need
+
+	[Packet.PacketCmdId(PacketId.ClientFpsStatusNotify)]
+	public static void HandleClientFpsStatusNotify(Session session, Packet packet) { } // no need
 }

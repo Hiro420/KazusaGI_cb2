@@ -9,6 +9,8 @@ using Serilog;
 using Newtonsoft.Json;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using System.Linq;
+using Newtonsoft.Json.Converters;
+using System.Text.Json.Serialization;
 
 namespace KazusaGI_cb2.GameServer;
 
@@ -27,8 +29,10 @@ public class Session
     private static readonly List<string> blacklist = new List<string>() {  // to not flood the console
         "SceneEntityAppearNotify", "AbilityInvocationsNotify", "ClientAbilitiesInitFinishCombineNotify",
         "SceneEntitiesMovesReq", "SceneEntitiesMovesRsp", "EvtAnimatorParameterNotify", "QueryPathReq", "QueryPathRsp",
-        "EvtSetAttackTargetNotify", "PlayerStoreNotify"
-    };
+        "EvtSetAttackTargetNotify", "PlayerStoreNotify", "ClientFpsStatusNotify", "ObstacleModifyNotify"
+	};
+    private JsonSerializer _JsonConverter;
+
 
     public Session(ENetClient client, IntPtr peer)
     {
@@ -47,7 +51,13 @@ public class Session
         {
             builder.AddFile(Path.Combine(logsFolder, $"session_{_peer}.log"));
         }).CreateLogger<Session>();
-    }
+
+		_JsonConverter = new JsonSerializer
+		{
+			NullValueHandling = NullValueHandling.Ignore
+		};
+		_JsonConverter.Converters.Add(new StringEnumConverter());
+	}
 
     public async Task LogToFileAsync(string message)
     {
@@ -65,8 +75,8 @@ public class Session
             string protoName = $"{cmd}";
             Type protoType = Type.GetType($"KazusaGI_cb2.Protocol.{protoName}")!;
             MethodInfo method = typeof(Packet).GetMethod(nameof(packet.GetDecodedBody))!.MakeGenericMethod(protoType);
-            string jsonBody = Newtonsoft.Json.JsonConvert.SerializeObject(method.Invoke(packet, null)!);
-            return jsonBody;
+            string jsonBody = _JsonConverter.SerializeObject(method.Invoke(packet, null)!);
+			return jsonBody;
         } 
         catch (Exception e)
         {

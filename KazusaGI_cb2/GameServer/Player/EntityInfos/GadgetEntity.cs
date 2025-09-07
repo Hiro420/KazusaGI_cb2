@@ -41,6 +41,16 @@ namespace KazusaGI_cb2.GameServer
 			return ret;
 		}
 
+		public int onClientExecuteRequest(int param1, int param2, int param3)
+		{
+			// todo: implement
+			//if (entityController != null)
+			//{
+			//	return entityController.onClientExecuteRequest(this, param1, param2, param3);
+			//}
+			return 0;
+		}
+
 		protected override void BuildKindSpecific(SceneEntityInfo ret)
 		{
 			ret.Name = gadgetExcel.jsonName;

@@ -22,6 +22,6 @@ public class GadgetLua
     public uint block_id;
     public uint group_id;
 
-    public GadgetState_Lua state;
+    public GadgetState state;
     public GadgetType_Lua type;
 }

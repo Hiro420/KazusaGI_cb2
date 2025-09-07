@@ -361,24 +361,36 @@ public enum DungeonType
     DUNGEON_BOSS = 7,
 }
 
-public enum GadgetState_Lua
+public enum GadgetState
 {
-    Default = 0, // 默认待机状态
-    ChestLocked = 1, // 宝箱锁住状态
-    GearStart = 2, // 机关启动状态
-    GearStop = 3, // 机关停止状态
-    CrystalResonate1 = 4, // 水晶共鸣等级1
-    CrystalResonate2 = 5, // 水晶共鸣等级2
-    CrystalExplode = 6, // 水晶爆发
-    CrystalDrain = 7, // 水晶枯竭
+    Default = 0,
+    GatherDrop = 1,
+    ChestLocked = 101,
+    ChestOpened = 102,
+    ChestTrap = 103,
+    ChestBramble = 104,
+    ChestFrozen = 105,
+    ChestRock = 106,
+    GearStart = 201,
+    GearStop = 202,
+    GearAction1 = 203,
+    GearAction2 = 204,
+    CrystalResonate1 = 301,
+    CrystalResonate2 = 302,
+    CrystalExplode = 303,
+    CrystalDrain = 304,
+    StatueActive = 401,
+    Action01 = 901,
+    Action02 = 902,
+    Action03 = 903
 }
 
 public enum GadgetType_Lua
 {
-    GADGET_NONE = 0, // 无
-    GADGET_WORLD_CHECT = 1, // 地表世界宝箱
-    GADGET_DUNGEON_SECRET_CHEST = 2, // 地城秘密宝箱
-    GADGET_DUNGEON_PASS_CHEST = 3, // 地城通关宝箱
+    GADGET_NONE = 0,
+    GADGET_WORLD_CHECT = 1,
+    GADGET_DUNGEON_SECRET_CHEST = 2,
+    GADGET_DUNGEON_PASS_CHEST = 3
 }
 
 public enum TowerCondType
@@ -387,4 +399,77 @@ public enum TowerCondType
     TOWER_COND_FINISH_TIME_LESS_THAN = 1,
     TOWER_COND_LEFT_HP_GREATER_THAN = 2,
     TOWER_COND_CHALLENGE_LEFT_TIME_MORE_THAN = 3,
+}
+
+public enum GroupKillPolicy
+{
+    GROUP_KILL_NONE = 0,
+    GROUP_KILL_ALL = 1,
+    GROUP_KILL_MONSTER = 2,
+    GROUP_KILL_GADGET = 3,
+    GROUP_KILL_NPC = 4
+}
+
+public enum RegionShape
+{
+    REGION_NONE = 0,
+    REGION_SPHERE = 1,
+    REGION_CUBIC = 2
+}
+
+public enum EntityType
+{
+    None = 0,
+    Avatar = 1,
+    Monster = 2,
+    Bullet = 3,
+    AttackPhyisicalUnit = 4,
+    AOE = 5,
+    Camera = 6,
+    EnviroArea = 7,
+    Equip = 8,
+    MonsterEquip = 9,
+    Grass = 10,
+    Level = 11,
+    NPC = 12,
+    TransPointFirst = 13,
+    TransPointFirstGadget = 14,
+    TransPointSecond = 15,
+    TransPointSecondGadget = 16,
+    DropItem = 17,
+    Field = 18,
+    Gadget = 19,
+    Water = 20,
+    GatherPoint = 21,
+    GatherObject = 22,
+    AirflowField = 23,
+    SpeedupField = 24,
+    Gear = 25,
+    Chest = 26,
+    EnergyBall = 27,
+    ElemCrystal = 28,
+    Timeline = 29,
+    Worktop = 30,
+    Team = 31,
+    Platform = 32,
+    AmberWind = 33,
+    EnvAnimal = 34,
+    SealGadget = 35,
+    Tree = 36,
+    Bush = 37,
+    QuestGadget = 38,
+    Lightning = 39,
+    RewardPoint = 40,
+    RewardStatue = 41,
+    MPLevel = 42,
+    WindSeed = 43,
+    PlaceHolder = 99
+}
+
+public enum GearType
+{
+    None = 0,
+    Ray = 1,
+    Spray = 2,
+    Wall = 3
 }

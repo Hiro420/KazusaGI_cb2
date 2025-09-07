@@ -45,6 +45,21 @@ public class Entity
         session.SendPacket(rsp);
     }
 
+    [Packet.PacketCmdId(PacketId.ExecuteGadgetLuaReq)]
+    public static void HandleExecuteGadgetLuaReq(Session session, Packet packet)
+    {
+        ExecuteGadgetLuaReq req = packet.GetDecodedBody<ExecuteGadgetLuaReq>();
+        // todo: handle
+        //GameServer.Entity? targetEntity = session.player!.Scene.FindEntityByEntityId(req.SourceEntityId);
+        //if (targetEntity == null)
+        //{
+        //    session.c.LogWarning($"[FUCKED EXECUTE GADGET LUA] Entity {req.SourceEntityId} not found for ExecuteGadgetLuaReq");
+        //    return;
+        //}
+        //GadgetEntity gadget = (GameServer.GadgetEntity)targetEntity;
+        session.SendPacket(new ExecuteGadgetLuaRsp());
+    }
+
     // QuestCreateEntityReq
     [Packet.PacketCmdId(PacketId.QuestCreateEntityReq)]
     public static void HandleQuestCreateEntityReq(Session session, Packet packet)

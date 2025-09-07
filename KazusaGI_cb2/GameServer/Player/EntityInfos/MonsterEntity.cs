@@ -206,7 +206,7 @@ public class MonsterEntity : Entity
             LuaManager.executeTriggersLua(
                 session,
                 session.player!.Scene.GetGroup((int)this._monsterInfo!.group_id)!,
-                new ScriptArgs((int)this._monsterInfo!.group_id, (int)TriggerEventType.EVENT_ANY_MONSTER_DIE)
+                new ScriptArgs((int)this._monsterInfo!.group_id, (int)TriggerEventType.EVENT_ANY_MONSTER_DIE, (int)this._monsterInfo.config_id)
             );
         };
     }

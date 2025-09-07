@@ -1,16 +1,13 @@
-﻿using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource.Excel;
+﻿using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Excel;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace KazusaGI_cb2.GameServer;
 
-// idk when ill fully implement this, too lazy kek
 public class Scene
 {
     public Session session { get; private set; }
@@ -21,445 +18,599 @@ public class Scene
     private static Logger logger = new("SceneManager");
     public bool isFinishInit { get; set; } = false;
     public float defaultRange { get; private set; } = 100f;
+
     public List<MonsterLua> alreadySpawnedMonsters { get; private set; } = new();
     public List<GadgetLua> alreadySpawnedGadgets { get; private set; } = new();
     public List<NpcLua> alreadySpawnedNpcs { get; private set; } = new();
 
-    public Scene(Session _session, Player _player)
+    private readonly HashSet<int> _activeRegionIds = new(64);
+
+    private readonly Dictionary<(SceneGroupLua Group, uint SuiteId), SuiteMembership> _suiteCache = new(64);
+
+    private struct SuiteMembership
     {
-        this.session = _session;
-        this.player = _player;
-        this.sceneLua = MainApp.resourceManager.SceneLuas[_player.SceneId];
+        public HashSet<uint> Monsters;
+        public HashSet<uint> Gadgets;
+        public HashSet<uint> Regions;
+
+        public static SuiteMembership From(SceneGroupLuaSuite suite)
+        {
+            return new SuiteMembership
+            {
+                Monsters = suite.monsters != null ? new HashSet<uint>(suite.monsters) : new HashSet<uint>(),
+                Gadgets = suite.gadgets != null ? new HashSet<uint>(suite.gadgets) : new HashSet<uint>(),
+                Regions = suite.regions != null ? new HashSet<uint>(suite.regions) : new HashSet<uint>(),
+            };
+        }
     }
 
-    // todo: make a timeout or something, so it wont be spammed every single frame
+    // todo
+    public System.Action<SceneGroupLua, SceneRegionLua>? OnRegionEnter;
+    public System.Action<SceneGroupLua, SceneRegionLua>? OnRegionLeave;
+
+    private readonly List<uint> _tmpDisappearIds = new(capacity: 32);
+
+    public Scene(Session _session, Player _player)
+    {
+        session = _session;
+        player = _player;
+        sceneLua = MainApp.resourceManager.SceneLuas[_player.SceneId];
+    }
+
     public void UpdateOnMove()
     {
-        if (!isFinishInit)
-            return;
-        Vector3 playerPos = this.player.Pos;
-        for (int i = 0; i < this.sceneLua.block_rects.Count; i++)
-        {
-            BlockRect blockRect = this.sceneLua.block_rects[i];
-            SceneBlockLua blockLua = this.sceneLua.scene_blocks[this.sceneLua.blocks[i]];
+        if (!isFinishInit) return;
 
-            if (!isInRange(blockRect, playerPos))
+        Vector3 playerPos = player.Pos;
+        for (int i = 0; i < sceneLua.block_rects.Count; i++)
+        {
+            BlockRect blockRect = sceneLua.block_rects[i];
+            SceneBlockLua blockLua = sceneLua.scene_blocks[sceneLua.blocks[i]];
+
+            if (!IsInBlock(blockRect, playerPos))
             {
                 if (blockLua == sceneBlockLua)
                 {
-                    this.UnloadSceneBlock(blockLua);
+                    UnloadSceneBlock(blockLua);
                 }
                 continue;
             }
 
             if (blockLua != sceneBlockLua)
             {
-                session.c.LogWarning($"Player {player.Uid} is in range of block {this.sceneLua.blocks[i]}");
-                this.LoadSceneBlock(blockLua);
-            } else
+                session.c.LogWarning($"Player {player.Uid} is in range of block {sceneLua.blocks[i]}");
+                LoadSceneBlock(blockLua);
+            }
+            else
             {
                 UpdateBlock();
             }
 
-            // check entities isInRange later
-            // same with regions
+            if (sceneBlockLua != null && sceneBlockLua.scene_groups != null)
+            {
+                foreach (var kv in sceneBlockLua.scene_groups)
+                {
+                    UpdateGroupRegions(kv.Value);
+                }
+            }
         }
     }
 
     public void UpdateBlock()
     {
-        Vector3 playerPos = this.player.Pos;
-        if (this.sceneBlockLua!.scene_groups != null)
+        if (sceneBlockLua?.scene_groups == null) return;
+
+        foreach (var kv in sceneBlockLua.scene_groups)
         {
-            foreach (var group in this.sceneBlockLua.scene_groups)
+            UpdateGroup(kv.Value);
+        }
+    }
+
+    public void RefreshGroup(SceneGroupLua group, int suiteId)
+    {
+        if (group.suites == null || group.suites.Count == 0) return;
+        if (suiteId <= 0 || suiteId > group.suites.Count)
+            suiteId = 1;
+        SceneGroupLuaSuite suite = group.suites[suiteId - 1];
+        var membership = GetOrBuildSuiteMembership(group, suite);
+
+        //Console.WriteLine($"[Scene] Refreshing group {GetGroupIdFromGroupInfo(group)} to suite {suiteId} -> {membership.Monsters.Count} monsters, {membership.Gadgets.Count} gadgets");
+
+        // Despawn entities not in the new suite
+        if (group.monsters != null)
+        {
+            for (int i = 0; i < group.monsters.Count; i++)
             {
-                UpdateGroup(group.Value);
+                var m = group.monsters[i];
+                if (!membership.Monsters.Contains(m.config_id) && alreadySpawnedMonsters.Contains(m))
+                {
+                    var ent = MonsterEntity2DespawnMonster(m);
+                    if (ent != null)
+                    {
+                        _tmpDisappearIds.Add(ent._EntityId);
+                        alreadySpawnedMonsters.Remove(m);
+                    }
+                }
+            }
+        }
+        if (group.gadgets != null)
+        {
+            for (int i = 0; i < group.gadgets.Count; i++)
+            {
+                var g = group.gadgets[i];
+                if (!membership.Gadgets.Contains(g.config_id) && alreadySpawnedGadgets.Contains(g))
+                {
+                    var ent = GadgetEntity2DespawnGadget(g);
+                    if (ent != null)
+                    {
+                        _tmpDisappearIds.Add(ent._EntityId);
+                        alreadySpawnedGadgets.Remove(g);
+                    }
+                }
+            }
+        }
+
+        if (_tmpDisappearIds.Count > 0)
+        {
+            var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+            for (int i = 0; i < _tmpDisappearIds.Count; i++)
+            {
+                uint eid = _tmpDisappearIds[i];
+                disappear.EntityLists.Add(eid);
+                session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
+                session.entityMap.Remove(eid);
+            }
+            session.SendPacket(disappear);
+            _tmpDisappearIds.Clear();
+        }
+        // Npcs are not controlled by suites, so we don't despawn them here
+        // Spawn entities in the new suite
+        UpdateGroup(group, suite);
+    }
+
+    private void UpdateGroupRegions(SceneGroupLua group)
+    {
+        SceneGroupLuaSuite baseSuite = GetBaseSuite(group);
+        var membership = GetOrBuildSuiteMembership(group, baseSuite);
+
+        if (group.regions == null || group.regions.Count == 0 || membership.Regions.Count == 0)
+            return;
+
+        Vector3 pos = player.Pos;
+
+        for (int i = 0; i < group.regions.Count; i++)
+        {
+            SceneRegionLua region = group.regions[i];
+            int id = (int)region.config_id;
+
+            if (!membership.Regions.Contains((uint)id))
+                continue;
+
+            bool inside = IsInsideRegion(region, pos);
+            bool wasInside = _activeRegionIds.Contains(id);
+
+            if (inside)
+            {
+                if (!wasInside)
+                {
+                    _activeRegionIds.Add(id);
+                    //OnRegionEnter?.Invoke(group, region);
+                    TriggerRegionEvent(group, region, enter:true);
+                }
+            }
+            else
+            {
+                if (wasInside)
+                {
+                    _activeRegionIds.Remove(id);
+                    //OnRegionLeave?.Invoke(group, region);
+                    TriggerRegionEvent(group, region, enter:false);
+                }
             }
         }
     }
 
+    private SuiteMembership GetOrBuildSuiteMembership(SceneGroupLua group, SceneGroupLuaSuite suite)
+    {
+        int idx = group.suites != null ? group.suites.IndexOf(suite) : -1;
+        uint suiteId = idx >= 0 ? (uint)(idx + 1) : 1u;
+
+        if (!_suiteCache.TryGetValue((group, suiteId), out var mem))
+        {
+            mem = SuiteMembership.From(suite);
+            _suiteCache[(group, suiteId)] = mem;
+        }
+        return mem;
+    }
+
+    private static bool IsInsideRegion(SceneRegionLua r, in Vector3 p)
+    {
+        Vector3 c = r.pos;
+        string s = r.shape.ToString().ToLowerInvariant() ?? "sphere";
+
+        float dx = p.X - c.X;
+        float dy = p.Y - c.Y;
+        float dz = p.Z - c.Z;
+
+        switch (s)
+        {
+            case "sphere":
+                {
+                    float rr = r.radius;
+                    if (rr <= 0f && r.size != default) rr = 0.5f * r.size.X;
+                    rr = rr <= 0f ? 1f : rr;
+                    return (dx * dx + dy * dy + dz * dz) <= rr * rr;
+                }
+            //case "cubic":
+            default:
+                {
+                    float rr = r.radius;
+                    if (rr <= 0f && r.size != default) rr = 0.5f * r.size.X;
+                    rr = rr <= 0f ? 1f : rr;
+                    return (dx * dx + dy * dy + dz * dz) <= rr * rr;
+                }
+        }
+    }
+
+    private void TriggerRegionEvent(SceneGroupLua group, SceneRegionLua region, bool enter)
+    {
+         var args = new ScriptArgs((int)GetGroupIdFromGroupInfo(group),
+             enter ? (int)TriggerEventType.EVENT_ENTER_REGION : (int)TriggerEventType.EVENT_LEAVE_REGION,
+             (int)region.config_id);
+        LuaManager.executeTriggersLua(session, group, args);
+    }
+
+
     public uint GetGroupIdFromGroupInfo(SceneGroupLua sceneGroupLua)
     {
-        return this.sceneBlockLua!.scene_groups.First(c => c.Value == sceneGroupLua).Key;
+        foreach (var kv in sceneBlockLua!.scene_groups)
+            if (ReferenceEquals(kv.Value, sceneGroupLua))
+                return kv.Key;
+        return 0;
     }
 
     public SceneGroupLua? GetGroup(int groupId)
     {
         foreach (SceneLua scene in MainApp.resourceManager.SceneLuas.Values)
         {
-            if (scene == null || scene.scene_blocks == null)
-                continue;
+            if (scene?.scene_blocks == null) continue;
             foreach (var block in scene.scene_blocks)
             {
-                if (block.Value.scene_groups == null)
-                    continue;
-                foreach (var group in block.Value.scene_groups)
-                {
-                    if (group.Key == groupId)
-                    {
-                        return group.Value;
-                    }
-                }
+                if (block.Value.scene_groups == null) continue;
+                if (block.Value.scene_groups.TryGetValue((uint)groupId, out var g)) return g;
             }
         }
         return null;
     }
 
-
-    public void UpdateGroup(SceneGroupLua sceneGroupLua)
+    public void UpdateGroup(SceneGroupLua sceneGroupLua, SceneGroupLuaSuite? suite = null)
     {
-        SceneGroupLuaSuite baseSuite = GetBaseSuite(sceneGroupLua);
-        List<SceneEntityAppearNotify> sceneEntityAppearNotifies = new List<SceneEntityAppearNotify>();
+        SceneGroupLuaSuite baseSuite = suite != null ? suite : GetBaseSuite(sceneGroupLua);
+        var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
-        SceneEntityAppearNotify currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
+        var appearBatches = new List<SceneEntityAppearNotify>();
+        SceneEntityAppearNotify currentNtf = new() { AppearType = VisionType.VisionMeet };
+
+        if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
         {
-            AppearType = VisionType.VisionMeet,
-        };
-
-
-        // we will do it only one packet for now, since it doesnt have to contain much data
-        SceneEntityDisappearNotify sceneEntityDisappearNotify = new SceneEntityDisappearNotify()
-        {
-            DisappearType = VisionType.VisionMiss,
-        };
-
-        // Process monsters
-        foreach (MonsterLua monsterLua in sceneGroupLua.monsters)
-        {
-            if (!baseSuite.monsters.Contains(monsterLua.config_id))
-                continue;
-            if (isInRange(monsterLua.pos, player.Pos, defaultRange) && !this.alreadySpawnedMonsters.Contains(monsterLua))
+            //Console.WriteLine($"[Scene] Updating group {GetGroupIdFromGroupInfo(sceneGroupLua)} -> {sceneGroupLua.monsters.Count} monsters");
+            for (int i = 0; i < sceneGroupLua.monsters.Count; i++)
             {
-                uint MonsterId = monsterLua.monster_id;
-                MonsterExcelConfig monster = resourceManager.MonsterExcel[MonsterId];
-                MonsterEntity monsterEntity = new MonsterEntity(session, MonsterId, monsterLua, monsterLua.pos);
-                session.entityMap.Add(monsterEntity._EntityId, monsterEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(monsterEntity.ToSceneEntityInfo());
-                alreadySpawnedMonsters.Add(monsterLua);
+                var m = sceneGroupLua.monsters[i];
 
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                //Console.WriteLine($"[{m.config_id}] start");
+
+                if (!membership.Monsters.Contains(m.config_id)) continue;
+
+                //Console.WriteLine($"[{m.config_id}] in membership");
+
+                if (IsInRange(m.pos, player.Pos, defaultRange))
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
+                    //Console.WriteLine($"[{m.config_id}] in range");
+                    if (!alreadySpawnedMonsters.Contains(m))
                     {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                        //Console.WriteLine($"[{m.config_id}] spawn");
+                        uint monsterId = m.monster_id;
+                        MonsterExcelConfig monster = resourceManager.MonsterExcel[monsterId];
+                        var ent = new MonsterEntity(session, monsterId, m, m.pos);
+                        session.entityMap.Add(ent._EntityId, ent);
+                        currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
+                        alreadySpawnedMonsters.Add(m);
+                        if (currentNtf.EntityLists.Count >= 10)
+                        {
+                            appearBatches.Add(currentNtf);
+                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                        }
+                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
+                    }
                 }
-            }
-            else
-            {
-                if (!isInRange(monsterLua.pos, player.Pos, defaultRange) && this.alreadySpawnedMonsters.Contains(monsterLua))
+                else
                 {
-                    MonsterEntity? monsterEntity = this.MonsterEntity2DespawnMonster(monsterLua);
-                    if (monsterEntity != null)
+                    if (alreadySpawnedMonsters.Contains(m))
                     {
-                        sceneEntityDisappearNotify.EntityLists.Add(monsterEntity._EntityId);
-                        this.alreadySpawnedMonsters.Remove(monsterLua); // so it can respawn when we come back to the are
+                        var ent = MonsterEntity2DespawnMonster(m);
+                        if (ent != null)
+                        {
+                            _tmpDisappearIds.Add(ent._EntityId);
+                            alreadySpawnedMonsters.Remove(m);
+                        }
                     }
                 }
             }
         }
 
-        // Process Npcs
-        foreach (NpcLua npcLua in sceneGroupLua.npcs)
+        if (sceneGroupLua.npcs != null)
         {
-            if (isInRange(npcLua.pos, player.Pos, defaultRange) && !this.alreadySpawnedNpcs.Contains(npcLua))
+            for (int i = 0; i < sceneGroupLua.npcs.Count; i++)
             {
-                uint npcId = npcLua.npc_id;
-                NpcEntity npcEntity = new NpcEntity(session, npcId, npcLua, npcLua.pos);
-                session.entityMap.Add(npcEntity._EntityId, npcEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(npcEntity.ToSceneEntityInfo());
-                alreadySpawnedNpcs.Add(npcLua);
-
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                var n = sceneGroupLua.npcs[i];
+                if (IsInRange(n.pos, player.Pos, defaultRange))
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
+                    if (!alreadySpawnedNpcs.Contains(n))
                     {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                        uint npcId = n.npc_id;
+                        var ent = new NpcEntity(session, npcId, n, n.pos);
+                        session.entityMap.Add(ent._EntityId, ent);
+                        currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
+                        alreadySpawnedNpcs.Add(n);
+                        if (currentNtf.EntityLists.Count >= 10)
+                        {
+                            appearBatches.Add(currentNtf);
+                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                        }
+                    }
                 }
-            }
-            else
-            {
-                if (!isInRange(npcLua.pos, player.Pos, defaultRange) && this.alreadySpawnedNpcs.Contains(npcLua))
+                else
                 {
-                    NpcEntity? npcEntity = this.NpcEntity2DespawnNpc(npcLua);
-                    if (npcEntity != null)
+                    if (alreadySpawnedNpcs.Contains(n))
                     {
-                        sceneEntityDisappearNotify.EntityLists.Add(npcEntity._EntityId);
-                        this.alreadySpawnedNpcs.Remove(npcLua); // so it can respawn when we come back to the are
+                        var ent = NpcEntity2DespawnNpc(n);
+                        if (ent != null)
+                        {
+                            _tmpDisappearIds.Add(ent._EntityId);
+                            alreadySpawnedNpcs.Remove(n);
+                        }
                     }
                 }
             }
         }
 
-
-        // Process gadgets
-        foreach (GadgetLua gadgetLua in sceneGroupLua.gadgets)
+        if (sceneGroupLua.gadgets != null && membership.Gadgets.Count != 0)
         {
-            if (!baseSuite.gadgets.Contains(gadgetLua.config_id))
-                continue;
-            if (isInRange(gadgetLua.pos, player.Pos, defaultRange) && !this.alreadySpawnedGadgets.Contains(gadgetLua))
+            for (int i = 0; i < sceneGroupLua.gadgets.Count; i++)
             {
-                uint GadgetID = gadgetLua.gadget_id;
-                Vector3 pos = gadgetLua.pos;
-                GadgetEntity gadgetEntity = new GadgetEntity(session, GadgetID, gadgetLua, pos);
-                session.entityMap.Add(gadgetEntity._EntityId, gadgetEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(gadgetEntity.ToSceneEntityInfo());
-                alreadySpawnedGadgets.Add(gadgetLua);
+                var g = sceneGroupLua.gadgets[i];
+                if (!membership.Gadgets.Contains(g.config_id)) continue;
 
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                if (IsInRange(g.pos, player.Pos, defaultRange))
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
+                    if (!alreadySpawnedGadgets.Contains(g))
                     {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                        uint gid = g.gadget_id;
+                        var ent = new GadgetEntity(session, gid, g, g.pos);
+                        session.entityMap.Add(ent._EntityId, ent);
+                        currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
+                        alreadySpawnedGadgets.Add(g);
+                        if (currentNtf.EntityLists.Count >= 10)
+                        {
+                            appearBatches.Add(currentNtf);
+                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                        }
+                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
+                    }
                 }
-            }
-            else
-            {
-                if (!isInRange(gadgetLua.pos, player.Pos, defaultRange) && this.alreadySpawnedGadgets.Contains(gadgetLua))
+                else
                 {
-                    GadgetEntity? gadgetEntity = this.GadgetEntity2DespawnGadget(gadgetLua);
-                    if (gadgetEntity != null)
+                    if (alreadySpawnedGadgets.Contains(g))
                     {
-                        sceneEntityDisappearNotify.EntityLists.Add(gadgetEntity._EntityId);
-                        this.alreadySpawnedGadgets.Remove(gadgetLua); // so it can respawn when we come back to the are
+                        var ent = GadgetEntity2DespawnGadget(g);
+                        if (ent != null)
+                        {
+                            _tmpDisappearIds.Add(ent._EntityId);
+                            alreadySpawnedGadgets.Remove(g);
+                        }
                     }
                 }
             }
         }
 
-        // Add the last notify if it contains any entities, we don't want to send empty notifies
-        if (currentSceneEntityAppearNotify.EntityLists.Count > 0)
-        {
-            sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-        }
+        if (currentNtf.EntityLists.Count > 0) appearBatches.Add(currentNtf);
 
-        // Send each batch of SceneEntityAppearNotify
-        foreach (var notify in sceneEntityAppearNotifies)
-        {
-            session.SendPacket(notify);
-        }
+        for (int i = 0; i < appearBatches.Count; i++)
+            session.SendPacket(appearBatches[i]);
 
-        if (sceneEntityDisappearNotify.EntityLists.Count > 0)
+        if (_tmpDisappearIds.Count > 0)
         {
-            foreach (uint entityId in sceneEntityDisappearNotify.EntityLists)
+            var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+            for (int i = 0; i < _tmpDisappearIds.Count; i++)
             {
-                session.SendPacket(new LifeStateChangeNotify()
-                {
-                    EntityId = entityId,
-                    LifeState = 2,
-                });
-                session.entityMap.Remove(entityId);
+                uint eid = _tmpDisappearIds[i];
+                disappear.EntityLists.Add(eid);
+                session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
+                session.entityMap.Remove(eid);
             }
-            session.SendPacket(sceneEntityDisappearNotify);
+            session.SendPacket(disappear);
+            _tmpDisappearIds.Clear();
         }
     }
 
-    public SceneGroupLuaSuite GetBaseSuite(SceneGroupLua groupLua)
+    public SceneGroupLuaSuite GetBaseSuite(SceneGroupLua group)
     {
-        uint suitId = groupLua.init_config.suite;
-        if (suitId == 0)
-            return groupLua.suites[0]; // idk why the fuck it exists
-        int suitIndex = Convert.ToInt32(suitId - 1);
-        return groupLua.suites[suitIndex];
+        uint suiteId = group.init_config.suite;
+        if (suiteId == 0) return group.suites[0];
+        return group.suites[System.Convert.ToInt32(suiteId - 1)];
     }
 
     public void LoadSceneBlock(SceneBlockLua blockLua)
     {
-        if (this.sceneBlockLua == blockLua) return;
-        this.sceneBlockLua = blockLua;
+        if (sceneBlockLua == blockLua) return;
 
-        // todo: validate group distance from player pos
-        foreach (SceneGroupLua sceneGroupLua in blockLua.scene_groups.Values)
-        {
-            this.LoadSceneGroup(sceneGroupLua);
-        }
+        sceneBlockLua = blockLua;
+        _activeRegionIds.Clear();
+
+        if (blockLua.scene_groups == null) return;
+
+        foreach (var kv in blockLua.scene_groups)
+            LoadSceneGroup(kv.Value);
     }
 
     public void UnloadSceneBlock(SceneBlockLua blockLua)
     {
-        this.sceneBlockLua = null;
-        foreach (SceneGroupLua sceneGroupLua in blockLua.scene_groups.Values)
-        {
-            this.UnloadSceneGroup(sceneGroupLua);
-        }
+        sceneBlockLua = null;
+        _activeRegionIds.Clear();
+
+        if (blockLua.scene_groups == null) return;
+
+        foreach (var kv in blockLua.scene_groups)
+            UnloadSceneGroup(kv.Value);
     }
+
     public void LoadSceneGroup(SceneGroupLua sceneGroupLua)
     {
         SceneGroupLuaSuite baseSuite = GetBaseSuite(sceneGroupLua);
-        List<SceneEntityAppearNotify> sceneEntityAppearNotifies = new List<SceneEntityAppearNotify>();
+        var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
-        SceneEntityAppearNotify currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
-        {
-            AppearType = VisionType.VisionMeet,
-        };
+        var appearBatches = new List<SceneEntityAppearNotify>(2);
+        SceneEntityAppearNotify current = new() { AppearType = VisionType.VisionMeet };
 
-        // Process monsters
-        foreach (MonsterLua monsterLua in sceneGroupLua.monsters)
+        if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
         {
-            if (!baseSuite.monsters.Contains(monsterLua.config_id))
-                continue;
-            if (isInRange(monsterLua.pos, player.Pos, 50f) && !this.alreadySpawnedMonsters.Contains(monsterLua))
+            for (int i = 0; i < sceneGroupLua.monsters.Count; i++)
             {
-                uint MonsterId = monsterLua.monster_id;
-                MonsterExcelConfig monster = resourceManager.MonsterExcel[MonsterId];
-                MonsterEntity monsterEntity = new MonsterEntity(session, MonsterId, monsterLua, monsterLua.pos);
-                session.entityMap.Add(monsterEntity._EntityId, monsterEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(monsterEntity.ToSceneEntityInfo());
-                alreadySpawnedMonsters.Add(monsterLua);
+                var m = sceneGroupLua.monsters[i];
+                if (!membership.Monsters.Contains(m.config_id)) continue;
+                if (!IsInRange(m.pos, player.Pos, 50f) || alreadySpawnedMonsters.Contains(m)) continue;
 
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                var ent = new MonsterEntity(session, m.monster_id, m, m.pos);
+                session.entityMap.Add(ent._EntityId, ent);
+                current.EntityLists.Add(ent.ToSceneEntityInfo());
+                alreadySpawnedMonsters.Add(m);
+                if (current.EntityLists.Count >= 10)
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
-                    {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                    appearBatches.Add(current);
+                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
                 }
+                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
             }
-            
         }
 
-        // Process Npcs
-        foreach (NpcLua npcLua in sceneGroupLua.npcs)
+        if (sceneGroupLua.npcs != null)
         {
-            if (isInRange(npcLua.pos, player.Pos, 50f) && !this.alreadySpawnedNpcs.Contains(npcLua))
+            for (int i = 0; i < sceneGroupLua.npcs.Count; i++)
             {
-                uint npcId = npcLua.npc_id;
-                Vector3 pos = npcLua.pos;
-                NpcEntity npcEntity = new NpcEntity(session, npcId, npcLua, pos);
-                session.entityMap.Add(npcEntity._EntityId, npcEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(npcEntity.ToSceneEntityInfo());
-                alreadySpawnedNpcs.Add(npcLua);
+                var n = sceneGroupLua.npcs[i];
+                if (!IsInRange(n.pos, player.Pos, 50f) || alreadySpawnedNpcs.Contains(n)) continue;
 
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                var ent = new NpcEntity(session, n.npc_id, n, n.pos);
+                session.entityMap.Add(ent._EntityId, ent);
+                current.EntityLists.Add(ent.ToSceneEntityInfo());
+                alreadySpawnedNpcs.Add(n);
+                if (current.EntityLists.Count >= 10)
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
-                    {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                    appearBatches.Add(current);
+                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
                 }
             }
         }
 
-        // Process gadgets
-        foreach (GadgetLua gadgetLua in sceneGroupLua.gadgets)
+        if (sceneGroupLua.gadgets != null && membership.Gadgets.Count != 0)
         {
-            if (!baseSuite.gadgets.Contains(gadgetLua.config_id))
-                continue;
-            if (isInRange(gadgetLua.pos, player.Pos, 50f) && !this.alreadySpawnedGadgets.Contains(gadgetLua))
+            for (int i = 0; i < sceneGroupLua.gadgets.Count; i++)
             {
-                uint GadgetID = gadgetLua.gadget_id;
-                Vector3 pos = gadgetLua.pos;
-                GadgetEntity gadgetEntity = new GadgetEntity(session, GadgetID, gadgetLua, pos);
-                session.entityMap.Add(gadgetEntity._EntityId, gadgetEntity);
-                currentSceneEntityAppearNotify.EntityLists.Add(gadgetEntity.ToSceneEntityInfo());
-                alreadySpawnedGadgets.Add(gadgetLua);
+                var g = sceneGroupLua.gadgets[i];
+                if (!membership.Gadgets.Contains(g.config_id)) continue;
+                if (!IsInRange(g.pos, player.Pos, 50f) || alreadySpawnedGadgets.Contains(g)) continue;
 
-                // If there are more than 5 entities, push current notify and start a new one
-                if (currentSceneEntityAppearNotify.EntityLists.Count >= 10)
+                var ent = new GadgetEntity(session, g.gadget_id, g, g.pos);
+                session.entityMap.Add(ent._EntityId, ent);
+                current.EntityLists.Add(ent.ToSceneEntityInfo());
+                alreadySpawnedGadgets.Add(g);
+                if (current.EntityLists.Count >= 10)
                 {
-                    sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-                    currentSceneEntityAppearNotify = new SceneEntityAppearNotify()
-                    {
-                        AppearType = VisionType.VisionMeet,
-                    };
+                    appearBatches.Add(current);
+                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
                 }
+                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
             }
         }
 
-        // Add the last notify if it contains any entities, we don't want to send empty notifies
-        if (currentSceneEntityAppearNotify.EntityLists.Count > 0)
-        {
-            sceneEntityAppearNotifies.Add(currentSceneEntityAppearNotify);
-        }
-
-        // Send each batch of SceneEntityAppearNotify
-        foreach (var notify in sceneEntityAppearNotifies)
-        {
-            session.SendPacket(notify);
-        }
+        if (current.EntityLists.Count > 0) appearBatches.Add(current);
+        for (int i = 0; i < appearBatches.Count; i++)
+            session.SendPacket(appearBatches[i]);
     }
-
 
     public void UnloadSceneGroup(SceneGroupLua sceneGroupLua)
     {
-        SceneEntityDisappearNotify sceneEntityDisappearNotify = new SceneEntityDisappearNotify()
+        if (sceneGroupLua.regions != null)
         {
-            DisappearType = VisionType.VisionMiss,
-        };
-        foreach (MonsterLua monsterLua in sceneGroupLua.monsters)
-        {
-            MonsterEntity? monsterEntity = this.MonsterEntity2DespawnMonster(monsterLua);
-            if (monsterEntity != null)
-            {
-                sceneEntityDisappearNotify.EntityLists.Add(monsterEntity._EntityId);
-                session.entityMap.Remove(monsterEntity._EntityId);
-            }
+            for (int i = 0; i < sceneGroupLua.regions.Count; i++)
+                _activeRegionIds.Remove((int)sceneGroupLua.regions[i].config_id);
         }
-        foreach (GadgetLua gadgetLua in sceneGroupLua.gadgets)
+
+        var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+
+        if (sceneGroupLua.monsters != null)
         {
-            GadgetEntity gadgetEntity = this.GadgetEntity2DespawnGadget(gadgetLua)!;
-            if (gadgetEntity != null)
+            for (int i = 0; i < sceneGroupLua.monsters.Count; i++)
             {
-                sceneEntityDisappearNotify.EntityLists.Add(gadgetEntity._EntityId);
-                session.entityMap.Remove(gadgetEntity._EntityId);
-            }
-        }
-        if (sceneEntityDisappearNotify.EntityLists.Count > 0)
-        {
-            foreach (uint entityId in sceneEntityDisappearNotify.EntityLists)
-            {
-                session.SendPacket(new LifeStateChangeNotify()
+                var ent = MonsterEntity2DespawnMonster(sceneGroupLua.monsters[i]);
+                if (ent != null)
                 {
-                    EntityId = entityId,
-                    LifeState = 2,
-                });
-                session.entityMap.Remove(entityId);
+                    disappear.EntityLists.Add(ent._EntityId);
+                    session.entityMap.Remove(ent._EntityId);
+                }
             }
-            session.SendPacket(sceneEntityDisappearNotify);
+        }
+        if (sceneGroupLua.gadgets != null)
+        {
+            for (int i = 0; i < sceneGroupLua.gadgets.Count; i++)
+            {
+                var ent = GadgetEntity2DespawnGadget(sceneGroupLua.gadgets[i]);
+                if (ent != null)
+                {
+                    disappear.EntityLists.Add(ent._EntityId);
+                    session.entityMap.Remove(ent._EntityId);
+                }
+            }
+        }
+
+        if (disappear.EntityLists.Count > 0)
+        {
+            for (int i = 0; i < disappear.EntityLists.Count; i++)
+            {
+                uint eid = disappear.EntityLists[i];
+                session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
+            }
+            session.SendPacket(disappear);
         }
     }
 
-    public MonsterEntity? MonsterEntity2DespawnMonster(MonsterLua monsterLua)
+    public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
     {
-        MonsterEntity? monsterEntity = session.entityMap.Values.OfType<MonsterEntity>().FirstOrDefault(x => x._monsterInfo == monsterLua);
-        return monsterEntity;
+        float dx = a.X - b.X;
+        float dy = a.Y - b.Y;
+        float dz = a.Z - b.Z;
+        return (dx * dx + dy * dy + dz * dz) < (range * range);
     }
 
-    public NpcEntity? NpcEntity2DespawnNpc(NpcLua npcLua)
+    public bool IsInBlock(in BlockRect block, in Vector3 p)
     {
-        NpcEntity? npcEntity = session.entityMap.Values.OfType<NpcEntity>().FirstOrDefault(x => x._npcInfo == npcLua);
-        return npcEntity;
+        float minX = block.min.X <= block.max.X ? block.min.X : block.max.X;
+        float maxX = block.min.X <= block.max.X ? block.max.X : block.min.X;
+        float minZ = block.min.Z <= block.max.Z ? block.min.Z : block.max.Z;
+        float maxZ = block.min.Z <= block.max.Z ? block.max.Z : block.min.Z;
+        return p.X >= minX && p.X <= maxX && p.Z >= minZ && p.Z <= maxZ;
     }
 
-    public GadgetEntity? GadgetEntity2DespawnGadget(GadgetLua gadgetLua)
-    {
-        GadgetEntity? gadgetEntity = session.entityMap.Values.OfType<GadgetEntity>().FirstOrDefault(x => x._gadgetLua == gadgetLua);
-        return gadgetEntity;
-    }
+    public MonsterEntity? MonsterEntity2DespawnMonster(MonsterLua m)
+        => session.entityMap.Values.OfType<MonsterEntity>().FirstOrDefault(x => x._monsterInfo == m);
 
-    public static bool isInRange(Vector3 pos1, Vector3 pos2, float range)
-    {
-        return Vector3.Distance(pos1, pos2) < range;
-    }
+    public NpcEntity? NpcEntity2DespawnNpc(NpcLua n)
+        => session.entityMap.Values.OfType<NpcEntity>().FirstOrDefault(x => x._npcInfo == n);
 
-    public bool isInRange(BlockRect blockPos, Vector3 playerPos)
-    {
-        float minX = Math.Min(blockPos.min.X, blockPos.max.X);
-        float maxX = Math.Max(blockPos.min.X, blockPos.max.X);
-        float minY = Math.Min(blockPos.min.Z, blockPos.max.Z);
-        float maxY = Math.Max(blockPos.min.Z, blockPos.max.Z);
-        return playerPos.X >= minX && playerPos.X <= maxX && playerPos.Z >= minY && playerPos.Z <= maxY;
-    }
+    public GadgetEntity? GadgetEntity2DespawnGadget(GadgetLua g)
+        => session.entityMap.Values.OfType<GadgetEntity>().FirstOrDefault(x => x._gadgetLua == g);
+
+    public Entity? FindEntityByEntityId(uint entityId)
+        => session.entityMap.GetValueOrDefault(entityId);
 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static KazusaGI_cb2.Utils.ENet;
 
 namespace KazusaGI_cb2.GameServer.Lua;
 
@@ -30,9 +31,9 @@ public class LuaManager
                 groupLua["evt_"] = args.toTable();
 
                 ResourceLoader resourceLoader = MainApp.resourceManager.loader;
-                string luaFile = File.ReadAllText(Path.Combine(resourceLoader._baseResourcePath, ResourceLoader.LuaSubPath, "Config", "Excel", "CommonScriptConfig.lua")) + "\n"
-                        + File.ReadAllText(Path.Combine(resourceLoader._baseResourcePath, ResourceLoader.LuaSubPath, "Config", "Json", "ConfigEntityType.lua")) + "\n"
-                        + File.ReadAllText(Path.Combine(resourceLoader._baseResourcePath, ResourceLoader.LuaSubPath, "Config", "Json", "ConfigEntity.lua")) + "\n"
+                string luaFile = GetCommonScriptConfigAsLua() + "\n"
+                        + GetConfigEntityTypeEnumAsLua() + "\n"
+                        + GetConfigEntityEnumAsLua() + "\n"
                         + File.ReadAllText(MainApp.resourceManager.GetLuaStringFromGroupId((uint)args.group_id));
 
                 groupLua.DoString(luaFile.Replace("ScriptLib.", "ScriptLib:"));
@@ -76,5 +77,41 @@ public class LuaManager
                 executeTrigger(session, trigger, args, group);
             }
         }
+    }
+
+    public static string GetCommonScriptConfigAsLua()
+    {
+        var luaScript = "RegionShape = \n" + EnumToLua<RegionShape>() + "\n";
+        luaScript += "EventType = \n" + EnumToLua<TriggerEventType>() + "\n";
+        luaScript += "GadgetType = " + EnumToLua<GadgetType_Lua>() + "\n";
+        luaScript += "GroupKillPolicy = \n" + EnumToLua<GroupKillPolicy>() + "\n";
+        return luaScript;
+    }
+
+    public static string GetConfigEntityTypeEnumAsLua()
+    {
+        var luaScript = "EntityType = \n" + EnumToLua<EntityType>() + "\n";
+        return luaScript;
+    }
+
+    public static string GetConfigEntityEnumAsLua()
+    {
+        var luaScript = "GadgetState = \n" + EnumToLua<GadgetState>() + "\n";
+        luaScript += "GearType = \n" + EnumToLua<GearType>() + "\n";
+        return luaScript;
+    }
+
+    public static string EnumToLua<T>() where T : Enum
+    {
+        var enumType = typeof(T);
+        var enumNames = Enum.GetNames(enumType);
+        var enumValues = Enum.GetValues(enumType);
+        var luaTable = "{\n";
+        for (int i = 0; i < enumNames.Length; i++)
+        {
+            luaTable += $"\t{enumNames[i]} = {Convert.ToInt32(enumValues.GetValue(i))},\n";
+        }
+        luaTable += "}\n";
+        return luaTable;
     }
 }

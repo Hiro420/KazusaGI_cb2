@@ -113,7 +113,8 @@ public class Evt
         Vector pos = req.InitPos;
         GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos));
         gadgetEntity._EntityId = entityId;
-        session.entityMap.Add(entityId, gadgetEntity);
+        if (!session.entityMap.TryAdd(entityId, gadgetEntity))
+            session.c.LogError($"[WARNING] Entity ID collision when adding gadget {gadgetId} with entity ID {entityId}");
         // session.SendPacket(req);
     }
 

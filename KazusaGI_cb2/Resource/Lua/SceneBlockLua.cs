@@ -31,13 +31,23 @@ public class SceneGroupLua
     public List<MonsterLua> monsters;
     public List<NpcLua> npcs;
     public List<GadgetLua> gadgets;
-    // regions
+    public List<SceneRegionLua> regions;
     public List<SceneTriggerLua> triggers;
     // variables -> important for later (logic)
     public SceneGroupLuaInitConfig init_config;
     public List<SceneGroupLuaSuite> suites;
 
     // functions later ??
+}
+
+public class SceneRegionLua
+{
+    public uint config_id;
+    public LuaRegionShape shape;
+    public float radius; // for sphere
+    public Vector3 size; // for cubic
+    public Vector3 pos;
+    // room later
 }
 
 public class SceneGroupLuaInitConfig
@@ -54,4 +64,11 @@ public class SceneGroupLuaSuite
     public List<uint> regions;
     public List<string> triggers;
     public uint rand_weight;
+}
+
+public enum LuaRegionShape
+{
+    NONE = 0,
+    SPHERE = 1,
+    CUBIC = 2
 }

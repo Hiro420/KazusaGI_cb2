@@ -8,6 +8,7 @@ using NLua;
 using System.Numerics;
 using KazusaGI_cb2.Protocol;
 using System.Resources;
+using KazusaGI_cb2.GameServer.Lua;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -266,10 +267,9 @@ public class ResourceLoader
                     };
                     sceneBlockLua.groups.Add(sceneGroupBasicLua);
                     string groupLuaPath = Path.Combine(sceneDir, $"scene{sceneId}_group{sceneGroupBasicLua.id}.lua");
-                    string mainLuaString = 
-                        File.ReadAllText(Path.Combine(_baseResourcePath, LuaSubPath, "Config", "Excel", "CommonScriptConfig.lua")) + "\n"
-                        + File.ReadAllText(Path.Combine(_baseResourcePath, LuaSubPath, "Config", "Json", "ConfigEntityType.lua")) + "\n"
-                        + File.ReadAllText(Path.Combine(_baseResourcePath, LuaSubPath, "Config", "Json", "ConfigEntity.lua")) + "\n"
+                    string mainLuaString = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+                        + LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
+                        + LuaManager.GetConfigEntityEnumAsLua() + "\n"
                         + File.ReadAllText(groupLuaPath);
 
                     sceneBlockLua.scene_groups.Add(sceneGroupBasicLua.id, LoadSceneGroup(mainLuaString, blockId, groupId));
@@ -361,7 +361,7 @@ public class ResourceLoader
                     level = Convert.ToUInt32(gadget["level"]),
                     block_id = Convert.ToUInt32(blockId),
                     group_id = groupId,
-                    state = gadget["state"] != null ? (GadgetState_Lua)Convert.ToUInt32(gadget["state"]) : GadgetState_Lua.Default,
+                    state = gadget["state"] != null ? (GadgetState)Convert.ToUInt32(gadget["state"]) : GadgetState.Default,
                     type = gadget["type"] != null ? (GadgetType_Lua)Convert.ToUInt32(gadget["type"]) : GadgetType_Lua.GADGET_NONE
                 });
             }

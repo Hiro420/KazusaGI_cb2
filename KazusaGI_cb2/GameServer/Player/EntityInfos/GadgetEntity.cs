@@ -1,13 +1,17 @@
-﻿using KazusaGI_cb2.GameServer.PlayerInfos;
+﻿using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.GameServer.PlayerInfos;
+using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Excel;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using KazusaGI_cb2.Protocol;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static KazusaGI_cb2.Utils.ENet;
 using static System.Collections.Specialized.BitVector32;
-using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.Resource;
 
 namespace KazusaGI_cb2.GameServer;
 
@@ -21,6 +25,15 @@ public class GadgetEntity : Entity
     // because some gadgets can be damaged, this is a placeholder for now
     public float Hp = 1;
     public float MaxHp = 1;
+    public GadgetState state
+    {
+        get
+        {
+            if (_gadgetLua != null)
+                return _gadgetLua.state;
+            return GadgetState.Default;
+        }
+    }
 
     public GadgetEntity(Session session, uint gadgetId, GadgetLua? gadgetInfo, Vector3? position = null)
         : base(session, position)
@@ -35,6 +48,10 @@ public class GadgetEntity : Entity
 
     public SceneEntityInfo ToSceneEntityInfo()
     {
+        //if (_gadgetLua != null)
+        //{
+        //    Console.WriteLine($"{this._EntityId} -> {_gadgetLua.state}");
+        //}
         SceneEntityInfo ret = new SceneEntityInfo()
         {
             EntityType = ProtEntityType.ProtEntityGadget,
@@ -60,13 +77,16 @@ public class GadgetEntity : Entity
         SceneGadgetInfo sceneGadgetInfo = new SceneGadgetInfo()
         {
             AuthorityPeerId = 1,
-            GadgetState = _gadgetLua != null ? (uint)_gadgetLua.state : 0,
-            IsEnableInteract = this.gadgetExcel.isInteractive,
+            GadgetState = (uint)state,
+            IsEnableInteract = state == GadgetState.Default,
             ConfigId = _gadgetLua != null ? _gadgetLua.config_id : 0,
+            GroupId = _gadgetLua != null ? _gadgetLua.group_id : 0,
             GadgetId = this._gadgetId,
             BornType = GadgetBornType.GadgetBornGadget,
             GadgetType = _gadgetLua != null ? (uint)_gadgetLua.type : 0,
         };
+        //if (this.gadgetExcel.type == GadgetType_Excel.Chest && state != GadgetState.Default)
+        //    sceneGadgetInfo.IsEnableInteract = false;
         ret.PropMaps.Add((uint)PropType.PROP_LEVEL, new PropValue() { Type = (uint)PropType.PROP_LEVEL, Ival = this.level, Val = this.level });
         // ret.PropMaps.Add((uint)PropType.PROP_EXP, new PropValue() { Type = (uint)PropType.PROP_EXP, Ival = 1, Val = this.level });
         foreach (var prop in this.GetFightProps())
@@ -75,6 +95,25 @@ public class GadgetEntity : Entity
         }
         ret.Gadget = sceneGadgetInfo;
         return ret;
+    }
+
+    public void ChangeState(GadgetState state)
+    {
+        if (_gadgetLua != null)
+        {
+            GadgetState oldState = _gadgetLua.state;
+            _gadgetLua.state = state;
+            GadgetStateNotify gadgetStateNotify = new GadgetStateNotify()
+            {
+                GadgetEntityId = this._EntityId,
+                GadgetState = (uint)state,
+                IsEnableInteract = this.gadgetExcel.isInteractive
+            };
+            this.session.SendPacket(gadgetStateNotify);
+            ScriptArgs args = new((int)_gadgetLua.group_id, (int)TriggerEventType.EVENT_GADGET_STATE_CHANGE, (int)this.state, (int)_gadgetLua.config_id);
+            args.param3 = (int)oldState;
+            LuaManager.executeTriggersLua(session, GetEntityGroup(this._gadgetLua.group_id)!, args);
+        }
     }
 
     public Dictionary<uint, float> GetFightProps()

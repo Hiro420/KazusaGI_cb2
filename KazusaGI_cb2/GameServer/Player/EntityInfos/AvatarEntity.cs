@@ -1,54 +1,39 @@
-﻿using KazusaGI_cb2.GameServer.PlayerInfos;
-using System;
+﻿// AvatarEntity.cs (update)
+using KazusaGI_cb2.GameServer.PlayerInfos;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using KazusaGI_cb2.Protocol;
-using System.Threading.Tasks;
-using static System.Collections.Specialized.BitVector32;
 
-namespace KazusaGI_cb2.GameServer;
-
-public class AvatarEntity : Entity
+namespace KazusaGI_cb2.GameServer
 {
-    public PlayerAvatar DbInfo { get; set; }
+	public class AvatarEntity : Entity // Maybe IDamageable in the future
+	{
+		public PlayerAvatar DbInfo { get; }
 
-    public AvatarEntity(Session session, PlayerAvatar playerAvatar, Vector3? position = null)
-        : base(session, position)
-    {
-        this._EntityId = session.GetEntityId(Protocol.ProtEntityType.ProtEntityAvatar);
-        this.DbInfo = playerAvatar;
-    }
+		public AvatarEntity(Session session, PlayerAvatar playerAvatar, Vector3? position = null, Vector3? rotation = null)
+			: base(session, position, rotation, ProtEntityType.ProtEntityAvatar)
+		{
+			DbInfo = playerAvatar;
+		}
 
-    public SceneEntityInfo ToSceneEntityInfo(Session session)
-    {
-        AvatarInfo asAvatarInfo = this.DbInfo.ToAvatarInfo();
-        SceneEntityInfo ret = new SceneEntityInfo()
-        {
-            EntityType = ProtEntityType.ProtEntityAvatar,
-            EntityId = this._EntityId,
-            Avatar = DbInfo.ToSceneAvatarInfo(),
-            MotionInfo = new MotionInfo()
-            {
-                Pos = Session.Vector3ToVector(session.player!.Pos),
-                Rot = Session.Vector3ToVector(session.player.Rot),
-                Speed = new Protocol.Vector(),
-                State = MotionState.MotionNone
-            },
-            LifeState = DbInfo.Hp > 0 ? (uint)1 : 0,
-            AiInfo = new SceneEntityAiInfo()
-            {
-                IsAiOpen = true
-            },
-        };
-        foreach (KeyValuePair<uint, PropValue> kvp in asAvatarInfo.PropMaps)
-        {
-            ret.PropMaps.Add(kvp.Key, kvp.Value);
-        };
-        foreach (KeyValuePair<uint, float> kvp in asAvatarInfo.FightPropMaps)
-        {
-            ret.FightPropMaps.Add(kvp.Key, kvp.Value);
-        };
-        return ret;
-    }
+		protected override uint? GetLevel()
+		{
+			return DbInfo.Level;
+		}
+
+		protected override void BuildKindSpecific(SceneEntityInfo ret)
+		{
+			var asAvatarInfo = DbInfo.ToAvatarInfo();
+			ret.Avatar = DbInfo.ToSceneAvatarInfo();
+
+			foreach (var kv in asAvatarInfo.PropMaps)
+				ret.PropMaps[kv.Key] = kv.Value;
+
+			foreach (var kv in asAvatarInfo.FightPropMaps)
+				ret.FightPropMaps[kv.Key] = kv.Value;
+		}
+
+		public SceneEntityInfo ToSceneEntityInfo(Session session) =>
+			base.ToSceneEntityInfo(session.player!.Pos, session.player!.Rot);
+	}
 }

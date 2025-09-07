@@ -10,46 +10,40 @@ namespace KazusaGI_cb2.GameServer.Handlers;
 public class Evt
 {
     [Packet.PacketCmdId(PacketId.EvtBeingHitsCombineNotify)]
-    public static void HandleEvtBeingHitsCombineNotify(Session session, Packet packet)
-    {
-        Logger logger = new("EvtBeingHitsCombineNotify");
-        EvtBeingHitsCombineNotify req = packet.GetDecodedBody<EvtBeingHitsCombineNotify>();
-        foreach(EvtBeingHitInfo hitInfo in req.EvtBeingHitInfoLists)
-        {
-            // continue; // not working for now
-            if (hitInfo.AttackResult == null)
-            {
-                continue;
-            }
-            AttackResult attackResult = hitInfo.AttackResult;
-            uint sourceEntity = attackResult.AttackerId;
-            uint affectedEntity = attackResult.DefenseId;
+	public static void HandleEvtBeingHitsCombineNotify(Session session, Packet packet)
+	{
+		var logger = new Logger("EvtBeingHitsCombineNotify");
+		var req = packet.GetDecodedBody<EvtBeingHitsCombineNotify>();
 
-            session.entityMap.TryGetValue(sourceEntity, out var sourceEntityObj);
-            session.entityMap.TryGetValue(affectedEntity, out var affectedEntityObj);
+		foreach (var hitInfo in req.EvtBeingHitInfoLists)
+		{
+			if (hitInfo?.AttackResult == null)
+				continue;
 
-            if (sourceEntityObj == null || affectedEntityObj == null)
-            {
-                logger.LogError($"Entity not found for sourceEntity: {sourceEntity} or affectedEntity: {affectedEntity}");
-                
-                foreach (var entity in session.entityMap)
-                {
-                    // logger.LogError($"Entity: {entity.Key}");
-                }
-                
-                continue;
-            }
+			var attackResult = hitInfo.AttackResult;
+			var sourceEntityId = attackResult.AttackerId;
+			var targetEntityId = attackResult.DefenseId;
 
-            if (affectedEntityObj is MonsterEntity && attackResult.Damage > 0)
-            {
-                MonsterEntity monsterEntity = (MonsterEntity)affectedEntityObj;
-                monsterEntity.Damage(attackResult.Damage);
-            }
-        }
-        session.SendPacket(req);
-    }
+			session.entityMap.TryGetValue(sourceEntityId, out var sourceEntity);
+			session.entityMap.TryGetValue(targetEntityId, out var targetEntity);
 
-    [Packet.PacketCmdId(PacketId.AbilityInvocationsNotify)]
+			if (sourceEntity == null || targetEntity == null)
+			{
+				logger.LogError($"Entity not found (source={sourceEntityId}, target={targetEntityId})");
+				continue;
+			}
+
+			if (attackResult.Damage > 0 && targetEntity is IDamageable dmg)
+			{
+				dmg.ApplyDamage(attackResult.Damage, attackResult);
+			}
+		}
+
+		session.SendPacket(req);
+	}
+
+
+	[Packet.PacketCmdId(PacketId.AbilityInvocationsNotify)]
     public static void HandleAbilityInvocationsNotify(Session session, Packet packet)
     {
         AbilityInvocationsNotify req = packet.GetDecodedBody<AbilityInvocationsNotify>();
@@ -111,8 +105,7 @@ public class Evt
         uint entityId = req.EntityId;
         uint gadgetId = req.ConfigId;
         Vector pos = req.InitPos;
-        GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos));
-        gadgetEntity._EntityId = entityId;
+		GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos), System.Numerics.Vector3.Zero, entityId);
         if (!session.entityMap.TryAdd(entityId, gadgetEntity))
             session.c.LogError($"[WARNING] Entity ID collision when adding gadget {gadgetId} with entity ID {entityId}");
         // session.SendPacket(req);

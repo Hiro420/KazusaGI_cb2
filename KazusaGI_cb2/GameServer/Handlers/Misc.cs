@@ -94,4 +94,7 @@ public class Misc
         });
         session.SendPacket(rsp);
     }
+
+    [Packet.PacketCmdId(PacketId.ObstacleModifyNotify)]
+    public static void HandleObstacleModifyNotify(Session session, Packet packet) { } // no need
 }

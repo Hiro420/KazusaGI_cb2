@@ -312,7 +312,7 @@ public class Scene
                         //Console.WriteLine($"[{m.config_id}] spawn");
                         uint monsterId = m.monster_id;
                         MonsterExcelConfig monster = resourceManager.MonsterExcel[monsterId];
-                        var ent = new MonsterEntity(session, monsterId, m, m.pos);
+                        var ent = new MonsterEntity(session, monsterId, m, m.pos, m.rot);
                         session.entityMap.Add(ent._EntityId, ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedMonsters.Add(m);
@@ -349,7 +349,7 @@ public class Scene
                     if (!alreadySpawnedNpcs.Contains(n))
                     {
                         uint npcId = n.npc_id;
-                        var ent = new NpcEntity(session, npcId, n, n.pos);
+                        var ent = new NpcEntity(session, npcId, n, n.pos, n.rot);
                         session.entityMap.Add(ent._EntityId, ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedNpcs.Add(n);
@@ -387,7 +387,7 @@ public class Scene
                     if (!alreadySpawnedGadgets.Contains(g))
                     {
                         uint gid = g.gadget_id;
-                        var ent = new GadgetEntity(session, gid, g, g.pos);
+                        var ent = new GadgetEntity(session, gid, g, g.pos, g.rot);
                         session.entityMap.Add(ent._EntityId, ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedGadgets.Add(g);
@@ -481,7 +481,7 @@ public class Scene
                 if (!membership.Monsters.Contains(m.config_id)) continue;
                 if (!IsInRange(m.pos, player.Pos, 50f) || alreadySpawnedMonsters.Contains(m)) continue;
 
-                var ent = new MonsterEntity(session, m.monster_id, m, m.pos);
+                var ent = new MonsterEntity(session, m.monster_id, m, m.pos, m.rot);
                 session.entityMap.Add(ent._EntityId, ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedMonsters.Add(m);
@@ -521,7 +521,7 @@ public class Scene
                 if (!membership.Gadgets.Contains(g.config_id)) continue;
                 if (!IsInRange(g.pos, player.Pos, 50f) || alreadySpawnedGadgets.Contains(g)) continue;
 
-                var ent = new GadgetEntity(session, g.gadget_id, g, g.pos);
+                var ent = new GadgetEntity(session, g.gadget_id, g, g.pos, g.rot);
                 session.entityMap.Add(ent._EntityId, ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedGadgets.Add(g);

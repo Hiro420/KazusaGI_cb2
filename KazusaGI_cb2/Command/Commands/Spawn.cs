@@ -33,7 +33,7 @@ public class Spawn
 
             MonsterExcelConfig monster = resourceManager.MonsterExcel[monsterId];
 
-            MonsterEntity monsterEntity = new MonsterEntity(session, monsterId, null, null);
+            MonsterEntity monsterEntity = new MonsterEntity(session, monsterId);
             SceneEntityInfo sceneEntityInfo = monsterEntity.ToSceneEntityInfo();
             session.entityMap.Add(monsterEntity._EntityId, monsterEntity);
 

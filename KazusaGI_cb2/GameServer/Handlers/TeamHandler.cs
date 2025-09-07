@@ -1,5 +1,6 @@
 ﻿using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -154,7 +155,7 @@ public class TeamHandler
         session.SendPacket(new AvatarEquipChangeNotify()
         {
             AvatarGuid = newLeaderAvatar.Guid,
-            EquipType = 6, // weapon
+            EquipType = (uint)EquipType.EQUIP_WEAPON,
             ItemId = weapon.WeaponId,
             EquipGuid = weapon.Guid,
             Weapon = weapon.ToSceneWeaponInfo(session)

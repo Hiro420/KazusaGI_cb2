@@ -9,6 +9,7 @@ namespace KazusaGI_cb2.GameServer.PlayerInfos;
 
 public class PlayerTeam
 {
+    public uint teamEntityId;
     // private static ResourceManager resourceManager = MainApp.resourceManager;
     public PlayerAvatar? Leader { get; set; }
     public List<PlayerAvatar> Avatars { get; set; }
@@ -21,12 +22,14 @@ public class PlayerTeam
     {
         this.Avatars = avatars;
         this.Leader = leader;
-    }
+		this.teamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
+	}
 
-    public PlayerTeam() 
+    public PlayerTeam(Session session) 
     {
         this.Avatars = new();
-    }
+		this.teamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
+	}
 
     public void RemoveAvatar(Session session, PlayerAvatar avatar)
     {

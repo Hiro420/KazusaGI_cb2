@@ -53,7 +53,7 @@ public class Player
         this.Rot = new();
         for (int i = 0; i < 4; i++) // maybe later change to use config for max teams amount
         {
-            this.teamList.Add(new PlayerTeam());
+            this.teamList.Add(new PlayerTeam(session));
         }
         AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
         CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
@@ -158,7 +158,25 @@ public class Player
         session.SendPacket(notify);
     }
 
-    public void SendSceneTeamUpdateNotify(Session session)
+    public void SendSyncTeamEntityNotify(Session session)
+    {
+        SyncTeamEntityNotify notify = new SyncTeamEntityNotify()
+        {
+            SceneId = session.player.SceneId,
+            TeamEntityInfoLists = 
+            {
+                new TeamEntityInfo()
+                {
+                    AuthorityPeerId = 69,
+                    TeamEntityId = GetCurrentLineup().teamEntityId,
+                    TeamAbilityInfo = new() // todo
+				}
+            }
+        };
+        session.SendPacket(notify);
+	}
+
+	public void SendSceneTeamUpdateNotify(Session session)
     {
         SceneTeamUpdateNotify notify = new SceneTeamUpdateNotify();
         foreach(PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)

@@ -11,6 +11,8 @@ using static KazusaGI_cb2.Protocol.ScenePlayerSoundNotify;
 
 namespace KazusaGI_cb2.GameServer.Lua;
 
+// todo: group vars, GetGroupVariableValueByGroup
+
 public class ScriptLib
 {
     public int currentGroupId;
@@ -62,10 +64,10 @@ public class ScriptLib
         var configId = (int)(long)table!["config_id"];
         var state = (int)(long)table["state"];
 
-        return SetGadgetStateByConfigId(session, configId, (GadgetState)state);
+        return SetGadgetStateByConfigId(session, configId, state);
     }
 
-    public int SetGadgetStateByConfigId(Session session, int config_id, GadgetState state)
+    public int SetGadgetStateByConfigId(Session session, int config_id, int state)
     {
         Log("Called SetGadgetStateByConfigId");
         IEnumerable<Entity> entities = currentSession.entityMap.Values
@@ -73,7 +75,7 @@ public class ScriptLib
                         gadget._gadgetLua != null &&
                         gadget._gadgetLua.config_id == config_id);
         foreach (GadgetEntity gadget in entities)
-            gadget.ChangeState(state);
+            gadget.ChangeState((GadgetState)state);
         return 0;
     }
 

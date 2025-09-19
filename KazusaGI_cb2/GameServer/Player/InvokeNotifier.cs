@@ -32,9 +32,6 @@ public class InvokeNotifier<T> where T : ProtoBuf.IExtensible
 	}
 	public void AddEntry(T entry, ForwardType forward = ForwardType.ForwardToAll, uint peer = default)
 	{
-		ToWorld.Add(entry);
-
-		/*
 		switch (forward)
 		{
 			case ForwardType.ForwardLocal:
@@ -60,7 +57,6 @@ public class InvokeNotifier<T> where T : ProtoBuf.IExtensible
 				ToWorldOthers.Add(entry);
 				break;
 		}
-		*/
 	}
 
 	public void Notify()

@@ -154,7 +154,8 @@ public class LoginStuff
             }
         });
         session.player.SendSceneTeamUpdateNotify(session);
-        session.player.SendPlayerEnterSceneInfoNotify(session);
+		session.player.SendSyncTeamEntityNotify(session);
+		session.player.SendPlayerEnterSceneInfoNotify(session);
         session.SendPacket(new SceneInitFinishRsp());
         session.player.Scene.isFinishInit = true;
     }

@@ -47,7 +47,7 @@ public class TowerInstance
         curFloorId = req.FloorId;
         if (req.TowerTeamLists.Count > 1)
         {
-            team2 = new PlayerTeam()
+            team2 = new PlayerTeam(session)
             {
                 Avatars = new List<PlayerAvatar>(),
                 Leader = player.avatarDict[req.TowerTeamLists.Find(c => c.TowerTeamId == 2)!.AvatarGuidLists[0]]
@@ -57,7 +57,7 @@ public class TowerInstance
                 team2.AddAvatar(session, player.avatarDict[avatarGuid]);
             }
         };
-        team1 = new PlayerTeam()
+        team1 = new PlayerTeam(session)
         {
             Avatars = new List<PlayerAvatar>(),
             Leader = player.avatarDict[req.TowerTeamLists.Find(c => c.TowerTeamId == 1)!.AvatarGuidLists[0]]

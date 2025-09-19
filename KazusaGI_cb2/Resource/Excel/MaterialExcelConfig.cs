@@ -19,4 +19,5 @@ public class MaterialExcelConfig
     public uint id;
     public uint nameTextMapHash;
     public ItemType itemType;
+    public uint gadgetId;
 }

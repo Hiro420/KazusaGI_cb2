@@ -124,7 +124,9 @@ public class TeamHandler
 
         session.SendPacket(notify);
 
-        if (oldLeaderEntity == null)
+        session.player.SendSyncTeamEntityNotify(session);
+
+		if (oldLeaderEntity == null)
         {
             oldLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, session.player!.GetCurrentLineup().Leader!)!;
             session.SendPacket(new SceneEntityDisappearNotify()

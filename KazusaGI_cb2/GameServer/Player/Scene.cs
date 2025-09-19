@@ -585,7 +585,29 @@ public class Scene
         }
     }
 
-    public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
+    public void GenerateParticles(int ConfigId, int Amount, Protocol.Vector pos, Protocol.Vector rot)
+    {
+
+        // TODO: parse modifier and actually get proper data from there
+
+        GadgetEntity gadgetEntity = new GadgetEntity(session, (uint)ConfigId, null, Session.VectorProto2Vector3(pos), Session.VectorProto2Vector3(rot));
+        if (!session.entityMap.TryAdd(gadgetEntity._EntityId, gadgetEntity))
+        {
+            session.c.LogError($"[WARNING] Entity ID collision when adding gadget {ConfigId} with entity ID {gadgetEntity._EntityId}");
+            return;
+        }
+        SceneEntityAppearNotify ntf = new SceneEntityAppearNotify()
+        {
+            AppearType = Protocol.VisionType.VisionMeet,
+            EntityLists =
+            {
+                gadgetEntity.ToSceneEntityInfo(),
+            }
+        };
+        session.SendPacket(ntf);
+	}
+
+	public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
     {
         float dx = a.X - b.X;
         float dy = a.Y - b.Y;

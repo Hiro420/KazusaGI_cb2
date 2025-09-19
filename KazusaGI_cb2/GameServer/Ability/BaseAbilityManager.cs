@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
@@ -13,6 +14,19 @@ public abstract class BaseAbilityManager
 {
 	public static readonly Logger logger = new("AbilityManager");
 	protected readonly Entity Owner;
+	
+	/// <summary>
+	/// Static registry of mixin handlers, similar to GC's mixinHandlers HashMap
+	/// </summary>
+	private static readonly Dictionary<Type, AbilityMixinHandler> mixinHandlers = new();
+	
+	/// <summary>
+	/// Static constructor to register mixin handlers automatically
+	/// </summary>
+	static BaseAbilityManager()
+	{
+		RegisterMixinHandlers();
+	}
 	protected Dictionary<uint, uint> InstanceToAbilityHashMap = new(); // <instancedAbilityId, abilityNameHash>
 	protected abstract Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } // <abilityNameHash, configAbility>
 	public readonly Dictionary<uint, Dictionary<uint, float>> AbilitySpecialOverrideMap = new(); // <abilityNameHash, <abilitySpecialNameHash, value>>
@@ -25,6 +39,72 @@ public abstract class BaseAbilityManager
 	protected BaseAbilityManager(Entity owner)
 	{
 		Owner = owner;
+	}
+	
+	/// <summary>
+	/// Register all mixin handlers by scanning assemblies for classes with AbilityMixinAttribute
+	/// </summary>
+	private static void RegisterMixinHandlers()
+	{
+		try
+		{
+			var assembly = Assembly.GetExecutingAssembly();
+			var handlerTypes = assembly.GetTypes()
+				.Where(t => t.IsSubclassOf(typeof(AbilityMixinHandler)) && !t.IsAbstract);
+
+			foreach (var handlerType in handlerTypes)
+			{
+				var attribute = handlerType.GetCustomAttribute<AbilityMixinAttribute>();
+				if (attribute != null)
+				{
+					var handler = (AbilityMixinHandler)Activator.CreateInstance(handlerType)!;
+					mixinHandlers[attribute.MixinType] = handler;
+					logger.LogInfo($"Registered mixin handler: {handlerType.Name} for mixin type: {attribute.MixinType.Name}");
+				}
+			}
+			
+			logger.LogInfo($"Successfully registered {mixinHandlers.Count} mixin handlers");
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Failed to register mixin handlers: {ex.Message}");
+		}
+	}
+	
+	/// <summary>
+	/// Execute a mixin with the specified parameters, similar to GC's executeMixin method
+	/// </summary>
+	/// <param name="ability">The ability containing the mixin</param>
+	/// <param name="mixin">The mixin to execute</param>
+	/// <param name="abilityData">Additional ability data</param>
+	/// <param name="source">Source entity</param>
+	/// <param name="target">Target entity (optional)</param>
+	public virtual async Task ExecuteMixinAsync(
+		ConfigAbility ability,
+		BaseAbilityMixin mixin,
+		byte[] abilityData,
+		Entity source,
+		Entity? target = null)
+	{
+		var mixinType = mixin.GetType();
+		if (!mixinHandlers.TryGetValue(mixinType, out var handler))
+		{
+			logger.LogWarning($"No handler registered for mixin type: {mixinType.Name}");
+			return;
+		}
+		
+		try
+		{
+			var result = await handler.ExecuteAsync(ability, mixin, abilityData, source, target);
+			if (!result)
+			{
+				logger.LogWarning($"Mixin handler {handler.GetType().Name} returned false for ability: {ability.abilityName}");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Error executing mixin {mixinType.Name} for ability {ability.abilityName}: {ex.Message}");
+		}
 	}
 
 	public virtual void Initialize()
@@ -43,24 +123,55 @@ public abstract class BaseAbilityManager
 			}
 		}
 	}
+
+
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
 		ProtoBuf.IExtensible info = new AbilityMetaModifierChange();
 		MemoryStream data = new MemoryStream(invoke.AbilityData);
-		//TODO add all cases
+		
+		// First, try to handle server-sided invokes (when LocalId != 0) for specific abilities
+		if (invoke.Head.LocalId != 0)
+		{
+			logger.LogInfo($"Server-sided ability invoke: LocalId={invoke.Head.LocalId}, " +
+				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}", false);
+			
+			// Try to find the ability and execute mixin/action if found
+			ConfigAbility? ability = null;
+			if (invoke.Head.InstancedAbilityId != 0
+				&& InstanceToAbilityHashMap.TryGetValue(invoke.Head.InstancedAbilityId, out uint abilityHash)
+				&& ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
+			{
+				// Found specific ability - check for mixins/actions
+				if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
+				{
+					if (invocation is BaseAbilityMixin mixin)
+					{
+						await ExecuteMixinAsync(ability, mixin, invoke.AbilityData, Owner);
+						return; // Mixin processed, don't continue to argument type processing
+					}
+					else
+					{
+						await invocation.Invoke(ability.abilityName, Owner);
+						return; // Action processed, don't continue to argument type processing
+					}
+				}
+			}
+			
+			// If no specific ability action/mixin was found, continue to process by argument type
+			logger.LogInfo($"No specific ability action found, processing by argument type: {invoke.ArgumentType}", false);
+		}
+		
 		switch (invoke.ArgumentType)
 		{
 			case AbilityInvokeArgument.AbilityNone:
-				//TODO
-				ConfigAbility ability = ConfigAbilityHashMap[InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]];
-				if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
-					await invocation.Invoke(ability.abilityName, Owner);
-				else
-					logger.LogError($"Missing localId: {invoke.Head.LocalId}, ability: {invoke.Head.InstancedAbilityId}");
+				logger.LogError($"Missing localId: {invoke.Head.LocalId}, ability: {invoke.Head.InstancedAbilityId}");
 				info = new AbilityMetaModifierChange(); // just to satisfy the compiler. In this case abilityData is empty anyway.
 				break;
 			case AbilityInvokeArgument.AbilityMetaModifierChange:
 				info = Serializer.Deserialize<AbilityMetaModifierChange>(data);
+				var modifierChange = info as AbilityMetaModifierChange;
+				logger.LogInfo($"Processing modifier change: Action={modifierChange?.Action}", false);
 				break;
 			case AbilityInvokeArgument.AbilityMetaSpecialFloatArgument:
 				info = Serializer.Deserialize<AbilityMetaSpecialFloatArgument>(data);
@@ -88,12 +199,15 @@ public abstract class BaseAbilityManager
 				break;
 			case AbilityInvokeArgument.AbilityMetaModifierDurabilityChange:
 				info = Serializer.Deserialize<AbilityMetaModifierDurabilityChange>(data);
+				var durabilityChange = info as AbilityMetaModifierDurabilityChange;
+				logger.LogInfo($"Processing modifier durability change: {invoke.Head.InstancedModifierId}", false);
 				break;
 			case AbilityInvokeArgument.AbilityActionTriggerAbility:
 				info = Serializer.Deserialize<AbilityActionTriggerAbility>(data);
 				break;
 			case AbilityInvokeArgument.AbilityActionGenerateElemBall:
 				info = Serializer.Deserialize<AbilityActionGenerateElemBall>(data);
+				Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
 				break;
 			case AbilityInvokeArgument.AbilityMixinWindZone:
 				info = Serializer.Deserialize<AbilityMixinWindZone>(data);

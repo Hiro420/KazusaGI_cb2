@@ -3,6 +3,7 @@ using KazusaGI_cb2.GameServer.Tower;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.Resource.Json.Scene;
 using System;
 using System.Numerics;
 using static System.Collections.Specialized.BitVector32;
@@ -13,6 +14,7 @@ namespace KazusaGI_cb2.GameServer;
 public class Player
 {
     private Session session { get; set; }
+    public Session Session => session;
     private Logger logger = new("Player");
     public string Name { get; set; }
     public int Level { get; set; }
@@ -30,8 +32,11 @@ public class Player
     public Vector3 Rot { get; private set; } // wont actually be used except for scene tp
     public Gender PlayerGender { get; private set; } = Gender.Female;
     public TowerInstance? towerInstance { get; set; }
+	public InvokeNotifier<AbilityInvokeEntry> AbilityInvNotifyList;
+	public InvokeNotifier<CombatInvokeEntry> CombatInvNotifyList;
+	public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
 
-    public Player(Session session, uint uid)
+	public Player(Session session, uint uid)
     {
         Name = "KazusaPS";
         Level = 60;
@@ -50,6 +55,21 @@ public class Player
         {
             this.teamList.Add(new PlayerTeam());
         }
+        AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
+        CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
+        ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+
+	}
+
+    /// <summary>
+    /// Flushes all pending invoke notifications (ability, combat, client ability init)
+    /// Call this method periodically or when needed to send accumulated notifications
+    /// </summary>
+    public void FlushInvokeNotifications()
+    {
+        AbilityInvNotifyList.Notify();
+        CombatInvNotifyList.Notify();
+        ClientAbilityInitFinishNotifyList.Notify();
     }
 
     public void AddAllAvatars(Session session)

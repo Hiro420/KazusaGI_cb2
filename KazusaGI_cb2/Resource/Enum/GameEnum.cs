@@ -1,11 +1,14 @@
-﻿using System;
+﻿using Newtonsoft.Json.Converters;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.Resource;
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum AvatarUseType
 {
     AVATAR_TEST = 0,
@@ -14,6 +17,7 @@ public enum AvatarUseType
     AVATAR_ABANDON = 3
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum BodyType
 {
 	BODY_NONE = 0,
@@ -24,6 +28,7 @@ public enum BodyType
 	BODY_LOLI = 5
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum QualityType
 {
 	QUALITY_NONE = 0,
@@ -34,6 +39,7 @@ public enum QualityType
 	QUALITY_ORANGE = 5
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum WeaponType
 {
 	WEAPON_SWORD_ONE_HAND = 1,
@@ -51,12 +57,14 @@ public enum WeaponType
 	WEAPON_POLE = 13
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum AvatarIdentityType
 {
     AVATAR_IDENTITY_MASTER = 0,
     AVATAR_IDENTITY_NORMAL = 1
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum ScenePointType
 {
     NORMAL = 0,
@@ -65,6 +73,7 @@ public enum ScenePointType
     Other = 3
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum MonsterType
 {
     MONSTER_NONE = 0,
@@ -74,6 +83,7 @@ public enum MonsterType
     MONSTER_LITTLE_MONSTER = 4,
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum FightPropType
 {
 	FIGHT_PROP_NONE = 0,
@@ -149,6 +159,7 @@ public enum FightPropType
 	FIGHT_PROP_CUR_SPEED = 2003
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GrowCurveType
 {
 	GROW_CURVE_NONE = 0,
@@ -209,6 +220,7 @@ public enum GrowCurveType
 	GROW_CURVE_CRITICAL_305 = 2305
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GachaItemType
 {
     GACHA_ITEM_INVALID = 0,
@@ -221,6 +233,7 @@ public enum GachaItemType
     GACHA_ITEM_COMMON_MATERIAL = 31
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum MaterialType
 {
     MATERIAL_NONE = 0,
@@ -241,6 +254,7 @@ public enum MaterialType
     MATERIAL_SEA_LAMP = 16
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum ItemType
 {
     ITEM_NONE = 0,
@@ -251,6 +265,7 @@ public enum ItemType
     ITEM_DISPLAY = 5
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum ArithType
 {
     ARITH_NONE = 0,
@@ -260,6 +275,7 @@ public enum ArithType
     ARITH_DIVIDE = 4
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum ShopType
 {
     SHOP_TYPE_NONE = 0,
@@ -275,6 +291,7 @@ public enum ShopType
     SHOP_TYPE_LIYUE_RESTAURANT = 1010,
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum OpenStateType
 {
     OPEN_STATE_NONE = 0,
@@ -349,6 +366,7 @@ public enum OpenStateType
     OPEN_STATE_ACTIVITY_SEALAMP_TAB3 = 1202,
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum DungeonType
 {
     DUNGEON_NONE = 0,
@@ -361,6 +379,7 @@ public enum DungeonType
     DUNGEON_BOSS = 7,
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GadgetState
 {
     Default = 0,
@@ -385,6 +404,7 @@ public enum GadgetState
     Action03 = 903
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GadgetType_Lua
 {
     GADGET_NONE = 0,
@@ -393,6 +413,7 @@ public enum GadgetType_Lua
     GADGET_DUNGEON_PASS_CHEST = 3
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum TowerCondType
 {
     TOWER_COND_NONE = 0,
@@ -401,6 +422,7 @@ public enum TowerCondType
     TOWER_COND_CHALLENGE_LEFT_TIME_MORE_THAN = 3,
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GroupKillPolicy
 {
     GROUP_KILL_NONE = 0,
@@ -410,6 +432,7 @@ public enum GroupKillPolicy
     GROUP_KILL_NPC = 4
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum RegionShape
 {
     REGION_NONE = 0,
@@ -417,6 +440,7 @@ public enum RegionShape
     REGION_CUBIC = 2
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum EntityType
 {
     None = 0,
@@ -466,6 +490,7 @@ public enum EntityType
     PlaceHolder = 99
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum GearType
 {
     None = 0,
@@ -474,6 +499,7 @@ public enum GearType
     Wall = 3
 }
 
+[JsonConverter(typeof(StringEnumConverter))]
 public enum EquipType
 {
 	EQUIP_NONE = 0,
@@ -483,4 +509,324 @@ public enum EquipType
 	EQUIP_RING = 4,
 	EQUIP_DRESS = 5,
 	EQUIP_WEAPON = 6
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum ElementType
+{
+	None = 0,
+	Fire = 1,
+	Water = 2,
+	Grass = 3,
+	Electric = 4,
+	Ice = 5,
+	Frozen = 6,
+	Wind = 7,
+	Rock = 8,
+	AntiFire = 9
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum TriggerType
+{
+	TriggerOnce = 0,
+	TriggerNoRepeat = 1,
+	TriggerAlways = 2
+}
+
+public enum ConfigAbilitySubContainerType : uint
+{
+	NONE,
+	ACTION,
+	MIXIN,
+	MODIFIER_ACTION,
+	MODIFIER_MIXIN
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum StackingType
+{
+	None,
+	Unique,
+	Multiple,
+	MultipleAllRefresh,
+	MultipleRefresh,
+	MultipleRefreshNoRemove,
+	Overlap,
+	Refresh,
+	RefreshUniqueDurability,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum PropertyModifierType
+{
+	None,
+	Actor_CostStaminaRatio,
+	Animator_MoveSpeedRatio,
+	Actor_SkillCDMinusRatio,
+	Actor_AttackRatio,
+	Actor_HealedAddDelta,
+	Actor_ShieldCostMinusRatio,
+	Actor_FireSubHurtDelta,
+	Actor_ElecSubHurtDelta,
+	Actor_WaterSubHurtDelta,
+	Actor_GrassSubHurtDelta,
+	Actor_WindSubHurtDelta,
+	Actor_IceSubHurtDelta,
+	Actor_RockSubHurtDelta,
+	Actor_PhysicalSubHurtDelta,
+	Actor_EndureDelta,
+	Actor_MaxHPRatio,
+	Actor_RecoverStaminaRatio,
+	Actor_AddGravityScale,
+	Animator_OverallSpeedRatioMultiplied,
+	Actor_BulletMoveAngularVelocityRatio,
+	Animator_AttackSpeedRatio,
+	Entity_WeightRatio,
+	Actor_DefenceRatio,
+	Animator_OverallSpeedRatio,
+	Actor_MaxHPDelta,
+	Actor_DefenceDelta,
+	Actor_AdsorbatePickRadiusDelta,
+	Actor_PhysicalAddHurtDelta,
+	Actor_FireAddHurtDelta,
+	Actor_AttackExtraDelta,
+	Actor_AttackDelta,
+	Actor_FallingDamageRatio,
+	Actor_CriticalDelta,
+	Actor_WaterAddHurtDelta,
+	Actor_GrassAddHurtDelta,
+	Actor_CriticalExtraDelta,
+	Actor_BulletMoveSurroundRadiusRatio,
+	Actor_ElecAddHurtDelta,
+	Actor_RockAddHurtDelta,
+	Actor_SubHurtDelta,
+	Actor_ChargeEfficiencyDelta,
+	Actor_IceAddHurtDelta,
+	Actor_AddHurtDelta,
+	Actor_HealAddDelta,
+	Actor_EnergyCostDelta,
+	Actor_ElemMasteryDelta,
+	Actor_AntiCriticalDelta,
+	Actor_FireAddHurtExtraDelta,
+	Actor_ElemMasteryExtraDelta,
+	Actor_WaterAddHurtExtraDelta,
+	Actor_ElemReactElectricDelta,
+	Actor_WindAddHurtDelta,
+	Actor_ElemReactSteamDelta,
+	Actor_ChargeEfficiencyExtraDelta,
+	Actor_ElemReactSwirlWaterDelta,
+	Actor_ElemReactFreezeDelta,
+	Actor_ElecAddHurtExtraDelta,
+	Actor_DefenseIgnoreRatio,
+	Actor_IceAddHurtExtraDelta,
+	Entity_LifeTimeDelta
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum TargetType
+{
+	None,
+	Owner,
+	All,
+	AllExceptSelf,
+	Applier,
+	Alliance,
+	CurTeamAvatars,
+	AllPlayerAvatars,
+	Self,
+	SelfAttackTarget,
+	SelfCamp,
+	OriginOwner,
+	Caster,
+	Other,
+	Team,
+	Enemy,
+	Target,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum LogicType
+{
+	None,
+	Equal,
+	Greater,
+	GreaterOrEqual,
+	Lesser,
+	LesserOrEqual,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum CompareType
+{
+	None,
+	XYZ,
+	XZ,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum VisionType
+{
+	// Copied from protos
+	None = 0,
+	Meet = 1,
+	Reborn = 2,
+	Replace = 3,
+	WaypointReborn = 4,
+	Miss = 5,
+	Die = 6,
+	GatherEscape = 7,
+	Refresh = 8,
+	Transport = 9,
+	ReplaceDie = 10,
+	ReplaceNoNotify = 11,
+	Born = 12,
+	Pickup = 13,
+	Remove = 14,
+	ChangeCostume = 15,
+	FishRefresh = 16,
+	FishBigShock = 17,
+	FishQteSucc = 18,
+	Unk2700Epfkmoipadb = 19,
+
+	// Used in binout
+	VisionReborn = 2,
+	VisionReplaceDie = 10,
+}
+
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum AbilityState
+{
+	ElementFreeze,
+	ElementPetrifaction,
+	ElementWet,
+	Invincible,
+	Limbo,
+	LockHP,
+	MuteTaunt,
+}
+
+public enum LuaCallType
+{
+	CurChallengeGroup,
+	CurGalleryControlGroup,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum VelocityForceType
+{
+	RushMoveType,
+	InertiaType,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum AvatarEventType
+{
+	None = 0,
+	HP = 1,
+	ExpGain = 2,
+	ChestOpen = 3,
+	QuestFinish = 4,
+	PickItem = 5
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum TriggerID
+{
+	None,
+	AimEnd,
+	AlchemicalBreakOutSkin,
+	Appear,
+	Attack,
+	AutoDefendTrigger,
+	Blink,
+	BornToClose,
+	BornToOpen,
+	Break,
+	BurstSkinSet,
+	Crow_Control_Show,
+	Crow_Summon_Show_Aim,
+	Crow_Summon_Show_NoAim,
+	Crow_Talent_C_ExtreAttack,
+	DevilDash_Skin,
+	Dice_Attack,
+	Dice_Die,
+	Die,
+	DoSkill,
+	ElementalBurst_Skin,
+	EndHoldTrigger,
+	EndLoopPlusTrigger,
+	ExtraAttack_Skin,
+	GemStone_Impact,
+	GeoOrderSkin_Strong,
+	GeoOrderSkin_Weak,
+	Heal,
+	Hide_Avatar_OnRemoved,
+	Idle,
+	Mark_1,
+	Mark_2,
+	Mark_End_1,
+	Mark_End_2,
+	Mask_TriggerTalent,
+	NextLoopTrigger,
+	NextSkillTrigger,
+	Panda_Attack_Trigger,
+	PRIVATE_DoLastSpecialExtra,
+	PRIVATE_DoSpecialExtra,
+	PRIVATE_ElementalArt_End,
+	PRIVATE_ExtraEndCharging,
+	PRIVATE_NormalToSneak,
+	PRIVATE_SneakToNormal,
+	Skill_E_SpecialSkin,
+	Skill_E_SpecialToNormalSkin,
+	Skin_Strong,
+	SkinActive_1,
+	SkinActive_2,
+	SkinOn,
+	SkinReset,
+	SkinSet,
+	SkinTrigger,
+	Sprint_Skin,
+	Start,
+	StealthOff,
+	StealthOn,
+	Switch,
+	Trigger_Burst,
+	Trigger_Hit,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum PlayMode
+{
+	GlidingChallengeState,
+	FleurFairFall,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum ReactionType
+{
+	None,
+	Burning,
+	CrystallizeElectric,
+	CrystallizeFire,
+	CrystallizeIce,
+	CrystallizeWater,
+	Explode,
+	Freeze,
+	Melt,
+	Shock,
+	Stream,
+	Superconductor,
+	SwirlElectric,
+	SwirlFire,
+	SwirlIce,
+	SwirlWater,
+}
+
+[JsonConverter(typeof(StringEnumConverter))]
+public enum TurnMode
+{
+	OnlyTarget,
+	OnlyCamera
 }

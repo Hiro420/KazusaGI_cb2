@@ -39,7 +39,7 @@ public class Spawn
 
             session.SendPacket(new SceneEntityAppearNotify()
             {
-                AppearType = VisionType.VisionNone,
+                AppearType = Protocol.VisionType.VisionNone,
                 EntityLists = { sceneEntityInfo }
             });
             EntityFightPropNotify entityFightPropNotify = new EntityFightPropNotify()

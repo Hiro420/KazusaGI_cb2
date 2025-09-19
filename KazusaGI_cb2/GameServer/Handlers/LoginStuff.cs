@@ -169,7 +169,7 @@ public class LoginStuff
             IsUseAbilityHash = true,
             //IsNewPlayer = true,
             TargetUid = session.player!.Uid,
-			AbilityHashCode = 1844674, // todo: figure out
+			AbilityHashCode = 2004869408, // todo: figure out
         };
 
         Vector3 targetPos = MainApp.resourceManager.SceneLuas[session.player.SceneId].scene_config.born_pos;

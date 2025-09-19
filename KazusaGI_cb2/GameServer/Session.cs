@@ -18,7 +18,7 @@ public class Session
 {
     public readonly Logger c;
     private readonly ENetClient _client;
-    public Player? player;
+    public Player player;
     public Dictionary<ulong, Entity> entityMap;
     public IntPtr _peer;
     public byte[]? key;

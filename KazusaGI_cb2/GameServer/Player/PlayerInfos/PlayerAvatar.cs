@@ -5,6 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 using KazusaGI_cb2.Protocol;
 using System.Xml.Serialization;
+using KazusaGI_cb2.Resource.Json.Talent;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
 
 namespace KazusaGI_cb2.GameServer.PlayerInfos;
 
@@ -12,8 +17,8 @@ public class PlayerAvatar
 {
     private static ResourceManager resourceManager = MainApp.resourceManager;
     private Session Session { get; set; }
-    private AvatarExcelConfig avatarExcel { get; set; }
-    private AvatarSkillDepotExcelConfig avatarSkillDepotExcel { get; set; }
+    public AvatarExcelConfig avatarExcel { get; set; }
+	public AvatarSkillDepotExcelConfig avatarSkillDepotExcel { get; set; }
     public ulong Guid { get; set; } // critical
     public uint AvatarId { get; set; } // critical
     public uint Level { get; set; }
@@ -34,8 +39,17 @@ public class PlayerAvatar
     public Dictionary<uint, uint> SkillLevels { get; set; }
     public List<uint> UnlockedTalents { get; set; }
     public List<uint> ProudSkills { get; set; }
+	public string AvatarName => avatarExcel.iconName.Split("_").Last();
 
-    public PlayerAvatar(Session session, uint AvatarId)
+    public Dictionary<int, SortedList<int, AvatarSkillExcelConfig>> SkillData = new();
+    public List<AvatarTalentExcelConfig> TalentData = new();
+	public Dictionary<int, ProudSkillExcelConfig> ProudSkillData = new();
+	public Dictionary<int, Dictionary<uint, ConfigAbility>?> AbilityHashMap = new();
+	public Dictionary<int, ConfigAbilityContainer[]> AbilityConfigMap = new(); // depotId
+	public Dictionary<int, Dictionary<string, BaseConfigTalent[]>> ConfigTalentMap = new(); // <depotId, file name>
+    public AvatarAbilityManager abilityManager { get; private set; }
+
+	public PlayerAvatar(Session session, uint AvatarId)
     {
         this.Session = session;
         this.avatarExcel = resourceManager.AvatarExcel[AvatarId];
@@ -82,16 +96,74 @@ public class PlayerAvatar
                 continue;
             uint proudSkillGroupId = proudSkillOpenConfig.proudSkillGroupId;
             ProudSkillExcelConfig? proudSkillExcel = resourceManager.ProudSkillExcel
-                .SelectMany(kv => kv.Value.Values) // Flatten the nested dictionaries
+                .Select(kv => kv.Value) // Flatten the nested dictionaries
                 .FirstOrDefault(config => config.proudSkillGroupId == proudSkillGroupId);
 
             if (proudSkillExcel != null)
-            {
-                this.ProudSkills.Add(proudSkillExcel.proudSkillId);
+			{
+				this.ProudSkills.Add(proudSkillExcel.proudSkillId);
             }
-        }
-        ReCalculateFightProps();
-    }
+		}
+        InitAbilityStuff();
+		ReCalculateFightProps();
+	}
+
+    public void InitAbilityStuff()
+    {
+		string name = $"Avatar_{this.AvatarName}";
+		if (!resourceManager.ConfigAbilityAvatarMap.TryGetValue($"ConfigAbility_{name}", out ConfigAbilityContainer[]? configContainer))
+		{
+			return;
+		}
+
+		AbilityConfigMap.Add((int)this.SkillDepotId, configContainer);
+
+		var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => this.avatarSkillDepotExcel.skills.Contains(w.Key) || avatarSkillDepotExcel.subSkills.Contains(w.Key) || avatarSkillDepotExcel.energySkill == w.Key).ToDictionary(x => x.Key, x => x.Value);
+
+		var talentList = resourceManager.AvatarTalentExcel.Where(w => this.avatarSkillDepotExcel.talents.Contains((uint)w.Value.talentId));
+        foreach (var i in talentList)
+        {
+			TalentData.Add(i.Value);
+		}
+
+		var dict1 = resourceManager.ProudSkillExcel.Where(w => this.avatarSkillDepotExcel.inherentProudSkillOpens.Exists(y => y.proudSkillGroupId == w.Value.proudSkillGroupId)).ToDictionary(x => x.Key, x => x.Value); ;
+
+        foreach (var i in dict1)
+        {
+            ProudSkillData.Add((int)i.Key, i.Value);
+		}
+
+		foreach (var skilldata in dictionary1.Values)
+		{
+			var proudData = resourceManager.ProudSkillExcel.Where(w => w.Value.proudSkillGroupId == skilldata.proudSkillGroupId);
+			foreach (var proud in proudData)
+			{
+				ProudSkillData[(int)proud.Key] = proud.Value;
+			}
+		}
+
+		if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
+			ConfigTalentMap[(int)this.SkillDepotId] = configTalents;
+        
+		Dictionary<uint, ConfigAbility> abilityHashMap = new();
+
+		// add abilityGroup abilities (if player skill depot ability group)
+		foreach (TargetAbility ability in resourceManager.ConfigAvatarMap[$"ConfigAvatar_{AvatarName}"].abilities)
+		{
+			ConfigAbility? config = null;
+			foreach (var container in AbilityConfigMap[(int)this.SkillDepotId])
+			{
+				if (container.Default is ConfigAbility konfig && konfig.abilityName == ability.abilityName)
+				{
+					config = konfig;
+					break;
+				}
+			}
+			if (config == null) continue;
+			abilityHashMap[(uint)Ability.Utils.AbilityHash(ability.abilityName)] = config;
+		}
+		AbilityHashMap.Add((int)this.SkillDepotId, abilityHashMap);
+	}
 
     public SceneAvatarInfo ToSceneAvatarInfo()
     {

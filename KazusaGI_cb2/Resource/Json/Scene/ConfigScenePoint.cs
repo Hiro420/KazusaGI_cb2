@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace KazusaGI_cb2.Resource;
+namespace KazusaGI_cb2.Resource.Json.Scene;
 
 public class ConfigScenePoint
 {

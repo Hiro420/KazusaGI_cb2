@@ -12,7 +12,9 @@ public class AvatarSkillExcelConfig
     public uint nameTextMapHash;
     public string abilityName;
     public uint descTextMapHash;
-    public float cdTime;
+    public ElementType costElemType;
+    public int costElemVal;
+	public float cdTime;
     public float costStamina;
     public int maxChargeNum;
     public int triggerID;

@@ -131,7 +131,7 @@ namespace KazusaGI_cb2.GameServer
 			if (Hp <= 0) Die();
 		}
 
-		public void Die(VisionType vision = VisionType.VisionDie)
+		public void Die(Protocol.VisionType vision = Protocol.VisionType.VisionDie)
 		{
 			Hp = 0;
 			session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });

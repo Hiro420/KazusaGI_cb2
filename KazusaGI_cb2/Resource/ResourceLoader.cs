@@ -9,6 +9,24 @@ using System.Numerics;
 using KazusaGI_cb2.Protocol;
 using System.Resources;
 using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.Resource.Json.Scene;
+using KazusaGI_cb2.Resource.Json;
+using KazusaGI_cb2.Resource.Json.Talent;
+using Newtonsoft.Json.Serialization;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.DirectionTypes;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.SelectTargetType;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.AttackPatterns;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.EventOps;
+using System.IO;
+using System.Text.RegularExpressions;
+using KazusaGI_cb2.Resource.Json.Avatar;
+using System.Collections.Concurrent;
+using System.Collections;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -91,8 +109,12 @@ public class ResourceLoader
         JsonConvert.DeserializeObject<List<AvatarSkillExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarSkillExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
+    private Dictionary<uint, AvatarTalentExcelConfig> LoadAvatarTalentExcelConfig() =>
+		JsonConvert.DeserializeObject<List<AvatarTalentExcelConfig>>(
+			File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarTalentExcelConfigData.json"))
+		)!.ToDictionary(data => data.talentId);
 
-    private Dictionary<uint, MaterialExcelConfig> LoadMaterialExcel() =>
+	private Dictionary<uint, MaterialExcelConfig> LoadMaterialExcel() =>
         JsonConvert.DeserializeObject<List<MaterialExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MaterialExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
@@ -122,13 +144,12 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterCurveExcelConfigData.json"))
         )!.ToDictionary(data => data.level);
 
-    private Dictionary<uint, Dictionary<uint, ProudSkillExcelConfig>> LoadProudSkillExcel() =>
+    private Dictionary<uint, ProudSkillExcelConfig> LoadProudSkillExcel() =>
         JsonConvert.DeserializeObject<List<ProudSkillExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ProudSkillExcelConfigData.json"))
-        )!.GroupBy(data => data.proudSkillId)
-        .ToDictionary(
-            group => group.Key,
-            group => group.ToDictionary(config => config.level)
+        )!.ToDictionary(
+            group => group.proudSkillId,
+            group => group
         );
 
     private Dictionary<uint, MonsterExcelConfig> loadMonsterExcel() =>
@@ -141,8 +162,36 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "WeaponExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
 
-    // load scene infos asyncronously to speed up loading
-    private async Task<Dictionary<uint, ScenePoint>> LoadScenePointsAsync()
+    private GlobalCombatData LoadGlobalCombatData() =>
+        JsonConvert.DeserializeObject<GlobalCombatData>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
+        )!;
+
+    private ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> LoadTalentConfigs()
+    {
+        ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> ret = new();
+
+		string[] filePaths = Directory.GetFiles(
+            Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"), 
+            "*.json", SearchOption.TopDirectoryOnly
+        );
+		var tasks = new List<Task>();
+		filePaths.AsParallel().ForAll(async file =>
+		{
+			var filePath = new FileInfo(file);
+			using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
+			using var jr = new JsonTextReader(sr);
+			var fileData = Serializer.Deserialize<Dictionary<string, BaseConfigTalent[]>>(jr);
+            // Use the name (without ".json") of the file as the key
+            //Console.WriteLine(Regex.Replace(filePath.Name, "\\.json", ""));
+			ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+		});
+
+		return ret;
+	}
+
+	// load scene infos asyncronously to speed up loading
+	private async Task<ConcurrentDictionary<uint, ScenePoint>> LoadScenePointsAsync()
     {
         var scenePoints = new Dictionary<uint, ScenePoint>();
         var sceneTasks = new List<Task>();
@@ -168,10 +217,56 @@ public class ResourceLoader
 
         await Task.WhenAll(sceneTasks);
 
-        return scenePoints;
-    }
+        return new ConcurrentDictionary<uint, ScenePoint>(scenePoints);
+	}
 
-    private void LoadSceneLua(string sceneDir, uint sceneId)
+    public Dictionary<string, ConfigAbilityContainer[]> LoadConfigAbilityAvatarMap()
+    {
+		Dictionary<string, ConfigAbilityContainer[]> ret = new();
+
+		string[] filePaths = Directory.GetFiles(
+			Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp", "AvatarAbilities"),
+			"*.json", SearchOption.TopDirectoryOnly
+		);
+		var tasks = new List<Task>();
+		filePaths.AsParallel().ForAll(async file =>
+		{
+            try
+            {
+				var filePath = new FileInfo(file);
+				using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
+				using var jr = new JsonTextReader(sr);
+				var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
+				foreach (var c in fileData)
+				{
+					ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+				}
+			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
+		});
+
+		return ret;
+	}
+
+	public Dictionary<string, ConfigAvatar> LoadConfigAvatarMap()
+    {
+		ConcurrentDictionary<string, ConfigAvatar> ret = new();
+
+		string[] filePaths = Directory.GetFiles(
+			Path.Combine(_baseResourcePath, JsonSubPath, "Avatar"),
+			"*.json", SearchOption.TopDirectoryOnly
+		);
+		var tasks = new List<Task>();
+		filePaths.AsParallel().ForAll(async file =>
+		{
+			var filePath = new FileInfo(file);
+			var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName));
+			ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+		});
+
+		return ret.ToDictionary();
+	}
+
+	private void LoadSceneLua(string sceneDir, uint sceneId)
     {
         string luaPath = Path.Combine(sceneDir, $"scene{sceneId}.lua");
         using (Lua luaContent = new Lua())
@@ -424,12 +519,13 @@ public class ResourceLoader
     {
         _baseResourcePath = baseResourcePath;
         this._resourceManager = resourceManager;
-        _resourceManager.SceneLuas = new Dictionary<uint, SceneLua>();
+        _resourceManager.SceneLuas = new ConcurrentDictionary<uint, SceneLua>();
         _resourceManager.AvatarExcel = this.LoadAvatarExcel();
         _resourceManager.AvatarSkillDepotExcel = this.LoadAvatarSkillDepotExcel();
         _resourceManager.AvatarSkillExcel = this.LoadAvatarSkillExcel();
         _resourceManager.ProudSkillExcel = this.LoadProudSkillExcel();
-        _resourceManager.WeaponExcel = this.LoadWeaponExcel();
+        _resourceManager.AvatarTalentExcel = this.LoadAvatarTalentExcelConfig();
+		_resourceManager.WeaponExcel = this.LoadWeaponExcel();
         _resourceManager.ScenePoints = LoadScenePointsAsync().Result;
         _resourceManager.MonsterExcel = this.loadMonsterExcel();
         _resourceManager.GadgetExcel = this.LoadGadgetExcel();
@@ -451,5 +547,98 @@ public class ResourceLoader
         _resourceManager.TowerFloorExcel = this.LoadTowerFloorExcelConfig();
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
-    }
+        _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
+
+        _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
+        _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
+        _resourceManager.ConfigAbilityAvatarMap = this.LoadConfigAbilityAvatarMap();
+	}
+
+
+
+    static readonly JsonSerializer Serializer = new()
+    {
+        // To handle $type
+        TypeNameHandling = TypeNameHandling.Objects,
+        SerializationBinder = new KnownTypesBinder
+        {
+            KnownTypes = new Type[] {
+                    // Ability Types
+                    typeof(AddAbility), typeof(AddTalentExtraLevel), typeof(ModifyAbility), typeof(ModifySkillCD), typeof(ModifySkillPoint), typeof(UnlockTalentParam),
+                    typeof(UnlockControllerConditions), typeof(ForceInitMassiveEntity), typeof(TriggerRageSupportMixin), typeof(ByHitBoxName),
+                    // Point Types
+     //               typeof(DungeonEntry), typeof(DungeonExit), typeof(DungeonQuitPoint), typeof(DungeonSlipRevivePoint), typeof(DungeonWayPoint), typeof(SceneBuildingPoint),
+					//typeof(SceneTransPoint), typeof(PersonalSceneJumpPoint), typeof(SceneVehicleSummonPoint), typeof(TransPointStatue), typeof(TransPointNormal),
+					//typeof(VehicleSummonPoint), typeof(VirtualTransPoint),
+                    // ConfigAbility
+                    typeof(ConfigAbility),
+                    // AbilityMixin
+                    typeof(AttachToStateIDMixin), typeof(SkillButtonHoldChargeMixin), typeof(ButtonHoldChargeMixin), typeof(AttachToNormalizedTimeMixin), typeof(DoReviveMixin),
+                    typeof(ModifyDamageMixin), typeof(OnAvatarUseSkillMixin), typeof(AvatarChangeSkillMixin), typeof(AttachToAnimatorStateIDMixin), typeof(AvatarSteerByCameraMixin),
+                    typeof(AttachModifierToSelfGlobalValueMixin), typeof(TriggerElementSupportMixin), typeof(ModifySkillCDByModifierCountMixin), typeof(DoActionByKillingMixin),
+                    typeof(DoActionByEnergyChangeMixin), typeof(ElementHittingOtherPredicatedMixin), typeof(RejectAttackMixin), typeof(DoActionByElementReactionMixin),
+                    typeof(DoActionByStateIDMixin), typeof(DoActionByTeamStatusMixin), typeof(AttachModifierToPredicateMixin), typeof(DoActionByEventMixin), typeof(AutoDefenceMixin),
+                    typeof(ExtendLifetimeByPickedGadgetMixin), typeof(ReviveElemEnergyMixin), typeof(ChangeFieldMixin), typeof(CostStaminaMixin), typeof(DoActionByAnimatorStateIDMixin),
+                    typeof(SwitchSkillIDMixin), typeof(CurLocalAvatarMixin), typeof(GlobalMainShieldMixin), typeof(AttachToAbilityStateMixin), typeof(ReplaceEventPatternMixin),
+                    typeof(ShaderLerpMixin), typeof(MoveStateMixin), typeof(CameraBlurMixin), typeof(GlobalSubShieldMixin), typeof(ModifyDamageCountMixin), typeof(EffectChangeAlphaMixin),
+                    typeof(TriggerWeatherMixin), typeof(WindZoneMixin), typeof(AttackReviveEnergyMixin), typeof(ServerUpdateGlobalValueMixin), typeof(EliteShieldMixin),
+                    typeof(DoActionByCreateGadgetMixin), typeof(CurLocalAvatarMixinV2), typeof(ApplyInertiaVelocityMixin), typeof(TriggerPostProcessEffectMixin), typeof(AttachToDayNightMixin),
+                    typeof(VelocityDetectMixin), typeof(TriggerWitchTimeMixin), typeof(AttachToMonsterAirStateMixin), typeof(OnParentAbilityStartMixin), typeof(AIPerceptionMixin),
+                    typeof(FieldEntityCountChangeMixin), typeof(StageReadyMixin), typeof(DoActionByGainCrystalSeedMixin),
+                    // Actions
+                    typeof(SetAnimatorTrigger), typeof(SetAnimatorInt), typeof(SetAnimatorBool), typeof(SetCameraLockTime), typeof(ResetAnimatorTrigger), typeof(RemoveModifier),
+                    typeof(ApplyModifier), typeof(TriggerBullet), typeof(EntityDoSkill), typeof(AvatarSkillStart), typeof(Predicated), typeof(SetGlobalValue), typeof(AttachModifier),
+                    typeof(KillSelf), typeof(TriggerAbility), typeof(UnlockSkill), typeof(RemoveUniqueModifier), typeof(FireAISoundEvent), typeof(TriggerAttackEvent), typeof(UseItem),
+                    typeof(DamageByAttackValue), typeof(CreateGadget), typeof(ActCameraRadialBlur), typeof(FireEffect), typeof(KillGadget), typeof(TriggerHideWeapon), typeof(ClearGlobalValue),
+                    typeof(ActCameraShake), typeof(DoWatcherSystemAction), typeof(AddGlobalValue), typeof(SetGlobalValueToOverrideMap), typeof(AddElementDurability), typeof(SetSelfAttackTarget),
+                    typeof(FireHitEffect), typeof(SetGlobalPos), typeof(AvatarEnterCameraShot), typeof(AvatarCameraParam), typeof(LoseHP), typeof(AvatarDoBlink), typeof(SendEffectTrigger),
+                    typeof(ModifyAvatarSkillCD), typeof(SetOverrideMapValue), typeof(DebugLog), typeof(CopyGlobalValue), typeof(SetTargetNumToGlobalValue), typeof(SetGlobalDir),
+                    typeof(ReviveDeadAvatar), typeof(ReviveAvatar), typeof(Randomed), typeof(FireSubEmitterEffect), typeof(TriggerAudio), typeof(ReviveElemEnergy), typeof(EnableHeadControl),
+                    typeof(AvatarExitCameraShot), typeof(ControlEmotion), typeof(SetAnimatorFloat), typeof(SetEmissionScaler), typeof(ClearEndura), typeof(ChangeShieldValue), typeof(Repeated),
+                    typeof(TriggerSetPassThrough), typeof(TriggerSetVisible), typeof(FixedAvatarRushMove), typeof(TryTriggerPlatformStartMove), typeof(AttachEffect), typeof(ForceUseSkillSuccess),
+                    typeof(AvatarEnterFocus), typeof(AvatarExitFocus), typeof(ServerLuaCall), typeof(EnableHitBoxByName), typeof(PlayEmoSync), typeof(AddAvatarSkillInfo), typeof(ChangePlayMode),
+                    typeof(SetRandomOverrideMapValue), typeof(GenerateElemBall), typeof(HealHP), typeof(EnableBulletCollisionPluginTrigger), typeof(EnableMainInterface), typeof(RemoveAvatarSkillInfo),
+                    typeof(AttachAbilityStateResistance), typeof(TriggerSetRenderersEnable), typeof(SetVelocityIgnoreAirGY), typeof(RemoveVelocityForce), typeof(CreateMovingPlatform),
+                    typeof(TurnDirection), typeof(DungeonFogEffects), typeof(SendEffectTriggerToLineEffect), typeof(TriggerTaunt), typeof(ClearLockTarget), typeof(TriggerAttackTargetMapEvent),
+                    typeof(EnablePushColliderName), typeof(TriggerSetShadowRamp), typeof(ReviveStamina), typeof(GetFightProperty), typeof(ChangeFollowDampTime), typeof(EnableRocketJump),
+                    typeof(EnableAvatarMoveOnWater), typeof(DummyAction), typeof(EnableAfterImage), typeof(HideUIBillBoard), typeof(EnterCameraLock), typeof(EnablePartControl),
+                    typeof(FireMonsterBeingHitAfterImage), typeof(EnableHDMesh), typeof(SendDungeonFogEffectTrigger),
+                    // Predicate
+                    typeof(ByAny), typeof(ByAnimatorInt), typeof(ByLocalAvatarStamina), typeof(ByEntityAppearVisionType), typeof(ByTargetGlobalValue),typeof(ByTargetPositionToSelfPosition),
+                    typeof(ByCurrentSceneId), typeof(ByEntityTypes), typeof(ByIsTargetCamp), typeof(ByCurTeamHasFeatureTag), typeof(ByTargetHPRatio), typeof(BySkillReady), typeof(ByItemNumber),
+                    typeof(ByTargetHPValue), typeof(ByHasAttackTarget), typeof(ByAttackNotHitScene), typeof(ByAvatarInWaterDepth), typeof(ByTargetOverrideMapValue), typeof(ByUnlockTalentParam),
+                    typeof(ByAttackTags), typeof(ByTargetType), typeof(ByNot), typeof(ByHasChildGadget), typeof(ByHasElement), typeof(ByTargetIsCaster), typeof(ByAnimatorBool), typeof(ByTargetAltitude),
+                    typeof(ByAvatarWeaponType), typeof(ByHasAbilityState), typeof(ByIsCombat), typeof(ByTargetIsSelf), typeof(ByAvatarElementType), typeof(ByTargetForwardAndSelfPosition),
+                    typeof(ByTargetIsGhostToEnemy), typeof(ByIsLocalAvatar), typeof(ByTargetWeight), typeof(ByHitElement), typeof(ByEnergyRatio), typeof(ByHitDamage), typeof(ByHitEnBreak),
+                    typeof(ByHitStrikeType), typeof(ByHitCritical), typeof(ByTargetConfigID), typeof(ByHitBoxType), typeof(ByAttackType), typeof(ByMonsterAirState),
+                    // BornType
+                    typeof(ConfigBornByTarget), typeof(ConfigBornByAttachPoint), typeof(ConfigBornBySelf), typeof(ConfigBornByCollisionPoint), typeof(ConfigBornBySelectedPoint),
+                    typeof(ConfigBornByGlobalValue), typeof(ConfigBornBySelfOwner), typeof(ConfigBornByTargetLinearPoint), typeof(ConfigBornByHitPoint),
+                    // DirectionType
+                    typeof(ConfigDirectionByAttachPoint),
+                    // SelectTargetType
+                    typeof(SelectTargetsByEquipParts), typeof(SelectTargetsByShape), typeof(SelectTargetsByChildren),
+                    // AttackPattern
+                    typeof(ConfigAttackSphere), typeof(ConfigAttackCircle), typeof(ConfigAttackBox),
+                    // EventOp
+                    typeof(ConfigAudioEventOp), typeof(ConfigAudioPositionedEventOp),
+                }
+        }
+    };
+
+	public class KnownTypesBinder : ISerializationBinder
+	{
+		public IList<Type> KnownTypes { get; set; }
+
+		public Type BindToType(string assemblyName, string typeName)
+		{
+			return KnownTypes.SingleOrDefault(t => t.Name == typeName);
+		}
+
+		public void BindToName(Type serializedType, out string assemblyName, out string typeName)
+		{
+			assemblyName = null;
+			typeName = serializedType.Name;
+		}
+	}
 }

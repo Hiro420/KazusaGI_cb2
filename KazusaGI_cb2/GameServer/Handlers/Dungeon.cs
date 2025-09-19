@@ -1,6 +1,6 @@
 ﻿using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.Resource.Json.Scene;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;

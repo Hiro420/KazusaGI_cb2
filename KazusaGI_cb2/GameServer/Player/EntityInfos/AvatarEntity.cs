@@ -3,6 +3,7 @@ using KazusaGI_cb2.GameServer.PlayerInfos;
 using System.Collections.Generic;
 using System.Numerics;
 using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -14,7 +15,9 @@ namespace KazusaGI_cb2.GameServer
 			: base(session, position, rotation, ProtEntityType.ProtEntityAvatar)
 		{
 			DbInfo = playerAvatar;
+			abilityManager = new AvatarAbilityManager(this);
 		}
+
 
 		protected override uint? GetLevel()
 		{

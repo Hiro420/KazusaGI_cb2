@@ -3,6 +3,7 @@ using KazusaGI_cb2.Protocol;
 using System.Collections.Generic;
 using System.Numerics;
 using KazusaGI_cb2.GameServer.PlayerInfos;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -15,6 +16,7 @@ namespace KazusaGI_cb2.GameServer
 
 	public abstract class Entity
 	{
+		public BaseAbilityManager? abilityManager = null;
 		public uint _EntityId { get; protected set; }
 		public Vector3 Position { get; set; }
 		public Vector3 Rotation { get; set; }

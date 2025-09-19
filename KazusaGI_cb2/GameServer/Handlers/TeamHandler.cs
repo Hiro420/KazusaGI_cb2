@@ -34,12 +34,12 @@ public class TeamHandler
         session.SendPacket(new SceneEntityDisappearNotify()
         {
             EntityLists = { oldLeaderEntity._EntityId },
-            DisappearType = VisionType.VisionReplace
+            DisappearType = Protocol.VisionType.VisionReplace
         });
 
         SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify()
         {
-            AppearType = VisionType.VisionReplace
+            AppearType = Protocol.VisionType.VisionReplace
         };
         sceneEntityAppearNotify.EntityLists.Add(newLeaderEntity.ToSceneEntityInfo(session));
         session.SendPacket(sceneEntityAppearNotify);
@@ -130,7 +130,7 @@ public class TeamHandler
             session.SendPacket(new SceneEntityDisappearNotify()
             {
                 EntityLists = { oldLeaderEntity!._EntityId },
-                DisappearType = VisionType.VisionReplace
+                DisappearType = Protocol.VisionType.VisionReplace
             });
         }
         else
@@ -138,13 +138,13 @@ public class TeamHandler
             session.SendPacket(new SceneEntityDisappearNotify()
             {
                 EntityLists = { oldLeaderEntity._EntityId },
-                DisappearType = VisionType.VisionReplace
+                DisappearType = Protocol.VisionType.VisionReplace
             });
         }
 
         SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify()
         {
-            AppearType = VisionType.VisionReplace
+            AppearType = Protocol.VisionType.VisionReplace
         };
         sceneEntityAppearNotify.EntityLists.Add(newLeaderEntity.ToSceneEntityInfo(session));
         session.SendPacket(sceneEntityAppearNotify);

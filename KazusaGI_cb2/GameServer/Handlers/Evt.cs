@@ -42,13 +42,32 @@ public class Evt
 		session.SendPacket(req);
 	}
 
+	//[Packet.PacketCmdId(PacketId.CombatInvocationsNotify)]
+ //   public static void HandleCombatInvocationsNotify(Session session, Packet packet)
+ //   {
+ //       CombatInvocationsNotify req = packet.GetDecodedBody<CombatInvocationsNotify>();
 
-	[Packet.PacketCmdId(PacketId.AbilityInvocationsNotify)]
-    public static void HandleAbilityInvocationsNotify(Session session, Packet packet)
-    {
-        AbilityInvocationsNotify req = packet.GetDecodedBody<AbilityInvocationsNotify>();
-        // session.SendPacket(req);
-    }
+	//	foreach (var invoke in req.InvokeLists)
+	//	{
+	//		// Add to the InvokeNotifier list for proper forwarding
+	//		session.player!.CombatInvNotifyList.AddEntry(invoke, invoke.ForwardType);
+
+	//		// Handle the combat invoke on the entity if it exists
+	//		if (session.entityMap.TryGetValue(invoke.EntityId, out Entity? entity))
+	//		{
+	//			// For now, just log that we're handling the combat invoke
+	//			// Later, when combat system is more complete, we can add proper handling
+	//			session.c.LogInfo($"Handling combat invoke for entity {invoke.EntityId}, argument type: {invoke.ArgumentType}");
+	//		}
+	//		else
+	//		{
+	//			session.c.LogWarning($"Failed to find entity {invoke.EntityId} for combat invoke");
+	//		}
+	//	}
+		
+	//	// Send the notifications
+	//	session.player!.CombatInvNotifyList.Notify();
+ //   }
 
     [Packet.PacketCmdId(PacketId.EvtDoSkillSuccNotify)]
     public static void HandleEvtDoSkillSuccNotify(Session session, Packet packet)
@@ -63,12 +82,7 @@ public class Evt
         // do nothing
     }
 
-    [Packet.PacketCmdId(PacketId.ClientAbilitiesInitFinishCombineNotify)]
-    public static void HandleClientAbilitiesInitFinishCombineNotify(Session session, Packet packet)
-    {
-        ClientAbilitiesInitFinishCombineNotify req = packet.GetDecodedBody<ClientAbilitiesInitFinishCombineNotify>();
-		// session.SendPacket(req);
-	}
+
 
 	[Packet.PacketCmdId(PacketId.EvtFaceToDirNotify)]
     public static void HandleEvtFaceToDirNotify(Session session, Packet packet)

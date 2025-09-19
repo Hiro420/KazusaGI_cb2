@@ -1,9 +1,15 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.Resource.Json;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.Avatar;
+using KazusaGI_cb2.Resource.Json.Scene;
+using KazusaGI_cb2.Resource.Json.Talent;
 using KazusaGI_cb2.Utils;
 
 namespace KazusaGI_cb2.Resource;
@@ -14,12 +20,13 @@ public class ResourceManager
     public Dictionary<uint, AvatarExcelConfig> AvatarExcel { get; set; }
     public Dictionary<uint, AvatarSkillDepotExcelConfig> AvatarSkillDepotExcel { get; set; }
     public Dictionary<uint, AvatarSkillExcelConfig> AvatarSkillExcel { get; set; }
-    public Dictionary<uint, Dictionary<uint, ProudSkillExcelConfig>> ProudSkillExcel { get; set; }
+	public Dictionary<uint, AvatarTalentExcelConfig> AvatarTalentExcel { get; set; }
+	public Dictionary<uint, ProudSkillExcelConfig> ProudSkillExcel { get; set; }
     public Dictionary<uint, WeaponExcelConfig> WeaponExcel { get; set; }
     public Dictionary<uint, MonsterExcelConfig> MonsterExcel { get; set; }
     public Dictionary<uint, GadgetExcelConfig> GadgetExcel { get; set; }
-    public Dictionary<uint, ScenePoint> ScenePoints { get; set; }
-    public Dictionary<uint, SceneLua> SceneLuas { get; set; }
+    public ConcurrentDictionary<uint, ScenePoint> ScenePoints { get; set; }
+    public ConcurrentDictionary<uint, SceneLua> SceneLuas { get; set; }
     public Dictionary<uint, MaterialExcelConfig> MaterialExcel { get; set; }
     public Dictionary<uint, GachaExcel> GachaExcel { get; set; }
     public Dictionary<uint, List<GachaPoolExcel>> GachaPoolExcel { get; set; }
@@ -38,7 +45,15 @@ public class ResourceManager
     public Dictionary<uint, TowerFloorExcelConfig> TowerFloorExcel { get; set; }
     public Dictionary<uint, TowerScheduleExcelConfig> TowerScheduleExcel { get; set; }
     public Dictionary<uint, TowerLevelExcelConfig> TowerLevelExcel { get; set; }
-    public ResourceManager(string baseResourcePath = "resources")
+	public GlobalCombatData GlobalCombatData { get; set; }
+
+
+	public ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> AvatarTalentConfigDataMap { get; set; } // file name
+	public Dictionary<string, ConfigAbilityContainer[]> ConfigAbilityAvatarMap { get; set; } // file name
+    public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
+
+
+	public ResourceManager(string baseResourcePath = "resources")
     {
         // Init Logger
         Logger c = new("ResourceLoader");

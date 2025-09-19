@@ -152,7 +152,7 @@ public class Scene
 
         if (_tmpDisappearIds.Count > 0)
         {
-            var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+            var disappear = new SceneEntityDisappearNotify { DisappearType = Protocol.VisionType.VisionMiss };
             for (int i = 0; i < _tmpDisappearIds.Count; i++)
             {
                 uint eid = _tmpDisappearIds[i];
@@ -289,7 +289,7 @@ public class Scene
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
         var appearBatches = new List<SceneEntityAppearNotify>();
-        SceneEntityAppearNotify currentNtf = new() { AppearType = VisionType.VisionMeet };
+        SceneEntityAppearNotify currentNtf = new() { AppearType = Protocol.VisionType.VisionMeet };
 
         if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
         {
@@ -319,7 +319,7 @@ public class Scene
                         if (currentNtf.EntityLists.Count >= 10)
                         {
                             appearBatches.Add(currentNtf);
-                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                            currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                         }
                         LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
                     }
@@ -356,7 +356,7 @@ public class Scene
                         if (currentNtf.EntityLists.Count >= 10)
                         {
                             appearBatches.Add(currentNtf);
-                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                            currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                         }
                     }
                 }
@@ -394,7 +394,7 @@ public class Scene
                         if (currentNtf.EntityLists.Count >= 10)
                         {
                             appearBatches.Add(currentNtf);
-                            currentNtf = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                            currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                         }
                         LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
                     }
@@ -421,7 +421,7 @@ public class Scene
 
         if (_tmpDisappearIds.Count > 0)
         {
-            var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+            var disappear = new SceneEntityDisappearNotify { DisappearType = Protocol.VisionType.VisionMiss };
             for (int i = 0; i < _tmpDisappearIds.Count; i++)
             {
                 uint eid = _tmpDisappearIds[i];
@@ -471,7 +471,7 @@ public class Scene
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
         var appearBatches = new List<SceneEntityAppearNotify>(2);
-        SceneEntityAppearNotify current = new() { AppearType = VisionType.VisionMeet };
+        SceneEntityAppearNotify current = new() { AppearType = Protocol.VisionType.VisionMeet };
 
         if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
         {
@@ -488,7 +488,7 @@ public class Scene
                 if (current.EntityLists.Count >= 10)
                 {
                     appearBatches.Add(current);
-                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                    current = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                 }
                 LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
             }
@@ -508,7 +508,7 @@ public class Scene
                 if (current.EntityLists.Count >= 10)
                 {
                     appearBatches.Add(current);
-                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                    current = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                 }
             }
         }
@@ -528,7 +528,7 @@ public class Scene
                 if (current.EntityLists.Count >= 10)
                 {
                     appearBatches.Add(current);
-                    current = new SceneEntityAppearNotify { AppearType = VisionType.VisionMeet };
+                    current = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                 }
                 LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
             }
@@ -547,7 +547,7 @@ public class Scene
                 _activeRegionIds.Remove((int)sceneGroupLua.regions[i].config_id);
         }
 
-        var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionMiss };
+        var disappear = new SceneEntityDisappearNotify { DisappearType = Protocol.VisionType.VisionMiss };
 
         if (sceneGroupLua.monsters != null)
         {

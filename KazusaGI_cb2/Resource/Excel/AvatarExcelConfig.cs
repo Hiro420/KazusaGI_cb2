@@ -11,7 +11,8 @@ public class AvatarExcelConfig
     public AvatarUseType useType;
     public BodyType bodyType;
     public QualityType qualityType;
-    public float chargeEfficiency;
+    public string iconName;
+	public float chargeEfficiency;
     public uint initialWeapon;
     public WeaponType weaponType;
     public uint skillDepotId;

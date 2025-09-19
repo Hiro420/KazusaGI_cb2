@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KazusaGI_cb2.Resource;
+namespace KazusaGI_cb2.Resource.Json.Scene;
 
 public class ScenePoint
 {

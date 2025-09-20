@@ -11,7 +11,7 @@ public class AbilityModifier
     [JsonProperty] public readonly object duration;
     [JsonProperty] public readonly Dictionary<PropertyModifierType, object> properties;
     [JsonProperty] public readonly bool? isLimitedProperties;
-    [JsonProperty] public readonly object elementDurability;
+    [JsonProperty] public readonly string elementDurability;
     [JsonProperty] public readonly object thinkInterval;
     [JsonProperty] public readonly BaseAbilityMixin[]? modifierMixins;
     [JsonProperty] public readonly BaseAction[]? onAdded;

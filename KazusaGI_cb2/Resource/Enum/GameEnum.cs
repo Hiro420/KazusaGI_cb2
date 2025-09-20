@@ -555,12 +555,14 @@ public enum StackingType
 	Overlap,
 	Refresh,
 	RefreshUniqueDurability,
+	RefreshAndAddDurability,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum PropertyModifierType
 {
 	None,
+	Actor_CriticalHurtDelta,
 	Actor_CostStaminaRatio,
 	Animator_MoveSpeedRatio,
 	Actor_SkillCDMinusRatio,
@@ -620,7 +622,14 @@ public enum PropertyModifierType
 	Actor_ElecAddHurtExtraDelta,
 	Actor_DefenseIgnoreRatio,
 	Actor_IceAddHurtExtraDelta,
-	Entity_LifeTimeDelta
+	Entity_LifeTimeDelta,
+	Actor_FlyBackSpeedMaxRatio,
+	Actor_FlyHorizontalSpeedMaxRatio,
+	Actor_FlyRotationAngularVelocityRatio,
+	Actor_ElemAttackByRockRatio,
+	Actor_FlyDownSpeedRatio,
+	Actor_FlyForwardSpeedMaxRatio,
+	Actor_MaxStaminaDelta,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -643,6 +652,7 @@ public enum TargetType
 	Team,
 	Enemy,
 	Target,
+	CurLocalAvatar,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]

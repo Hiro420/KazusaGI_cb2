@@ -4,6 +4,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -26,6 +27,7 @@ namespace KazusaGI_cb2.GameServer
 			_gadgetLua = gadgetInfo;
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
+			abilityManager = new GadgetAbilityManager(this);
 		}
 
 		protected override uint? GetLevel() => level;

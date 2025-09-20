@@ -3,6 +3,7 @@ using System.Numerics;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -31,6 +32,7 @@ namespace KazusaGI_cb2.GameServer
 			Def = excelConfig.defenseBase;
 
 			ReCalculateFightProps();
+			abilityManager = new MonsterAbilityManager(this);
 		}
 
 		public void ApplyDamage(float amount, AttackResult attack) => Damage(amount);

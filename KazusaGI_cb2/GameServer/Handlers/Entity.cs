@@ -56,8 +56,9 @@ public class Entity
             session.c.LogWarning($"[FUCKED EXECUTE GADGET LUA] Entity {req.SourceEntityId} not found for ExecuteGadgetLuaReq, or is not a gadget");
             return;
         }
-        //int ret = (GameServer.GadgetEntity)targetEntity.onClientExecuteRequest(req.Param1, req.Param2, req.Param3);
-		session.SendPacket(new ExecuteGadgetLuaRsp() { Retcode = 0 /* = ret*/ });
+        GadgetEntity gadgetEntity = (GameServer.GadgetEntity)targetEntity;
+        Retcode ret = gadgetEntity.onClientExecuteRequest(req.Param1, req.Param2, req.Param3);
+		session.SendPacket(new ExecuteGadgetLuaRsp() { Retcode = (int)ret });
     }
 
     // QuestCreateEntityReq

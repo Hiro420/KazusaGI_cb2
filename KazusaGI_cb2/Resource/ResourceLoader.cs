@@ -38,6 +38,8 @@ public class ResourceLoader
     public string _baseResourcePath;
     private ResourceManager _resourceManager;
 
+    public string LuaPath => Path.Combine(_baseResourcePath, LuaSubPath);
+
     private Dictionary<uint, AvatarExcelConfig> LoadAvatarExcel() =>
         JsonConvert.DeserializeObject<List<AvatarExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarExcelConfigData.json"))
@@ -61,6 +63,10 @@ public class ResourceLoader
             group => group.Key,
             group => group.ToList()
         );
+    public Dictionary<uint, string> LoadGadgetLuaConfig() =>
+        JsonConvert.DeserializeObject<Dictionary<string, string>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "GadgetLuaConfig.json"))
+        )!.ToDictionary(data => uint.Parse(data.Key), data => data.Value);
     private Dictionary<uint, TowerLevelExcelConfig> LoadTowerLevelExcelConfig() =>
         JsonConvert.DeserializeObject<List<TowerLevelExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "TowerLevelExcelConfigData.json"))
@@ -572,6 +578,7 @@ public class ResourceLoader
         _resourceManager.TowerFloorExcel = this.LoadTowerFloorExcelConfig();
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
+        _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
 
         _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();

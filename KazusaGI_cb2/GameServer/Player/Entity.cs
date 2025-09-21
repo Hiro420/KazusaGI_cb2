@@ -73,7 +73,7 @@ namespace KazusaGI_cb2.GameServer
 			return new SceneEntityAiInfo { IsAiOpen = true, BornPos = born };
 		}
 
-		protected void InjectCommonProps(SceneEntityInfo info)
+        protected void InjectCommonProps(SceneEntityInfo info)
 		{
 			info.LifeState = GetLifeState();
 

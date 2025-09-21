@@ -54,17 +54,44 @@ namespace KazusaGI_cb2.GameServer
 			return ret;
 		}
 
-		public int onClientExecuteRequest(int param1, int param2, int param3)
+		public Retcode onClientExecuteRequest(int param1, int param2, int param3)
 		{
-			// todo: implement
-			//if (entityController != null)
-			//{
-			//	return entityController.onClientExecuteRequest(this, param1, param2, param3);
-			//}
-			return 0;
+			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
+			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+			{
+				session.c.LogError($"GadgetLua for gadgetId {_gadgetId} not found");
+				return Retcode.RetSvrError;
+			}
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+
+			using (NLua.Lua tGadgetLua = new NLua.Lua())
+			{
+				ScriptLib scriptLib = new(session);
+				scriptLib.currentSession = session;
+				scriptLib.currentGroupId = (int)_gadgetLua!.group_id;
+                tGadgetLua["ScriptLib"] = scriptLib;
+                tGadgetLua["context_"] = session;
+				//groupLua["evt_"] = args.toTable();
+
+				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
+						+ LuaManager.GetConfigEntityEnumAsLua() + "\n"
+						+ File.ReadAllText(luaPath);
+
+				try
+				{
+					tGadgetLua.DoString(luaStr.Replace("ScriptLib.", "ScriptLib:"));
+				}
+				catch (Exception ex)
+				{
+					session.c.LogError($"Error occured in loading Gadget Lua {ex.Message}");
+					return Retcode.RetSvrError;
+                }
+            }
+			return Retcode.RetSucc;
 		}
 
-		protected override void BuildKindSpecific(SceneEntityInfo ret)
+        protected override void BuildKindSpecific(SceneEntityInfo ret)
 		{
 			ret.Name = gadgetExcel.jsonName;
 
@@ -84,22 +111,22 @@ namespace KazusaGI_cb2.GameServer
 
 		public void ApplyDamage(float amount, AttackResult attack)
 		{
-			// TODO: Handle by abilities
-			//Hp = MathF.Max(0f, Hp - amount);
+            // TODO: Handle by abilities
+            //Hp = MathF.Max(0f, Hp - amount);
 
-			//var upd = new EntityFightPropUpdateNotify { EntityId = _EntityId };
-			//upd.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
-			//session.SendPacket(upd);
+            //var upd = new EntityFightPropUpdateNotify { EntityId = _EntityId };
+            //upd.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
+            //session.SendPacket(upd);
 
-			//if (Hp <= 0f)
-			//{
-			//	session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
-			//	session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = VisionType.VisionDie });
-			//	session.entityMap.Remove(_EntityId);
-			//}
-		}
+            //if (Hp <= 0f)
+            //{
+            //	session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
+            //	session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = VisionType.VisionDie });
+            //	session.entityMap.Remove(_EntityId);
+            //}
+        }
 
-		public void ChangeState(GadgetState newState)
+        public void ChangeState(GadgetState newState)
 		{
 			if (_gadgetLua == null) return;
 

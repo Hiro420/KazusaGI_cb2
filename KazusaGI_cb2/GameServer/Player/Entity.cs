@@ -108,41 +108,43 @@ namespace KazusaGI_cb2.GameServer
 			return info;
 		}
 
-	public AbilitySyncStateInfo GetAbilityStates()
-	{
-		if (abilityManager == null)
-			return new();
-		AbilitySyncStateInfo ret = new AbilitySyncStateInfo()
+		public AbilitySyncStateInfo GetAbilityStates()
 		{
-			IsInited = true // todo: acutally check
-		};
-		
-		if (abilityManager.InstanceToAbilityHashMap != null)
-		{
-			foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
+			if (abilityManager == null)
+				return new();
+			AbilitySyncStateInfo ret = new AbilitySyncStateInfo()
 			{
-				AbilityAppliedAbility proto = new AbilityAppliedAbility()
+				IsInited = true // todo: acutally check
+			};
+		
+			if (abilityManager.InstanceToAbilityHashMap != null)
+			{
+				foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
 				{
-					AbilityName = new AbilityString()
+					AbilityAppliedAbility proto = new AbilityAppliedAbility()
 					{
-						Hash = appliedAbility,
-						Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
-					},
-				};
-				ret.AppliedAbilities.Add(proto);
+						AbilityName = new AbilityString()
+						{
+							Hash = appliedAbility,
+							Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
+						},
+					};
+					ret.AppliedAbilities.Add(proto);
+				}
 			}
-		}
 		
-		if (abilityManager.GlobalValueHashMap != null)
-		{
-			foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
+			if (abilityManager.GlobalValueHashMap != null)
 			{
-				ret.DynamicValueMaps.Add(dynamicValue.Value);
+				foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
+				{
+					ret.DynamicValueMaps.Add(dynamicValue.Value);
+				}
 			}
+
+			return ret;
 		}
 
-		return ret;
-	}		public void ForceKill()
+		public virtual void ForceKill()
 		{
 			if (this is IDamageable damageable)
 			{

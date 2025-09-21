@@ -31,8 +31,6 @@ public class LoginStuff
         };
         session.player = new Player(session, 69);
         session.player.InitTeams();
-        session.player.MpLevelEntity = new MpLevelEntity(session);
-		session.entityMap.Add(session.player.MpLevelEntity._EntityId, session.player.MpLevelEntity);
 		session.player.AddAllAvatars(session);
         session.player.AddAllMaterials(session, true);
         session.SendPacket(rsp);
@@ -161,7 +159,11 @@ public class LoginStuff
 		session.player.SendPlayerEnterSceneInfoNotify(session);
         session.SendPacket(new SceneInitFinishRsp());
         session.player.Scene.isFinishInit = true;
-    }
+
+        TeamHandler.SendAvatarEquipChangeNotify(session, session.player.GetCurrentLineup().Leader!);
+		TeamHandler.SendAvatarTeamUpdateNotify(session, session.player.TeamIndex, session.player.GetCurrentLineup().Avatars.Select(a => a.Guid).ToList());
+
+	}
 
     [Packet.PacketCmdId(PacketId.PlayerLoginReq)]
     public static void HandlePlayerLoginReq(Session session, Packet packet)

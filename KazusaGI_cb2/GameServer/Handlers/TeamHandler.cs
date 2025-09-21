@@ -14,6 +14,50 @@ namespace KazusaGI_cb2.GameServer.Handlers;
 
 public class TeamHandler
 {
+    public static void SendAvatarTeamUpdateNotify(Session session, uint teamId, List<ulong> avatarTeamGuidList)
+    {
+        AvatarTeamUpdateNotify avatarTeamUpdateNotify = new AvatarTeamUpdateNotify();
+        for (uint i = 1; i <= session.player!.teamList.Count; i++)
+        {
+            PlayerTeam playerTeam = session.player!.teamList[(int)i - 1];
+            AvatarTeam avatarTeam = new AvatarTeam()
+            {
+                TeamName = $"KazusaGI team {i + 1}"
+            };
+            if (i == teamId)
+            {
+                foreach (ulong playerAvatarGuid in avatarTeamGuidList)
+                {
+                    avatarTeam.AvatarGuidLists.Add(playerAvatarGuid);
+                }
+            }
+            else
+            {
+                foreach (PlayerAvatar playerAvatar in playerTeam.Avatars)
+                {
+                    avatarTeam.AvatarGuidLists.Add(playerAvatar.Guid);
+                }
+            }
+            avatarTeamUpdateNotify.AvatarTeamMaps.Add(i, avatarTeam);
+        }
+        session.SendPacket(avatarTeamUpdateNotify);
+    }
+
+    public static void SendAvatarEquipChangeNotify(Session session, PlayerAvatar newLeaderAvatar)
+    {
+        PlayerWeapon weapon = session.player!.weaponDict[newLeaderAvatar.EquipGuid];
+
+        // AvatarEquipChangeNotify
+        session.SendPacket(new AvatarEquipChangeNotify()
+        {
+            AvatarGuid = newLeaderAvatar.Guid,
+            EquipType = (uint)EquipType.EQUIP_WEAPON,
+            ItemId = weapon.WeaponId,
+            EquipGuid = weapon.Guid,
+            Weapon = weapon.ToSceneWeaponInfo(session)
+        });
+    }
+
     [Packet.PacketCmdId(PacketId.ChangeAvatarReq)] // for now we will have to inline the handler
     public static void HandleChangeAvatarReq(Session session, Packet packet)
     {
@@ -51,31 +95,7 @@ public class TeamHandler
     {
         SetUpAvatarTeamReq req = packet.GetDecodedBody<SetUpAvatarTeamReq>();
 
-        AvatarTeamUpdateNotify avatarTeamUpdateNotify = new AvatarTeamUpdateNotify();
-        for (uint i = 1; i <= session.player!.teamList.Count; i++)
-        {
-            PlayerTeam playerTeam = session.player!.teamList[(int)i - 1];
-            AvatarTeam avatarTeam = new AvatarTeam()
-            {
-                TeamName = $"KazusaGI team {i + 1}"
-            };
-            if (i == req.TeamId)
-            {
-                foreach (ulong playerAvatarGuid in req.AvatarTeamGuidLists)
-                {
-                    avatarTeam.AvatarGuidLists.Add(playerAvatarGuid);
-                }
-            }
-            else
-            {
-                foreach (PlayerAvatar playerAvatar in playerTeam.Avatars)
-                {
-                    avatarTeam.AvatarGuidLists.Add(playerAvatar.Guid);
-                }
-            }
-            avatarTeamUpdateNotify.AvatarTeamMaps.Add(i, avatarTeam);
-        }
-        session.SendPacket(avatarTeamUpdateNotify);
+        SendAvatarTeamUpdateNotify(session, req.TeamId, req.AvatarTeamGuidLists.ToList());
 
         SetUpAvatarTeamRsp rsp = new SetUpAvatarTeamRsp()
         {
@@ -151,17 +171,7 @@ public class TeamHandler
         sceneEntityAppearNotify.EntityLists.Add(newLeaderEntity.ToSceneEntityInfo(session));
         session.SendPacket(sceneEntityAppearNotify);
 
-        PlayerWeapon weapon = session.player!.weaponDict[newLeaderAvatar.EquipGuid];
-
-        // AvatarEquipChangeNotify
-        session.SendPacket(new AvatarEquipChangeNotify()
-        {
-            AvatarGuid = newLeaderAvatar.Guid,
-            EquipType = (uint)EquipType.EQUIP_WEAPON,
-            ItemId = weapon.WeaponId,
-            EquipGuid = weapon.Guid,
-            Weapon = weapon.ToSceneWeaponInfo(session)
-        });
+        SendAvatarEquipChangeNotify(session, newLeaderAvatar);
 
 		session.SendPacket(rsp);
     }

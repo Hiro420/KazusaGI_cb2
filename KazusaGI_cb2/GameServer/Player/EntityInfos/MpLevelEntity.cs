@@ -17,5 +17,13 @@ namespace KazusaGI_cb2.GameServer
 		{
 			// Currently no need
 		}
+
+		// Override ForceKill to prevent MpLevelEntity from being removed from entityMap
+		public override void ForceKill()
+		{
+			// MpLevelEntity should never die or be removed from entityMap
+			// This is a persistent entity that represents the multiplayer level
+			// Do nothing to prevent removal from entityMap
+		}
 	}
 }

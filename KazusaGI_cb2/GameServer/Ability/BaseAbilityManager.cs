@@ -262,7 +262,7 @@ public abstract class BaseAbilityManager
 				AbilityMetaSetKilledState state = (AbilityMetaSetKilledState)info;
 				if (state.Killed)
 				{
-					Owner.ForceKill();
+					//Owner.ForceKill();
 				}
 				break;
 			default:

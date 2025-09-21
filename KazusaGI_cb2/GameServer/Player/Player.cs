@@ -35,7 +35,7 @@ public class Player
 	public InvokeNotifier<AbilityInvokeEntry> AbilityInvNotifyList;
 	public InvokeNotifier<CombatInvokeEntry> CombatInvNotifyList;
 	//public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
-    public Entity MpLevelEntity;
+    public Entity? MpLevelEntity;
 
     public Player(Session session, uint uid)
     {
@@ -133,7 +133,8 @@ public class Player
 
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
-
+		this.MpLevelEntity = new MpLevelEntity(session);
+        session.entityMap.Add(MpLevelEntity._EntityId, MpLevelEntity);
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
@@ -144,7 +145,7 @@ public class Player
 			},
             MpLevelEntityInfo = new()
             {
-                EntityId = session.GetEntityId(ProtEntityType.ProtEntityMpLevel), //this.MpLevelEntity._EntityId,
+                EntityId = this.MpLevelEntity._EntityId,
                 AuthorityPeerId = 1,
                 AbilityInfo = new()
             }

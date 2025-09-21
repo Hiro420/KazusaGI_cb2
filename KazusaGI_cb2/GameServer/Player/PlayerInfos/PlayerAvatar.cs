@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.GameServer;
 
 namespace KazusaGI_cb2.GameServer.PlayerInfos;
 
@@ -41,13 +42,14 @@ public class PlayerAvatar
     public List<uint> ProudSkills { get; set; }
 	public string AvatarName => avatarExcel.iconName.Split("_").Last();
 
-    public Dictionary<int, SortedList<int, AvatarSkillExcelConfig>> SkillData = new();
+    public Dictionary<int, SortedList<uint, AvatarSkillExcelConfig>> SkillData = new();
     public List<AvatarTalentExcelConfig> TalentData = new();
 	public Dictionary<int, ProudSkillExcelConfig> ProudSkillData = new();
 	public Dictionary<int, Dictionary<uint, ConfigAbility>?> AbilityHashMap = new();
 	public Dictionary<int, ConfigAbilityContainer[]> AbilityConfigMap = new(); // depotId
 	public Dictionary<int, Dictionary<string, BaseConfigTalent[]>> ConfigTalentMap = new(); // <depotId, file name>
     public AvatarAbilityManager abilityManager { get; private set; }
+    public SkillDepot CurrentSkillDepot { get; private set; }
 
 	public PlayerAvatar(Session session, uint AvatarId)
     {
@@ -104,6 +106,10 @@ public class PlayerAvatar
 				this.ProudSkills.Add(proudSkillExcel.proudSkillId);
             }
 		}
+		
+		// Initialize skill depot
+		CurrentSkillDepot = new SkillDepot(this, (int)this.SkillDepotId);
+		
 		ReCalculateFightProps();
 	}
 

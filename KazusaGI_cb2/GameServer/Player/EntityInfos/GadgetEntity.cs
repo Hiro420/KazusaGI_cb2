@@ -38,6 +38,7 @@ namespace KazusaGI_cb2.GameServer
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
 			abilityManager = new GadgetAbilityManager(this);
 			InitAbilityStuff();
+			abilityManager.Initialize();
 		}
 
 		protected override uint? GetLevel() => level;

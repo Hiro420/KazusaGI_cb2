@@ -13,6 +13,16 @@ internal class ModifyAbility : BaseConfigTalent
 
     public override void Apply(BaseAbilityManager abilityManager, double[] paramList)
     {
+        // Check if AbilitySpecials exists and contains the ability name
+        if (abilityManager.AbilitySpecials == null || 
+            !abilityManager.AbilitySpecials.ContainsKey(abilityName) ||
+            abilityManager.AbilitySpecials[abilityName] == null ||
+            !abilityManager.AbilitySpecials[abilityName].ContainsKey(paramSpecial))
+        {
+            // Skip if the ability or parameter doesn't exist
+            return;
+        }
+
         float special = abilityManager.AbilitySpecials[abilityName][paramSpecial];
         if (paramDelta is string deltaString)
         {

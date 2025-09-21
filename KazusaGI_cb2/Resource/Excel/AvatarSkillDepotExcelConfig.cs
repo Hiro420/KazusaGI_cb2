@@ -40,7 +40,7 @@ public class AvatarSkillDepotExcelConfig
 		var EnergySkill = data.avatarSkillDepotExcel.energySkill;
 		if (EnergySkill != 0)
 		{
-			ElementType type = data.SkillData[(int)data.SkillDepotId][(int)EnergySkill].costElemType;
+			ElementType type = data.SkillData[(int)data.SkillDepotId][EnergySkill].costElemType;
 			switch (type)
 			{
 				case ElementType.Fire:
@@ -68,7 +68,7 @@ public class AvatarSkillDepotExcelConfig
 					logger.LogWarning("Unknown Avatar Element Type");
 					break;
 			}
-			Element.MaxEnergy = data.SkillData[(int)data.SkillDepotId][(int)EnergySkill].costElemVal;
+			Element.MaxEnergy = data.SkillData[(int)data.SkillDepotId][EnergySkill].costElemVal;
 		}
 
 		var DepotId = (int)data.SkillDepotId;
@@ -83,12 +83,6 @@ public class AvatarSkillDepotExcelConfig
 		}
 		if (data.AbilityHashMap.TryGetValue(DepotId, out Dictionary<uint, ConfigAbility>? hashMap))
 			Abilities = hashMap;
-
-		var container_alldefault = MainApp.resourceManager.ConfigAbilityMap["ConfigAbility_Avatar_AllDefault"];
-		if (container_alldefault.Default is ConfigAbility config_alldefault)
-		{
-			Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config_alldefault.abilityName)] = config_alldefault;
-		}
 
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData.defaultAbilities.defaultAvatarAbilities)
 		{
@@ -114,12 +108,6 @@ public class AvatarSkillDepotExcelConfig
 
 		if (data.AbilityHashMap.TryGetValue((int)this.id, out Dictionary<uint, ConfigAbility>? hashMap))
 			Abilities = hashMap;
-
-		var container_default = MainApp.resourceManager.ConfigAbilityMap["ConfigAbility_Avatar_AllDefault"];
-		if (container_default.Default is ConfigAbility config)
-		{
-			Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
-		}
 
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData.defaultAbilities.defaultAvatarAbilities)
 		{

@@ -23,6 +23,7 @@ namespace KazusaGI_cb2.GameServer
 			DbInfo = playerAvatar;
 			abilityManager = new AvatarAbilityManager(this);
 			InitAbilityStuff();
+			abilityManager.Initialize();
 		}
 
 
@@ -130,6 +131,17 @@ namespace KazusaGI_cb2.GameServer
 			var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.skills.Contains(w.Key) || 
 				DbInfo.avatarSkillDepotExcel.subSkills.Contains(w.Key) || DbInfo.avatarSkillDepotExcel.energySkill == w.Key)
 				.ToDictionary(x => x.Key, x => x.Value);
+
+			// Populate SkillData with skills organized by depot ID
+			if (!DbInfo.SkillData.ContainsKey((int)DbInfo.SkillDepotId))
+			{
+				DbInfo.SkillData[(int)DbInfo.SkillDepotId] = new SortedList<uint, AvatarSkillExcelConfig>();
+			}
+			
+			foreach (var skill in dictionary1)
+			{
+				DbInfo.SkillData[(int)DbInfo.SkillDepotId][skill.Key] = skill.Value;
+			}
 
 			var talentList = resourceManager.AvatarTalentExcel.Where(w => DbInfo.avatarSkillDepotExcel.talents.Contains((uint)w.Value.talentId));
 			foreach (var i in talentList)

@@ -2,6 +2,7 @@
 using KazusaGI_cb2.Protocol;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Reflection;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Ability;
 
@@ -99,12 +100,86 @@ namespace KazusaGI_cb2.GameServer
 				EntityId = this._EntityId,
 				MotionInfo = MakeMotion(luaPos, luaRot),
 				AiInfo = MakeAi(luaPos),
-				AbilityInfo = new AbilitySyncStateInfo()
+				AbilityInfo = GetAbilityStates()
 			};
 
 			BuildKindSpecific(info);
 			InjectCommonProps(info);
 			return info;
+		}
+
+	public AbilitySyncStateInfo GetAbilityStates()
+	{
+		if (abilityManager == null)
+			return new();
+		AbilitySyncStateInfo ret = new AbilitySyncStateInfo()
+		{
+			IsInited = true // todo: acutally check
+		};
+		
+		if (abilityManager.InstanceToAbilityHashMap != null)
+		{
+			foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
+			{
+				AbilityAppliedAbility proto = new AbilityAppliedAbility()
+				{
+					AbilityName = new AbilityString()
+					{
+						Hash = appliedAbility,
+						Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
+					},
+				};
+				ret.AppliedAbilities.Add(proto);
+			}
+		}
+		
+		if (abilityManager.GlobalValueHashMap != null)
+		{
+			foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
+			{
+				ret.DynamicValueMaps.Add(dynamicValue.Value);
+			}
+		}
+
+		return ret;
+	}		public void ForceKill()
+		{
+			if (this is IDamageable damageable)
+			{
+				// Force HP to 0 and notify of HP change
+				var hpField = damageable.GetType().GetProperty("Hp");
+				if (hpField != null && hpField.CanWrite)
+				{
+					hpField.SetValue(damageable, 0f);
+				}
+
+				// Send HP update notification
+				var upd = new EntityFightPropUpdateNotify
+				{
+					EntityId = _EntityId
+				};
+				upd.FightPropMaps[(uint)Resource.FightPropType.FIGHT_PROP_CUR_HP] = 0f;
+				session.SendPacket(upd);
+
+				// Send life state change notification (dead)
+				session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
+
+				// Send entity disappear notification
+				session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = Protocol.VisionType.VisionDie });
+
+				// Remove from entity map
+				session.entityMap.Remove(_EntityId);
+
+				// If this is a MonsterEntity, trigger lua events
+				if (this is MonsterEntity monster && monster._monsterInfo != null)
+				{
+					Lua.LuaManager.executeTriggersLua(
+						session,
+						session.player!.Scene.GetGroup((int)monster._monsterInfo.group_id)!,
+						new Lua.ScriptArgs((int)monster._monsterInfo.group_id, (int)Lua.TriggerEventType.EVENT_ANY_MONSTER_DIE, (int)monster._monsterInfo.config_id)
+					);
+				}
+			}
 		}
 
 		public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);

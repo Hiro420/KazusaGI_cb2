@@ -104,65 +104,7 @@ public class PlayerAvatar
 				this.ProudSkills.Add(proudSkillExcel.proudSkillId);
             }
 		}
-        InitAbilityStuff();
 		ReCalculateFightProps();
-	}
-
-    public void InitAbilityStuff()
-    {
-		string name = $"Avatar_{this.AvatarName}";
-		if (!resourceManager.ConfigAbilityAvatarMap.TryGetValue($"ConfigAbility_{name}", out ConfigAbilityContainer[]? configContainer))
-		{
-			return;
-		}
-
-		AbilityConfigMap.Add((int)this.SkillDepotId, configContainer);
-
-		var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => this.avatarSkillDepotExcel.skills.Contains(w.Key) || avatarSkillDepotExcel.subSkills.Contains(w.Key) || avatarSkillDepotExcel.energySkill == w.Key).ToDictionary(x => x.Key, x => x.Value);
-
-		var talentList = resourceManager.AvatarTalentExcel.Where(w => this.avatarSkillDepotExcel.talents.Contains((uint)w.Value.talentId));
-        foreach (var i in talentList)
-        {
-			TalentData.Add(i.Value);
-		}
-
-		var dict1 = resourceManager.ProudSkillExcel.Where(w => this.avatarSkillDepotExcel.inherentProudSkillOpens.Exists(y => y.proudSkillGroupId == w.Value.proudSkillGroupId)).ToDictionary(x => x.Key, x => x.Value); ;
-
-        foreach (var i in dict1)
-        {
-            ProudSkillData.Add((int)i.Key, i.Value);
-		}
-
-		foreach (var skilldata in dictionary1.Values)
-		{
-			var proudData = resourceManager.ProudSkillExcel.Where(w => w.Value.proudSkillGroupId == skilldata.proudSkillGroupId);
-			foreach (var proud in proudData)
-			{
-				ProudSkillData[(int)proud.Key] = proud.Value;
-			}
-		}
-
-		if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
-			ConfigTalentMap[(int)this.SkillDepotId] = configTalents;
-        
-		Dictionary<uint, ConfigAbility> abilityHashMap = new();
-
-		// add abilityGroup abilities (if player skill depot ability group)
-		foreach (TargetAbility ability in resourceManager.ConfigAvatarMap[$"ConfigAvatar_{AvatarName}"].abilities)
-		{
-			ConfigAbility? config = null;
-			foreach (var container in AbilityConfigMap[(int)this.SkillDepotId])
-			{
-				if (container.Default is ConfigAbility konfig && konfig.abilityName == ability.abilityName)
-				{
-					config = konfig;
-					break;
-				}
-			}
-			if (config == null) continue;
-			abilityHashMap[(uint)Ability.Utils.AbilityHash(ability.abilityName)] = config;
-		}
-		AbilityHashMap.Add((int)this.SkillDepotId, abilityHashMap);
 	}
 
     public SceneAvatarInfo ToSceneAvatarInfo()

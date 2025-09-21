@@ -173,7 +173,7 @@ public class ResourceLoader
 
 		string[] filePaths = Directory.GetFiles(
             Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"), 
-            "*.json", SearchOption.TopDirectoryOnly
+            "*.json", SearchOption.AllDirectories
         );
 		var tasks = new List<Task>();
 		filePaths.AsParallel().ForAll(async file =>
@@ -220,13 +220,13 @@ public class ResourceLoader
         return new ConcurrentDictionary<uint, ScenePoint>(scenePoints);
 	}
 
-    public Dictionary<string, ConfigAbilityContainer[]> LoadConfigAbilityAvatarMap()
+    public Dictionary<string, ConfigAbilityContainer> LoadConfigAbilityMap()
     {
-		Dictionary<string, ConfigAbilityContainer[]> ret = new();
+		Dictionary<string, ConfigAbilityContainer> ret = new();
 
 		string[] filePaths = Directory.GetFiles(
 			Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp"),
-			"*.json", SearchOption.TopDirectoryOnly
+			"*.json", SearchOption.AllDirectories
 		);
 		var tasks = new List<Task>();
 		filePaths.AsParallel().ForAll(async file =>
@@ -239,12 +239,37 @@ public class ResourceLoader
 				var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
 				foreach (var c in fileData)
 				{
-					ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+                    var ability = (ConfigAbility)c.Default;
+					ret[ability.abilityName] = c;
 				}
 			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
 		});
 
 		return ret;
+	}
+
+	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()
+	{
+		var ret = new ConcurrentDictionary<string, ConfigGadget>();
+
+		string[] filePaths = Directory.GetFiles(
+			Path.Combine(_baseResourcePath, JsonSubPath, "Gadget"),
+			"*.json", SearchOption.AllDirectories
+		);
+
+		var tasks = filePaths.Select(async file =>
+		{
+			string data = await File.ReadAllTextAsync(file);
+			var configs = JsonConvert.DeserializeObject<Dictionary<string, ConfigGadget>>(data)!;
+			foreach (var kv in configs)
+			{
+				ret[kv.Key] = kv.Value;
+			}
+		});
+
+		await Task.WhenAll(tasks);
+
+		return ret.ToDictionary();
 	}
 
 	public Dictionary<string, ConfigAvatar> LoadConfigAvatarMap()
@@ -551,7 +576,8 @@ public class ResourceLoader
 
         _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
-        _resourceManager.ConfigAbilityAvatarMap = this.LoadConfigAbilityAvatarMap();
+        _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
+		_resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
 	}
 
 
@@ -567,7 +593,7 @@ public class ResourceLoader
                     typeof(AddAbility), typeof(AddTalentExtraLevel), typeof(ModifyAbility), typeof(ModifySkillCD), typeof(ModifySkillPoint), typeof(UnlockTalentParam),
                     typeof(UnlockControllerConditions), typeof(ForceInitMassiveEntity), typeof(TriggerRageSupportMixin), typeof(ByHitBoxName),
                     typeof(GuidePaimonDisappearEnd), typeof(ExecuteGroupTrigger), typeof(ApplyLevelModifier), typeof(RefreshAndAddDurability),
-                    typeof(SetPaimonLookAtAvatar), typeof(EnableGadgetIntee), typeof(SetSystemValueToOverrideMap), typeof(TriggerGadgetInteractive),
+                    typeof(SetPaimonLookAtAvatar), typeof(EnableGadgetIntee), typeof(SetSystemValueToOverrideMap), typeof(TriggerGadgetInteractive), typeof(HitLevelGaugeMixin),
                     typeof(ActTimeSlow), typeof(PaimonAction), typeof(ExecuteGadgetLua),typeof(SetPaimonLookAtCamera), typeof(SetCrashDamage), typeof(MonsterReadyMixin),
 					typeof(SetPaimonTempOffset), typeof(SetAvatarHitBuckets), typeof(UpdateReactionDamage), typeof(FireEffectForStorm), typeof(DoTileAction),
 
@@ -593,6 +619,14 @@ public class ResourceLoader
                     typeof(CollisionMixin), typeof(WindSeedSpawnerMixin), typeof(WatcherSystemMixin), typeof(AttachToGadgetStateMixin), typeof(OverrideStickElemUIMixin), 
                     typeof(TileAttackMixin), typeof(RelyOnElementMixin), typeof(SteerAttackMixin), typeof(TileAttackManagerMixin), typeof(TriggerBeHitSupportMixin),
                     typeof(AvatarLevelSkillMixin), typeof(DoTileActionManagerMixin), typeof(AttackCostElementMixin), typeof(ShieldBarMixin), 
+                    // New Mixins
+                    typeof(AttachToPoseIDMixin), typeof(DoActionByPoseIDMixin), typeof(ElementAdjustMixin), typeof(AttachToAnimatorStateMixin),
+                    typeof(AttachModifierToHPPercentMixin), typeof(AttachModifierToElementDurabilityMixin), typeof(AirFlowMixin), typeof(AnimatorRotationCompensateMixin),
+                    typeof(AttachToElementTypeMixin), typeof(AttackHittingSceneMixin), typeof(AvatarLockForwardFlyMixin), typeof(BoxClampWindZoneMixin),
+                    typeof(ElementOuterGlowEffectMixin), typeof(ElementShieldMixin), typeof(FixDvalinS04MoveMixin),
+                    typeof(EnviroFollowRotateMixin), typeof(TriggerResistDamageTextMixin), typeof(DvalinS01PathEffsMixin),
+                    typeof(IceFloorMixin), typeof(MonsterDefendMixin), typeof(RecycleModifierMixin), 
+                    typeof(WeightDetectRegionMixin), typeof(DvalinS01BoxMoxeMixin), 
                     // Actions
                     typeof(SetAnimatorTrigger), typeof(SetAnimatorInt), typeof(SetAnimatorBool), typeof(SetCameraLockTime), typeof(ResetAnimatorTrigger), typeof(RemoveModifier),
                     typeof(ApplyModifier), typeof(TriggerBullet), typeof(EntityDoSkill), typeof(AvatarSkillStart), typeof(Predicated), typeof(SetGlobalValue), typeof(AttachModifier),
@@ -611,6 +645,23 @@ public class ResourceLoader
                     typeof(EnablePushColliderName), typeof(TriggerSetShadowRamp), typeof(ReviveStamina), typeof(GetFightProperty), typeof(ChangeFollowDampTime), typeof(EnableRocketJump),
                     typeof(EnableAvatarMoveOnWater), typeof(DummyAction), typeof(EnableAfterImage), typeof(HideUIBillBoard), typeof(EnterCameraLock), typeof(EnablePartControl),
                     typeof(FireMonsterBeingHitAfterImage), typeof(EnableHDMesh), typeof(SendDungeonFogEffectTrigger),
+                    // New Actions
+                    typeof(EnableAIStealthy), typeof(SetPoseInt), typeof(SetPoseBool), typeof(RushMove), typeof(TriggerDropEquipParts), 
+                    typeof(StartDither), typeof(DropSubfield), typeof(ShowReminder), typeof(BroadcastNeuronStimulate), typeof(AddAbilityAction),
+                    typeof(CalcDvalinS04RebornPoint), typeof(SetPartControlTarget), typeof(UseSkillEliteSet),
+                    typeof(TriggerThrowEquipPart), typeof(SetAISkillCDMultiplier), typeof(ShowUICombatBar),
+                    typeof(TriggerFaceAnimation), typeof(TryFindBlinkPoint), typeof(RegisterAIActionPoint),
+                    typeof(SetAvatarCanShakeOff), typeof(ResetAISkillInitialCD), typeof(SetCanDieImmediately),
+                    typeof(ReleaseAIActionPoint), typeof(TriggerSetCastShadow), typeof(ShowScreenEffect),
+                    typeof(DoBlink), typeof(ToNearstAnchorPoint), typeof(SetGlobalValueByTargetDistance),
+                    typeof(PushPos), typeof(ResetAIAttackTarget), typeof(TriggerCreateGadgetToEquipPart),
+                    typeof(TryFindBlinkPointByBorn), typeof(TriggerPlayerDie), typeof(SetWeaponBindState),
+                    typeof(GetPos), typeof(SetKeepInAirVelocityForce), typeof(SetSurroundAnchor), typeof(RegistToStageScript),
+                    typeof(SumTargetWeightToSelfGlobalValue), typeof(EnableAvatarFlyStateTrail), typeof(ClearPos),
+                    typeof(CallLuaTask), typeof(SyncToStageScript), typeof(SetPoseFloat), typeof(AvatarExitClimb),
+                    typeof(SetWeaponAttachPointRealName), typeof(Summon), typeof(ForceAirStateFly), typeof(SetEntityScale),
+                    typeof(SetCombatFixedMovePoint), typeof(TriggerAuxWeaponTrans), typeof(PlayEmojiBubble), typeof(IssueCommand),
+                    typeof(ResetEnviroEular), typeof(PushDvalinS01Process), typeof(SetDvalinS01FlyState),
                     // Predicate
                     typeof(ByAny), typeof(ByAnimatorInt), typeof(ByLocalAvatarStamina), typeof(ByEntityAppearVisionType), typeof(ByTargetGlobalValue),typeof(ByTargetPositionToSelfPosition),
                     typeof(ByCurrentSceneId), typeof(ByEntityTypes), typeof(ByIsTargetCamp), typeof(ByCurTeamHasFeatureTag), typeof(ByTargetHPRatio), typeof(BySkillReady), typeof(ByItemNumber),
@@ -619,15 +670,18 @@ public class ResourceLoader
                     typeof(ByAvatarWeaponType), typeof(ByHasAbilityState), typeof(ByIsCombat), typeof(ByTargetIsSelf), typeof(ByAvatarElementType), typeof(ByTargetForwardAndSelfPosition),
                     typeof(ByTargetIsGhostToEnemy), typeof(ByIsLocalAvatar), typeof(ByTargetWeight), typeof(ByHitElement), typeof(ByEnergyRatio), typeof(ByHitDamage), typeof(ByHitEnBreak),
                     typeof(ByHitStrikeType), typeof(ByHitCritical), typeof(ByTargetConfigID), typeof(ByHitBoxType), typeof(ByAttackType), typeof(ByMonsterAirState), typeof(ByTargetElement), 
-                    typeof(ByScenePropState),
+                    typeof(ByScenePropState), typeof(ByAnimatorFloat), typeof(ByHasFeatureTag), typeof(ByCurTeamHasElementType),
+                    typeof(ByStageIsReadyTemp), typeof(BySceneSurfaceType), typeof(ByHitImpulse),
                     // BornType
                     typeof(ConfigBornByTarget), typeof(ConfigBornByAttachPoint), typeof(ConfigBornBySelf), typeof(ConfigBornByCollisionPoint), typeof(ConfigBornBySelectedPoint),
                     typeof(ConfigBornByGlobalValue), typeof(ConfigBornBySelfOwner), typeof(ConfigBornByTargetLinearPoint), typeof(ConfigBornByHitPoint),
-                    typeof(ConfigBornByStormLightning),
+                    typeof(ConfigBornByStormLightning), typeof(ConfigBornByPredicatePoint), typeof(ConfigBornByWorld),
+                    typeof(ConfigBornByTeleportToPoint), typeof(ConfigBornByActionPoint),
                     // DirectionType
                     typeof(ConfigDirectionByAttachPoint),
                     // SelectTargetType
                     typeof(SelectTargetsByEquipParts), typeof(SelectTargetsByShape), typeof(SelectTargetsByChildren),
+                    typeof(SelectTargetsBySelfGroup),
                     // AttackPattern
                     typeof(ConfigAttackSphere), typeof(ConfigAttackCircle), typeof(ConfigAttackBox),
                     // EventOp

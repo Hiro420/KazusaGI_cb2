@@ -19,7 +19,7 @@ public class Ability
 			foreach (var invoke in proto.Invokes)
 			{
 				// Add to the InvokeNotifier list for proper forwarding
-				session.player!.ClientAbilityInitFinishNotifyList.AddEntry(invoke);
+				//session.player!.ClientAbilityInitFinishNotifyList.AddEntry(invoke);
 				
 				// Handle the ability invoke on the entity if it exists
 				if (session.entityMap.TryGetValue(invoke.EntityId, out GameServer.Entity? entity))
@@ -35,18 +35,18 @@ public class Ability
 				else
 				{
 					//session.c.LogWarning($"Failed to find entity {invoke.EntityId} for ability invoke");
-					session.SendPacket(new AbilityInvocationFailNotify()
-					{
-						Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
-						EntityId = invoke.EntityId,
-						Invoke = invoke,
-					});
+					//session.SendPacket(new AbilityInvocationFailNotify()
+					//{
+					//	Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
+					//	EntityId = invoke.EntityId,
+					//	Invoke = invoke,
+					//});
 				}
 			}
 		}
 		
 		// Send the notifications
-		session.player!.ClientAbilityInitFinishNotifyList.Notify();
+		//session.player!.ClientAbilityInitFinishNotifyList.Notify();
 	}
 
 
@@ -75,12 +75,12 @@ public class Ability
 			else
 			{
 				//session.c.LogWarning($"Failed to find entity {invoke.EntityId} for ability invoke");
-				session.SendPacket(new AbilityInvocationFailNotify()
-				{
-					Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
-					EntityId = invoke.EntityId,
-					Invoke = invoke,
-				});
+				//session.SendPacket(new AbilityInvocationFailNotify()
+				//{
+				//	Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
+				//	EntityId = invoke.EntityId,
+				//	Invoke = invoke,
+				//});
 			}
 		}
 

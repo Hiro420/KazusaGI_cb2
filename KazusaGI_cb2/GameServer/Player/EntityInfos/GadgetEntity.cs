@@ -5,6 +5,9 @@ using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.Lua;
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using System.Linq;
+using KazusaGI_cb2.Resource.Json.Avatar;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -19,6 +22,12 @@ namespace KazusaGI_cb2.GameServer
 		public float MaxHp { get; private set; } = 1f;
 
 		public GadgetState state => _gadgetLua?.state ?? GadgetState.Default;
+		
+		// Ability-related properties for gadgets
+		public Dictionary<uint, ConfigAbility> AbilityHashMap = new();
+		public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();
+		public HashSet<string> ActiveDynamicAbilities = new();
+		public Dictionary<string, HashSet<string>> UnlockedTalentParams = new();
 
 		public GadgetEntity(Session session, uint gadgetId, GadgetLua? gadgetInfo, Vector3? position, Vector3? rotation, uint? entityId = null)
 		: base(session, position, rotation, ProtEntityType.ProtEntityGadget, entityId)
@@ -28,6 +37,7 @@ namespace KazusaGI_cb2.GameServer
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
 			abilityManager = new GadgetAbilityManager(this);
+			InitAbilityStuff();
 		}
 
 		protected override uint? GetLevel() => level;
@@ -107,6 +117,41 @@ namespace KazusaGI_cb2.GameServer
 				param3 = (int)old
 			};
 			LuaManager.executeTriggersLua(session, GetEntityGroup(_gadgetLua.group_id)!, args);
+		}
+		
+		/// <summary>
+		/// Initialize ability system for this gadget entity
+		/// </summary>
+		public void InitAbilityStuff()
+		{
+			if (gadgetExcel == null || string.IsNullOrEmpty(gadgetExcel.jsonName))
+			{
+				return; // should not happen
+			}
+			if (
+				!MainApp.resourceManager.ConfigGadgetMap.TryGetValue(gadgetExcel.jsonName, out ConfigGadget? gconfig) || gconfig == null)
+			{ 
+				// should not happen
+				session.c.LogWarning($"{gadgetExcel.jsonName} does not exist in binoutput");
+				return;
+			}
+			if (gconfig.abilities == null)
+				// no abilities
+				return;
+			foreach (TargetAbility targetAbility in gconfig.abilities)
+			{
+				if (!MainApp.resourceManager.ConfigAbilityMap.TryGetValue(targetAbility.abilityName, out ConfigAbilityContainer? container))
+				{
+					session.c.LogError($"gadget ability {targetAbility.abilityName} not found in binoutput");
+					continue;
+				}
+
+				if (container.Default is ConfigAbility ability)
+				{
+					uint abilityHash = (uint)Ability.Utils.AbilityHash(ability.abilityName);
+					AbilityHashMap[abilityHash] = ability;
+				}
+			}
 		}
 	}
 }

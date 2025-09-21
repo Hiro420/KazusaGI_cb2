@@ -4,6 +4,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -83,20 +84,19 @@ public class AvatarSkillDepotExcelConfig
 		if (data.AbilityHashMap.TryGetValue(DepotId, out Dictionary<uint, ConfigAbility>? hashMap))
 			Abilities = hashMap;
 
-		foreach (ConfigAbilityContainer container in MainApp.resourceManager.ConfigAbilityAvatarMap["ConfigAbility_Avatar_AllDefault"])
+		var container_alldefault = MainApp.resourceManager.ConfigAbilityMap["ConfigAbility_Avatar_AllDefault"];
+		if (container_alldefault.Default is ConfigAbility config_alldefault)
 		{
-			if (container.Default is ConfigAbility config)
-			{
-				Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
-			}
+			Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config_alldefault.abilityName)] = config_alldefault;
 		}
+
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData.defaultAbilities.defaultAvatarAbilities)
 		{
-			foreach (ConfigAbilityContainer container in MainApp.resourceManager.ConfigAbilityAvatarMap["ConfigAbility_Avatar_Common"])
+			var container_common = MainApp.resourceManager.ConfigAbilityMap["ConfigAbility_Avatar_Common"];
 			{
-				if (container.Default is ConfigAbility config && config.abilityName == abilityName)
+				if (container_common.Default is ConfigAbility config_common)
 				{
-					Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
+					Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config_common.abilityName)] = config_common;
 				}
 			}
 		}
@@ -115,21 +115,18 @@ public class AvatarSkillDepotExcelConfig
 		if (data.AbilityHashMap.TryGetValue((int)this.id, out Dictionary<uint, ConfigAbility>? hashMap))
 			Abilities = hashMap;
 
-		foreach (ConfigAbilityContainer container in MainApp.resourceManager.ConfigAbilityAvatarMap["ConfigAbility_Avatar_AllDefault"])
+		var container_default = MainApp.resourceManager.ConfigAbilityMap["ConfigAbility_Avatar_AllDefault"];
+		if (container_default.Default is ConfigAbility config)
 		{
-			if (container.Default is ConfigAbility config)
-			{
-				Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
-			}
+			Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
 		}
+
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData.defaultAbilities.defaultAvatarAbilities)
 		{
-			foreach (ConfigAbilityContainer container in MainApp.resourceManager.ConfigAbilityAvatarMap["ConfigAbility_Avatar_Common"])
+			var container = MainApp.resourceManager.ConfigAbilityMap[abilityName];
+			if (container.Default is ConfigAbility configdefault)
 			{
-				if (container.Default is ConfigAbility config && config.abilityName == abilityName)
-				{
-					Abilities[(uint)GameServer.Ability.Utils.AbilityHash(config.abilityName)] = config;
-				}
+				Abilities[(uint)GameServer.Ability.Utils.AbilityHash(configdefault.abilityName)] = configdefault;
 			}
 		}
 

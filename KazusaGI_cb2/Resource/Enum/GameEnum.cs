@@ -562,6 +562,11 @@ public enum StackingType
 public enum PropertyModifierType
 {
 	None,
+	Actor_PhysicalMuteHurtDelta,
+	Actor_RockMuteHurtDelta,
+	Actor_IceMuteHurtDelta,
+	Actor_WindMuteHurtDelta,
+	Actor_GrassMuteHurtDelta,
 	Actor_CriticalHurtDelta,
 	Actor_CostStaminaRatio,
 	Animator_MoveSpeedRatio,
@@ -630,6 +635,18 @@ public enum PropertyModifierType
 	Actor_FlyDownSpeedRatio,
 	Actor_FlyForwardSpeedMaxRatio,
 	Actor_MaxStaminaDelta,
+	Entity_MassRatio,
+	Actor_HpThresholdRatio,
+	Actor_ElemReactSwirlFireDelta,
+	Actor_ElemReactSwirlIceDelta,
+	Actor_ElemReactSwirlElectricDelta,
+	Actor_ElemReactSConductDelta,
+	Actor_ElemReactMeltDelta,
+	Actor_ElemReactExplodeDelta,
+	Actor_ElemReactBurnDelta,
+	Actor_FireMuteHurtDelta,
+	Actor_ElecMuteHurtDelta,
+	Actor_WaterMuteHurtDelta,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -672,6 +689,7 @@ public enum CompareType
 	None,
 	XYZ,
 	XZ,
+	Y,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -715,6 +733,9 @@ public enum AbilityState
 	Limbo,
 	LockHP,
 	MuteTaunt,
+	ElementBurning,
+	Struggle,
+	ElementFrozen,
 }
 
 public enum LuaCallType
@@ -728,6 +749,7 @@ public enum VelocityForceType
 {
 	RushMoveType,
 	InertiaType,
+	RetreatAirType,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -804,6 +826,14 @@ public enum TriggerID
 	Switch,
 	Trigger_Burst,
 	Trigger_Hit,
+	ToShaderState1,
+	ToShaderState2,
+	ShiledBrokenTrigger,
+	BombThrowTrigger,
+	WeakStartTrigger,
+	WeakTrigger,
+	DefendTrigger,
+	AttackLanded,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -811,6 +841,7 @@ public enum PlayMode
 {
 	GlidingChallengeState,
 	FleurFairFall,
+	DvalinS01FlyState,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]

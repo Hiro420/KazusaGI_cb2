@@ -30,7 +30,10 @@ public class LoginStuff
             SecretKeySeed = Convert.ToUInt64(req.AccountUid)
         };
         session.player = new Player(session, 69);
-        session.player.AddAllAvatars(session);
+        session.player.InitTeams();
+        session.player.MpLevelEntity = new MpLevelEntity(session);
+		session.entityMap.Add(session.player.MpLevelEntity._EntityId, session.player.MpLevelEntity);
+		session.player.AddAllAvatars(session);
         session.player.AddAllMaterials(session, true);
         session.SendPacket(rsp);
         session.key = NewKey(Convert.ToUInt64(req.AccountUid));

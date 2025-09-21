@@ -1,0 +1,10 @@
+using Newtonsoft.Json;
+
+namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
+{
+    internal class StartDither : BaseAction
+    {
+        [JsonProperty] public readonly float ditherValue;
+        [JsonProperty] public readonly float duration;
+    }
+}

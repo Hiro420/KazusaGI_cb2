@@ -5,6 +5,11 @@ using System.Numerics;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource;
+using System.Linq;
+using System.Text.RegularExpressions;
+using KazusaGI_cb2.Resource.Json.Talent;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -17,6 +22,7 @@ namespace KazusaGI_cb2.GameServer
 		{
 			DbInfo = playerAvatar;
 			abilityManager = new AvatarAbilityManager(this);
+			InitAbilityStuff();
 		}
 
 
@@ -90,6 +96,92 @@ namespace KazusaGI_cb2.GameServer
 				Resource.ElementType.Rock => 2023,
 				_ => 2024
 			};
+		}
+		
+		/// <summary>
+		/// Initialize ability system for this avatar entity
+		/// </summary>
+		public void InitAbilityStuff()
+		{
+			var resourceManager = MainApp.resourceManager;
+			string name = $"Avatar_{DbInfo.AvatarName}";
+			
+			// Build AbilityConfigMap using TargetAbilities from ConfigAvatarMap
+			List<ConfigAbilityContainer> configContainerList = new();
+			
+			if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatar))
+			{
+				foreach (TargetAbility targetAbility in configAvatar.abilities)
+				{
+					if (!resourceManager.ConfigAbilityMap.TryGetValue(targetAbility.abilityName, out ConfigAbilityContainer? container))
+					{
+						session.c.LogError($"Avatar ability {targetAbility.abilityName} not found in binoutput");
+						continue;
+					}
+					configContainerList.Add(container);
+				}
+			}
+
+			if (configContainerList.Count > 0)
+			{
+				DbInfo.AbilityConfigMap.Add((int)DbInfo.SkillDepotId, configContainerList.ToArray());
+			}
+
+			var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.skills.Contains(w.Key) || 
+				DbInfo.avatarSkillDepotExcel.subSkills.Contains(w.Key) || DbInfo.avatarSkillDepotExcel.energySkill == w.Key)
+				.ToDictionary(x => x.Key, x => x.Value);
+
+			var talentList = resourceManager.AvatarTalentExcel.Where(w => DbInfo.avatarSkillDepotExcel.talents.Contains((uint)w.Value.talentId));
+			foreach (var i in talentList)
+			{
+				DbInfo.TalentData.Add(i.Value);
+			}
+
+			var dict1 = resourceManager.ProudSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.inherentProudSkillOpens.Exists(y => y.proudSkillGroupId == w.Value.proudSkillGroupId)).ToDictionary(x => x.Key, x => x.Value);
+
+			foreach (var i in dict1)
+			{
+				DbInfo.ProudSkillData.Add((int)i.Key, i.Value);
+			}
+
+			foreach (var skilldata in dictionary1.Values)
+			{
+				var proudData = resourceManager.ProudSkillExcel.Where(w => w.Value.proudSkillGroupId == skilldata.proudSkillGroupId);
+				foreach (var proud in proudData)
+				{
+					DbInfo.ProudSkillData[(int)proud.Key] = proud.Value;
+				}
+			}
+
+			if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
+				DbInfo.ConfigTalentMap[(int)DbInfo.SkillDepotId] = configTalents;
+
+			Dictionary<uint, ConfigAbility> abilityHashMap = new();
+
+			// add abilityGroup abilities (if player skill depot ability group)
+			if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatarForHash) && 
+			    DbInfo.AbilityConfigMap.ContainsKey((int)DbInfo.SkillDepotId))
+			{
+				foreach (TargetAbility ability in configAvatarForHash.abilities)
+				{
+					ConfigAbility? config = null;
+					foreach (var container in DbInfo.AbilityConfigMap[(int)DbInfo.SkillDepotId])
+					{
+						if (container.Default is ConfigAbility konfig && konfig.abilityName == ability.abilityName)
+						{
+							config = konfig;
+							break;
+						}
+					}
+					if (config == null) continue;
+					abilityHashMap[(uint)Ability.Utils.AbilityHash(ability.abilityName)] = config;
+				}
+			}
+			
+			if (abilityHashMap.Count > 0)
+			{
+				DbInfo.AbilityHashMap.Add((int)DbInfo.SkillDepotId, abilityHashMap);
+			}
 		}
 	}
 }

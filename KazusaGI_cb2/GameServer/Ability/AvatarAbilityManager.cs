@@ -16,7 +16,7 @@ public class AvatarAbilityManager : BaseAbilityManager
 	private AvatarEntity _avatar;
 	private AvatarSkillDepotExcelConfig CurDepot => MainApp.resourceManager.AvatarSkillDepotExcel[(Owner as AvatarEntity).DbInfo.SkillDepotId];
 	private int CurDepotId => (int)(Owner as AvatarEntity).DbInfo.SkillDepotId;
-	protected override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => CurDepot.Abilities;
+	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => CurDepot.Abilities;
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => CurDepot.AbilitySpecials;
 
 	public override HashSet<string> ActiveDynamicAbilities => [];//CurDepot.ActiveDynamicAbilities;

@@ -34,9 +34,10 @@ public class Player
     public TowerInstance? towerInstance { get; set; }
 	public InvokeNotifier<AbilityInvokeEntry> AbilityInvNotifyList;
 	public InvokeNotifier<CombatInvokeEntry> CombatInvNotifyList;
-	public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
+	//public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
+    public Entity MpLevelEntity;
 
-	public Player(Session session, uint uid)
+    public Player(Session session, uint uid)
     {
         Name = "KazusaPS";
         Level = 60;
@@ -51,14 +52,17 @@ public class Player
         this.Scene = new Scene(session, this);
         this.Pos = new();
         this.Rot = new();
-        for (int i = 0; i < 4; i++) // maybe later change to use config for max teams amount
-        {
-            this.teamList.Add(new PlayerTeam(session));
-        }
         AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
         CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
-        ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+        //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+    }
 
+    public void InitTeams()
+	{
+		for (int i = 0; i < 4; i++) // maybe later change to use config for max teams amount
+		{
+			this.teamList.Add(new PlayerTeam(session));
+		}
 	}
 
     /// <summary>
@@ -69,7 +73,7 @@ public class Player
     {
         AbilityInvNotifyList.Notify();
         CombatInvNotifyList.Notify();
-        ClientAbilityInitFinishNotifyList.Notify();
+        //ClientAbilityInitFinishNotifyList.Notify();
     }
 
     public void AddAllAvatars(Session session)
@@ -129,30 +133,33 @@ public class Player
 
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
-        
+
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
             TeamEnterInfo = new TeamEnterSceneInfo()
             {
                 TeamAbilityInfo = new(),
-                TeamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam)
-            },
+                TeamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam)// GetCurrentLineup().teamEntity._EntityId
+			},
             MpLevelEntityInfo = new()
             {
-                EntityId = session.GetEntityId(ProtEntityType.ProtEntityMpLevel),
+                EntityId = session.GetEntityId(ProtEntityType.ProtEntityMpLevel), //this.MpLevelEntity._EntityId,
                 AuthorityPeerId = 1,
                 AbilityInfo = new()
             }
         };
         foreach (PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)
         {
+            AvatarEntity avatarentity = FindEntityByPlayerAvatar(session, playerAvatar)!;
             notify.AvatarEnterInfoes.Add(new AvatarEnterSceneInfo()
             {
                 AvatarGuid = playerAvatar.Guid,
-                AvatarEntityId = FindEntityByPlayerAvatar(session, playerAvatar)!._EntityId,
+                AvatarEntityId = avatarentity._EntityId,
                 WeaponGuid = playerAvatar.EquipGuid,
-                WeaponEntityId = weaponDict[playerAvatar.EquipGuid].WeaponEntityId
+                WeaponEntityId = weaponDict[playerAvatar.EquipGuid].WeaponEntityId,
+                AvatarAbilityInfo = avatarentity.GetAbilityStates(),
+                WeaponAbilityInfo = new()
             });
         }
         session.SendPacket(notify);
@@ -168,7 +175,7 @@ public class Player
                 new TeamEntityInfo()
                 {
                     AuthorityPeerId = 69,
-                    TeamEntityId = GetCurrentLineup().teamEntityId,
+                    TeamEntityId = GetCurrentLineup().teamEntity._EntityId,
                     TeamAbilityInfo = new() // todo
 				}
             }

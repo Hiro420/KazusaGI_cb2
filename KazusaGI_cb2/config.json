@@ -1,0 +1,26 @@
+{
+  "GameServer": {
+    "ServerIP": "127.0.0.1",
+    "ServerPort": 6969,
+    "AutoCreateAccount": true
+  },
+  "WebServer": {
+    "ServerIP": "127.0.0.1",
+    "ServerPort": 3000,
+    "UseSSL": false
+  },
+  "AccountDataBase": {
+    "Uri": "mongodb://localhost:27017",
+    "Collection": "KazusaPS",
+    "UseInternal": true
+  },
+  "KeyStore": {
+    "Path": "./keystore.p12",
+    "Password": "Kazusa"
+  },
+  "LogOption": {
+    "Commands": true,
+    "Connections": true,
+    "Packets": true
+  }
+}

@@ -13,25 +13,30 @@ namespace KazusaGI_cb2.GameServer.Ability;
 
 public class GadgetAbilityManager : BaseAbilityManager
 {
-	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => throw new NotImplementedException();
+	private GadgetEntity _gadget => (GadgetEntity)Owner;
+	
+	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => _gadget.AbilitySpecials;
 
-	public override HashSet<string> ActiveDynamicAbilities => throw new NotImplementedException();
+	public override HashSet<string> ActiveDynamicAbilities => _gadget.ActiveDynamicAbilities;
 
-	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => throw new NotImplementedException();
+	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => _gadget.UnlockedTalentParams;
 
-	protected override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => throw new NotImplementedException();
+	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => _gadget.AbilityHashMap;
 
 	public GadgetAbilityManager(Entity owner) : base(owner)
 	{
 	}
 
-	public override Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
+	public override async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
-		return Task.CompletedTask;
+		// Use the base implementation for gadget ability handling
+		await base.HandleAbilityInvokeAsync(invoke);
 	}
 
 	public override void Initialize()
 	{
+		// Initialize gadget-specific ability behavior
+		base.Initialize();
 	}
 
 }

@@ -19,7 +19,7 @@ public class MonsterAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => throw new NotImplementedException();
 
-	protected override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => throw new NotImplementedException();
+	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => throw new NotImplementedException();
 
 	public MonsterAbilityManager(MonsterEntity owner) : base(owner)
 	{

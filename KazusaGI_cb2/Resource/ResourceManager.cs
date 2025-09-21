@@ -49,8 +49,9 @@ public class ResourceManager
 
 
 	public ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> AvatarTalentConfigDataMap { get; set; } // file name
-	public Dictionary<string, ConfigAbilityContainer[]> ConfigAbilityAvatarMap { get; set; } // file name
+	public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
     public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
+	public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }
 
 
 	public ResourceManager(string baseResourcePath = "resources")
@@ -66,7 +67,7 @@ public class ResourceManager
 
         // Log SUCCESS
         c.LogSuccess("Loaded Resources");
-    }
+	}
 
     public string GetLuaStringFromGroupId(uint groupId)
     {

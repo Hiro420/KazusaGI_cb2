@@ -19,7 +19,7 @@ public class Session
     public readonly Logger c;
     private readonly ENetClient _client;
     public Player player;
-    public Dictionary<ulong, Entity> entityMap;
+    public Dictionary<uint, Entity> entityMap;
     public IntPtr _peer;
     public byte[]? key;
     private ulong lastGuid = 0;
@@ -34,7 +34,7 @@ public class Session
     private JsonSerializer _JsonConverter;
 
 
-    public Session(ENetClient client, IntPtr peer)
+	public Session(ENetClient client, IntPtr peer)
     {
         _client = client;
         _peer = peer;

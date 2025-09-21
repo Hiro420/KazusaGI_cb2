@@ -23,12 +23,14 @@ public class PlayerTeam
     {
         this.Avatars = avatars;
         this.Leader = leader;
+        this.teamEntity = new TeamEntity(session);
         //this.entityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
-	}
+    }
 
     public PlayerTeam(Session session) 
     {
         this.Avatars = new();
+        this.teamEntity = new TeamEntity(session);
 		//this.entityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
 	}
 

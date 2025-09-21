@@ -199,7 +199,7 @@ public class Player
                 AvatarInfo = playerAvatar.ToAvatarInfo(),
                 PlayerUid = this.Uid,
                 SceneId = session.player!.SceneId,
-                // SceneAvatarInfo = playerAvatar.ToSceneAvatarInfo(session),
+                SceneAvatarInfo = playerAvatar.ToSceneAvatarInfo(),
             });
         }
         session.SendPacket(notify);

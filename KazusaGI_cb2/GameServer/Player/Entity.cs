@@ -23,6 +23,16 @@ namespace KazusaGI_cb2.GameServer
 		public Vector3 Rotation { get; set; }
 		public Session session { get; }
 
+		/// <summary>
+		/// Map of instanced modifiers, equivalent to Grasscutter's entity.getInstancedModifiers()
+		/// </summary>
+		public Dictionary<uint, AbilityModifierController> InstancedModifiers { get; } = new();
+
+		/// <summary>
+		/// List of instanced abilities, equivalent to Grasscutter's entity.getInstancedAbilities()
+		/// </summary>
+		public List<InstancedAbility> InstancedAbilities { get; } = new();
+
 		protected ProtEntityType EntityType { get; }
 
 		protected Entity(Session session, Vector3? position, Vector3? rotation, ProtEntityType entityType, uint? entityId = null)

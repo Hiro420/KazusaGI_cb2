@@ -39,6 +39,9 @@ namespace KazusaGI_cb2.GameServer
 			abilityManager = new GadgetAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
+			
+			// Initialize entity abilities to populate InstancedAbilities list
+			abilityManager.InitializeEntityAbilities(this);
 		}
 
 		protected override uint? GetLevel() => level;

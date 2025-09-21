@@ -205,7 +205,7 @@ public abstract class BaseAbilityManager
 				info = Serializer.Deserialize<AbilityMetaModifierChange>(data);
 				var modifierChange = info as AbilityMetaModifierChange;
 				logger.LogInfo($"Processing modifier change: Action={modifierChange?.Action}", false);
-				ProcessModifierAction(modifierChange);
+				ProcessModifierAction(invoke, modifierChange);
 				break;
 			// case AbilityInvokeArgument.AbilityMetaSpecialFloatArgument:
 			// 	info = Serializer.Deserialize<AbilityMetaSpecialFloatArgument>(data);
@@ -234,7 +234,9 @@ public abstract class BaseAbilityManager
 			case AbilityInvokeArgument.AbilityMetaModifierDurabilityChange:
 				info = Serializer.Deserialize<AbilityMetaModifierDurabilityChange>(data);
 				var durabilityChange = info as AbilityMetaModifierDurabilityChange;
-				//logger.LogInfo($"Processing modifier durability change: {invoke.Head.InstancedModifierId}", false);
+				logger.LogInfo($"Processing modifier durability change: ModifierId={invoke.Head.InstancedModifierId}, " +
+					$"ReduceDurability={durabilityChange?.ReduceDurability}, RemainDurability={durabilityChange?.RemainDurability}", false);
+				ProcessModifierDurabilityChange(invoke, durabilityChange);
 				break;
 			case AbilityInvokeArgument.AbilityActionTriggerAbility:
 				info = Serializer.Deserialize<AbilityActionTriggerAbility>(data);
@@ -243,7 +245,7 @@ public abstract class BaseAbilityManager
 				break;
 			case AbilityInvokeArgument.AbilityActionGenerateElemBall:
 				info = Serializer.Deserialize<AbilityActionGenerateElemBall>(data);
-				Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
+				//Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
 				break;
 			// case AbilityInvokeArgument.AbilityMixinWindZone:
 			// 	info = Serializer.Deserialize<AbilityMixinWindZone>(data);
@@ -277,25 +279,38 @@ public abstract class BaseAbilityManager
 	/// <summary>
 	/// Process modifier action (add/remove modifiers), similar to GC's modifier handling
 	/// </summary>
+	/// <param name="entry">The ability invoke entry</param>
 	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessModifierAction(AbilityMetaModifierChange? modifierChange)
+	protected virtual void ProcessModifierAction(AbilityInvokeEntry entry, AbilityMetaModifierChange modifierChange)
 	{
-		if (modifierChange == null)
+        if (modifierChange == null)
 		{
 			logger.LogWarning("ProcessModifierAction called with null modifierChange");
 			return;
 		}
-		
-		try
+
+		var head = entry.Head;
+
+		if (head.InstancedAbilityId == 0 || head.InstancedModifierId > 2000)
+			return; // Error: TODO: display error
+
+		var entity = Owner.session.entityMap.GetValueOrDefault(entry.EntityId);
+		if (entity == null)
+		{
+			logger.LogInfo($"Entity not found: {entry.EntityId}", false);
+			return;
+		}
+
+        try
 		{
 			switch (modifierChange.Action)
 			{
 				case ModifierAction.Added:
-					ProcessAddModifier(modifierChange);
+					ProcessAddModifier(entry, modifierChange, entity);
 					break;
 					
 				case ModifierAction.Removed:
-					ProcessRemoveModifier(modifierChange);
+					ProcessRemoveModifier(entry, modifierChange, entity);
 					break;
 					
 				default:
@@ -308,162 +323,191 @@ public abstract class BaseAbilityManager
 			logger.LogError($"Error processing modifier action: {ex.Message}");
 		}
 	}
-	
+
 	/// <summary>
-	/// Process adding a modifier to an entity
+	/// Process adding a modifier following Grasscutter's logic
 	/// </summary>
-	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessAddModifier(AbilityMetaModifierChange modifierChange)
+	protected virtual void ProcessAddModifier(AbilityInvokeEntry entry, AbilityMetaModifierChange modifierChange, Entity entity)
 	{
-		//logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
-		//	$"ParentAbility={modifierChange.ParentAbilityName?.Str}, " +
-		//	$"ApplyEntityId={modifierChange.ApplyEntityId}, " +
-		//	$"Properties={modifierChange.Properties.Count}", false);
-		
-		// Process modifier properties if any
-		if (modifierChange.Properties.Count > 0)
+		var head = entry.Head;
+		AbilityData? instancedAbilityData = null;
+		InstancedAbility? instancedAbility = null;
+
+		// First try to get ability from target entity if target is specified
+		if (head.TargetId != 0)
 		{
-			foreach (var property in modifierChange.Properties)
+			var targetEntity = Owner.session.entityMap.GetValueOrDefault(head.TargetId);
+			if (targetEntity != null)
 			{
-				//logger.LogInfo($"Modifier property: {property.Key?.Str} = {property.Value}", false);
-				
-				// Store property values in global value map for later use
-				if (property.Key != null)
+				if ((head.InstancedAbilityId - 1) < targetEntity.InstancedAbilities.Count)
 				{
-					var entry = new AbilityScalarValueEntry
-					{
-						Key = property.Key,
-						FloatValue = property.Value,
-						ValueType = AbilityScalarType.AbilityScalarTypeFloat
-					};
-					GlobalValueHashMap[property.Key] = entry;
+					instancedAbility = targetEntity.InstancedAbilities[(int)(head.InstancedAbilityId - 1)];
+					if (instancedAbility != null) 
+						instancedAbilityData = instancedAbility.Data;
 				}
 			}
 		}
-		
-		// Handle attached modifier if present
-		if (modifierChange.AttachedInstancedModifier != null 
-			&& modifierChange.AttachedInstancedModifier.OwnerEntityId != 0)
+
+		// If not found, search on entity base id
+		if (instancedAbilityData == null)
 		{
-			var attached = modifierChange.AttachedInstancedModifier;
-			//logger.LogInfo($"Attached modifier: InstancedId={attached.InstancedModifierId}, " +
-			//	$"OwnerEntityId={attached.OwnerEntityId}, IsInvalid={attached.IsInvalid}", false);
-		}
-		
-		// Implement actual modifier application to entity
-		try
-		{
-			// 1. Find the target entity by ApplyEntityId (default to owner if 0)
-			uint targetEntityId = modifierChange.ApplyEntityId != 0 ? modifierChange.ApplyEntityId : Owner._EntityId;
-			
-			// 2. Create the modifier tracking info
-			var modifierInfo = new ActiveModifierInfo(
-				modifierChange.ModifierLocalId, 
-				targetEntityId, 
-				modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId)
+			if (head.InstancedAbilityId > 0 && (head.InstancedAbilityId - 1) < entity.InstancedAbilities.Count)
 			{
-				ParentAbilityName = modifierChange.ParentAbilityName?.Str,
-				Properties = modifierChange.Properties.ToList()
-			};
-			
-			if (modifierChange.AttachedInstancedModifier != null)
-			{
-				modifierInfo.InstancedModifierId = modifierChange.AttachedInstancedModifier.InstancedModifierId;
-			}
-			
-			// 3. Track the modifier for later removal
-			ActiveModifiers[modifierChange.ModifierLocalId] = modifierInfo;
-			
-			// Track by entity for cleanup
-			if (!EntityModifiers.ContainsKey(targetEntityId))
-			{
-				EntityModifiers[targetEntityId] = new HashSet<int>();
-			}
-			EntityModifiers[targetEntityId].Add(modifierChange.ModifierLocalId);
-			
-			//logger.LogInfo($"Successfully applied and tracked modifier: LocalId={modifierChange.ModifierLocalId}, " +
-			//	$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
-				
-			// 4. Apply modifier effects
-			// For now, we're just tracking the modifier for proper lifecycle management
-		}
-		catch (Exception ex)
-		{
-			logger.LogError($"Failed to apply modifier: {ex.Message}");
-		}
-	}
-	
-	/// <summary>
-	/// Process removing a modifier from an entity
-	/// </summary>
-	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessRemoveModifier(AbilityMetaModifierChange modifierChange)
-	{
-		//logger.LogInfo($"Removing modifier: LocalId={modifierChange.ModifierLocalId}, " +
-		//	$"ParentAbility={modifierChange.ParentAbilityName?.Str}, " +
-		//	$"ApplyEntityId={modifierChange.ApplyEntityId}", false);
-		
-		// Handle attached modifier removal if present
-		if (modifierChange.AttachedInstancedModifier != null)
-		{
-			var attached = modifierChange.AttachedInstancedModifier;
-			//logger.LogInfo($"Removing attached modifier: InstancedId={attached.InstancedModifierId}, " +
-			//	$"OwnerEntityId={attached.OwnerEntityId}", false);
-		}
-		
-		// Implement actual modifier removal from entity
-		try
-		{
-			// 1. Find the modifier by LocalId
-			if (ActiveModifiers.TryGetValue(modifierChange.ModifierLocalId, out var modifierInfo))
-			{
-				// 2. Remove from entity tracking
-				if (EntityModifiers.TryGetValue(modifierInfo.ApplyEntityId, out var entityMods))
-				{
-					entityMods.Remove(modifierChange.ModifierLocalId);
-					
-					// Clean up empty entity entries
-					if (entityMods.Count == 0)
-					{
-						EntityModifiers.Remove(modifierInfo.ApplyEntityId);
-					}
-				}
-				
-				// 3. Remove from active modifiers
-				ActiveModifiers.Remove(modifierChange.ModifierLocalId);
-				
-				//logger.LogInfo($"Successfully removed modifier: LocalId={modifierChange.ModifierLocalId}, " +
-				//	$"TargetEntity={modifierInfo.ApplyEntityId}, Duration={(DateTime.UtcNow - modifierInfo.AppliedTime).TotalSeconds:F1}s", false);
-					
-				// 4. Remove modifier effects from entity (implement based on your entity system)
-				// Note: This would need to be implemented based on your specific entity system
+				instancedAbility = entity.InstancedAbilities[(int)(head.InstancedAbilityId - 1)];
+				if (instancedAbility != null) 
+					instancedAbilityData = instancedAbility.Data;
+				logger.LogInfo($"Found ability at index {head.InstancedAbilityId - 1}: '{instancedAbility.Data?.AbilityName}'", false);
 			}
 			else
 			{
-				//logger.LogWarning($"Modifier not found in active tracking: LocalId={modifierChange.ModifierLocalId}");
+				logger.LogWarning($"InstancedAbilityId {head.InstancedAbilityId} out of bounds. Entity has {entity.InstancedAbilities.Count} abilities (valid range: 1-{entity.InstancedAbilities.Count})");
+			}
+		}
+
+		// If still not found, search for the parent ability by name
+		if (instancedAbilityData == null)
+		{
+			var parentAbilityName = modifierChange.ParentAbilityName?.Str;
+			logger.LogInfo($"Searching for parent ability: '{parentAbilityName}'", false);
+			
+			if (!string.IsNullOrEmpty(parentAbilityName))
+			{
+				logger.LogInfo($"ConfigAbilityMap has {MainApp.resourceManager.ConfigAbilityMap.Count} abilities loaded", false);
 				
-				// Try to find by InstancedModifierId as fallback
-				if (modifierChange.AttachedInstancedModifier != null)
+				var configAbility = MainApp.resourceManager.ConfigAbilityMap.GetValueOrDefault(parentAbilityName);
+				if (configAbility != null)
 				{
-					var instancedId = modifierChange.AttachedInstancedModifier.InstancedModifierId;
-					var foundModifier = ActiveModifiers.Values.FirstOrDefault(m => m.InstancedModifierId == instancedId);
+                    ConfigAbility configAbilityAsAbility = (ConfigAbility)configAbility.Default;
+                    instancedAbilityData = new AbilityData(configAbilityAsAbility.abilityName, configAbilityAsAbility.modifiers);
+					logger.LogInfo($"Found ability by parent name: '{configAbilityAsAbility.abilityName}'", false);
+				}
+				else
+				{
+					logger.LogInfo($"Parent ability '{parentAbilityName}' not found in ConfigAbilityMap", false);
 					
-					if (foundModifier != null)
+					// Try to find a similar ability name (debug helper)
+					var similarAbilities = MainApp.resourceManager.ConfigAbilityMap.Keys
+						.Where(name => name.Contains(parentAbilityName) || parentAbilityName.Contains(name))
+						.Take(5)
+						.ToList();
+					
+					if (similarAbilities.Any())
 					{
-						// Remove using the found LocalId
-						RemoveModifierByLocalId(foundModifier.LocalId);
-						//logger.LogInfo($"Removed modifier by InstancedModifierId: {instancedId} -> LocalId={foundModifier.LocalId}", false);
-					}
-					else
-					{
-						//logger.LogWarning($"Modifier not found by InstancedModifierId: {instancedId}");
+						logger.LogInfo($"Similar abilities found: {string.Join(", ", similarAbilities)}", false);
 					}
 				}
 			}
 		}
+
+		if (instancedAbilityData == null)
+		{
+			logger.LogInfo($"No ability found for entity {entry.EntityId}, instancedAbilityId {head.InstancedAbilityId}, targetId {head.TargetId}", false);
+			logger.LogInfo($"Entity has {entity.InstancedAbilities.Count} instanced abilities", false);
+			
+			// Debug: Show the abilities that are available
+			if (entity.InstancedAbilities.Count > 0)
+			{
+				var abilityNames = entity.InstancedAbilities
+					.Take(5)
+					.Select((ability, index) => $"[{index + 1}] {ability.Data?.AbilityName ?? "null"}")
+					.ToList();
+				logger.LogInfo($"Available abilities: {string.Join(", ", abilityNames)}{(entity.InstancedAbilities.Count > 5 ? "..." : "")}", false);
+			}
+			return;
+		}
+
+		// Get modifier data by local id
+		var modifiers = instancedAbilityData.Modifiers?.Values.ToArray();
+		if (modifiers == null || modifierChange.ModifierLocalId >= modifiers.Length)
+		{
+			logger.LogInfo($"Modifier local id {modifierChange.ModifierLocalId} not found", false);
+			return;
+		}
+
+		var modifierData = modifiers[modifierChange.ModifierLocalId];
+
+		// Log the modifier addition
+		if (entity.InstancedModifiers.ContainsKey(head.InstancedModifierId))
+		{
+			logger.LogInfo($"Replacing entity {entry.EntityId} modifier id {head.InstancedModifierId} with ability {instancedAbilityData.AbilityName} modifier {modifierData}", false);
+		}
+		else
+		{
+			logger.LogInfo($"Adding entity {entry.EntityId} modifier id {head.InstancedModifierId} with ability {instancedAbilityData.AbilityName} modifier {modifierData}", false);
+		}
+
+		// Handle possible elemental burst (equivalent to onPossibleElementalBurst in Grasscutter)
+		// TODO: Implement elemental burst handling if needed
+
+		// Create modifier controller
+		var modifier = new AbilityModifierController(instancedAbility, instancedAbilityData, modifierData);
+
+		// Add to entity's instanced modifiers
+		entity.InstancedModifiers[head.InstancedModifierId] = modifier;
+
+		// TODO: Add all the ability modifier property change
+	}
+
+	/// <summary>
+	/// Process removing a modifier following Grasscutter's logic
+	/// </summary>
+	protected virtual void ProcessRemoveModifier(AbilityInvokeEntry entry, AbilityMetaModifierChange modifierChange, Entity entity)
+	{
+		var head = entry.Head;
+		
+		logger.LogInfo($"Removed on entity {entry.EntityId} modifier id {head.InstancedModifierId}: {entity.InstancedModifiers.GetValueOrDefault(head.InstancedModifierId)}", false);
+
+		// Remove from entity's instanced modifiers
+		entity.InstancedModifiers.Remove(head.InstancedModifierId);
+	}
+
+	/// <summary>
+	/// Process modifier durability change, tracking modifier durability/lifetime
+	/// </summary>
+	/// <param name="entry">The ability invoke entry</param>
+	/// <param name="durabilityChange">The durability change data</param>
+	protected virtual void ProcessModifierDurabilityChange(AbilityInvokeEntry entry, AbilityMetaModifierDurabilityChange? durabilityChange)
+	{
+		if (durabilityChange == null)
+		{
+			logger.LogWarning("ProcessModifierDurabilityChange called with null durabilityChange");
+			return;
+		}
+
+		var head = entry.Head;
+		var entity = Owner.session.entityMap.GetValueOrDefault(entry.EntityId);
+		
+		if (entity == null)
+		{
+			logger.LogInfo($"Entity not found for durability change: {entry.EntityId}", false);
+			return;
+		}
+
+		try
+		{
+			// Find the modifier controller
+			if (entity.InstancedModifiers.TryGetValue(head.InstancedModifierId, out var modifierController))
+			{
+				logger.LogInfo($"Updating durability for modifier {head.InstancedModifierId} on entity {entry.EntityId}: " +
+					$"Reduced by {durabilityChange.ReduceDurability}, remaining {durabilityChange.RemainDurability}", false);
+
+				// Here you could track durability in the modifier controller if needed
+				// For now, this is mainly informational logging
+				
+				// If durability reaches zero or below, the modifier might be automatically removed
+				if (durabilityChange.RemainDurability <= 0)
+				{
+					logger.LogInfo($"Modifier {head.InstancedModifierId} durability depleted, may be removed soon", false);
+				}
+			}
+			else
+			{
+				logger.LogInfo($"Modifier {head.InstancedModifierId} not found on entity {entry.EntityId} for durability change", false);
+			}
+		}
 		catch (Exception ex)
 		{
-			logger.LogError($"Failed to remove modifier: {ex.Message}");
+			logger.LogError($"Error processing modifier durability change: {ex.Message}");
 		}
 	}
 	
@@ -705,11 +749,184 @@ public abstract class BaseAbilityManager
 		}
 	}
 
+	/// <summary>
+	/// Add an ability to an entity by ability name, following Grasscutter's addAbilityToEntity pattern
+	/// </summary>
+	/// <param name="entity">The entity to add the ability to</param>
+	/// <param name="abilityName">The name of the ability to add</param>
+	public virtual void AddAbilityToEntity(Entity entity, string abilityName)
+	{
+		// Look up the ability data by name
+		if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(abilityName, out var abilityContainer))
+		{
+			var configAbility = (ConfigAbility)abilityContainer.Default;
+			AddAbilityToEntity(entity, configAbility);
+		}
+		else
+		{
+			logger.LogWarning($"Ability not found in ConfigAbilityMap: {abilityName}");
+		}
+	}
+
+	/// <summary>
+	/// Add an ability to an entity using ConfigAbility data, following Grasscutter's addAbilityToEntity pattern
+	/// </summary>
+	/// <param name="entity">The entity to add the ability to</param>
+	/// <param name="configAbility">The ability configuration to add</param>
+	public virtual void AddAbilityToEntity(Entity entity, ConfigAbility configAbility)
+	{
+		try
+		{
+			// Create ability data from the config
+			var abilityData = new AbilityData(configAbility.abilityName, configAbility.modifiers);
+			
+			// Create an instanced ability
+			var instancedAbility = new InstancedAbility(abilityData);
+			
+			// Add to the entity's instanced abilities list
+			entity.InstancedAbilities.Add(instancedAbility);
+			
+			// Generate an instance ID for this ability (similar to Grasscutter's approach)
+			uint instanceId = (uint)entity.InstancedAbilities.Count; // 1-based indexing to match Grasscutter
+			
+			// Add to the instance-to-hash mapping
+			uint abilityHash = Utils.AbilityHash(configAbility.abilityName);
+			InstanceToAbilityHashMap[instanceId] = abilityHash;
+			
+			// Add to the config ability hash map if not already present
+			if (!ConfigAbilityHashMap.ContainsKey(abilityHash))
+			{
+				ConfigAbilityHashMap[abilityHash] = configAbility;
+			}
+			
+			logger.LogInfo($"Added ability '{configAbility.abilityName}' to entity {entity._EntityId} at instance ID {instanceId}", false);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Failed to add ability '{configAbility.abilityName}' to entity {entity._EntityId}: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Initialize default abilities for an entity based on its type
+	/// This should be called when an entity is created or spawned
+	/// </summary>
+	/// <param name="entity">The entity to initialize abilities for</param>
+	public virtual void InitializeEntityAbilities(Entity entity)
+	{
+		try
+		{
+			// Add some common default abilities that most entities should have
+			// These would typically be determined by the entity type, avatar data, etc.
+			
+			// For now, add basic abilities that are commonly needed
+			var commonAbilities = new[]
+			{
+				"Default_Avatar_CommonAbility", // Example common ability
+				"Default_Entity_BaseAbility"    // Example base ability
+			};
+
+			foreach (var abilityName in commonAbilities)
+			{
+				// Only add if the ability exists in the resource manager
+				if (MainApp.resourceManager.ConfigAbilityMap.ContainsKey(abilityName))
+				{
+					AddAbilityToEntity(entity, abilityName);
+				}
+			}
+			
+			logger.LogInfo($"Initialized abilities for entity {entity._EntityId}: {entity.InstancedAbilities.Count} abilities added", false);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Failed to initialize abilities for entity {entity._EntityId}: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Get an ability from an entity by instance ID (1-based indexing to match Grasscutter)
+	/// </summary>
+	/// <param name="entity">The entity to get the ability from</param>
+	/// <param name="instancedAbilityId">The instance ID of the ability (1-based)</param>
+	/// <returns>The instanced ability if found, null otherwise</returns>
+	public virtual InstancedAbility? GetEntityAbility(Entity entity, uint instancedAbilityId)
+	{
+		if (instancedAbilityId == 0 || instancedAbilityId > entity.InstancedAbilities.Count)
+		{
+			return null;
+		}
+		
+		return entity.InstancedAbilities[(int)(instancedAbilityId - 1)]; // Convert to 0-based index
+	}
+
+	/// <summary>
+	/// Get ability data for a given ability name using the resource manager
+	/// </summary>
+	/// <param name="abilityName">The name of the ability</param>
+	/// <returns>The ability data if found, null otherwise</returns>
+	public virtual AbilityData? GetAbilityData(string abilityName)
+	{
+		if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(abilityName, out var abilityContainer))
+		{
+			var configAbility = (ConfigAbility)abilityContainer.Default;
+			return new AbilityData(configAbility.abilityName, configAbility.modifiers);
+		}
+		
+		return null;
+	}
+
 	protected virtual void AddAbility(AbilityAppliedAbility ability)
 	{
 		uint hash = ability.AbilityName.Hash;
 		uint instancedId = ability.InstancedAbilityId;
+		string abilityName = ability.AbilityName.Str ?? $"UnknownAbility_{hash}";
+		
+		// Update the instance mapping
 		InstanceToAbilityHashMap[instancedId] = hash;
+		
+		// Try to get the actual ability configuration
+		ConfigAbility? configAbility = null;
+		if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(abilityName, out var abilityContainer))
+		{
+			configAbility = (ConfigAbility)abilityContainer.Default;
+		}
+		else if (ConfigAbilityHashMap.TryGetValue(hash, out configAbility))
+		{
+			// Found in the local config hash map
+		}
+		
+		// Add the ability to the entity's InstancedAbilities if we have the config
+		if (configAbility != null)
+		{
+			// Ensure the InstancedAbilities list is large enough for this instance ID
+			while (Owner.InstancedAbilities.Count < instancedId)
+			{
+				// Add placeholder abilities for missing indices
+				Owner.InstancedAbilities.Add(new InstancedAbility(null));
+			}
+			
+			// Create ability data and instanced ability
+			var abilityData = new AbilityData(configAbility.abilityName, configAbility.modifiers);
+			var instancedAbility = new InstancedAbility(abilityData);
+			
+			// Set or add at the correct index (instancedId is 1-based)
+			if (instancedId <= Owner.InstancedAbilities.Count)
+			{
+				Owner.InstancedAbilities[(int)(instancedId - 1)] = instancedAbility;
+			}
+			else
+			{
+				Owner.InstancedAbilities.Add(instancedAbility);
+			}
+			
+			logger.LogInfo($"Added dynamic ability '{abilityName}' with instancedId {instancedId} (total abilities: {Owner.InstancedAbilities.Count})", false);
+		}
+		else
+		{
+			logger.LogWarning($"Could not find config for dynamic ability '{abilityName}' with hash {hash}");
+		}
+		
+		// Handle override maps
 		if (ability.OverrideMaps.Any())
 		{
 			foreach (var entry in ability.OverrideMaps)
@@ -729,7 +946,7 @@ public abstract class BaseAbilityManager
 						}
 						break;
 					default:
-						logger.LogError($"Unhandled value type {entry.ValueType} in Config {ConfigAbilityHashMap[hash].abilityName}");
+						logger.LogError($"Unhandled value type {entry.ValueType} in Config {configAbility?.abilityName ?? "Unknown"}");
 						break;
 				}
 			}

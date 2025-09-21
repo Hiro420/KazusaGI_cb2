@@ -34,6 +34,9 @@ namespace KazusaGI_cb2.GameServer
 			ReCalculateFightProps();
 			abilityManager = new MonsterAbilityManager(this);
 			abilityManager.Initialize();
+			
+			// Initialize entity abilities to populate InstancedAbilities list
+			abilityManager.InitializeEntityAbilities(this);
 		}
 
 		public void ApplyDamage(float amount, AttackResult attack) => Damage(amount);

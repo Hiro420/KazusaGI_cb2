@@ -24,6 +24,9 @@ namespace KazusaGI_cb2.GameServer
 			abilityManager = new AvatarAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
+			
+			// Initialize entity abilities to populate InstancedAbilities list
+			abilityManager.InitializeEntityAbilities(this);
 		}
 
 

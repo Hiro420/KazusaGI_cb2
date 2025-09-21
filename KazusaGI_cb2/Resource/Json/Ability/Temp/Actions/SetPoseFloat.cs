@@ -10,7 +10,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
         public string? poseFloatName { get; set; }
         
         [JsonProperty]
-        public float value { get; set; }
+        public object value { get; set; }
         
         [JsonProperty]
         public string? target { get; set; }

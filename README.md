@@ -80,12 +80,11 @@ class Handlers{
 - Press `Save Script`, a sound indicating success should be heard.
 
 ### Personal TODO List
+- fix traveler unable to perform normal attacks when first spawning
+- improve ScriptLib (e.g. CreateGadget)
 - tower (Spiral Abyss)
-- improve ScriptLib
 - NOT load quest-related lua groups
 - add all weapons + weapon switching
 - add relics
-- fix weapon being invisible when switching teams for a short time \
-(i have no idea what causes it. not gamebreaking, but absolutely annoying)
 
 - save data to db (wont happen anytime soon, unless someone wants to PR its implementation)

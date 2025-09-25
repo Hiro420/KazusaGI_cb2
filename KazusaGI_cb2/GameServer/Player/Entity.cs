@@ -23,6 +23,13 @@ namespace KazusaGI_cb2.GameServer
 		public Vector3 Rotation { get; set; }
 		public Session session { get; }
 
+		// Ability system properties
+		public List<Ability.Ability> InstancedAbilities { get; } = new List<Ability.Ability>();
+		public Dictionary<int, AbilityModifierController> InstancedModifiers { get; } = new Dictionary<int, AbilityModifierController>();
+		
+		// World reference - create a simple world instance for now
+		public World World => new World(session.player?.Scene, session.player);
+
 		protected ProtEntityType EntityType { get; }
 
 		protected Entity(Session session, Vector3? position, Vector3? rotation, ProtEntityType entityType, uint? entityId = null)

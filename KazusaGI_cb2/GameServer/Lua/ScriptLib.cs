@@ -17,6 +17,7 @@ public class ScriptLib
 {
     public int currentGroupId;
     public Session currentSession;
+    public static Entity? targetEntity;
 
     public int GetGroupMonsterCount(Session session)
     {
@@ -26,6 +27,20 @@ public class ScriptLib
                         monster._monsterInfo != null &&
                         monster._monsterInfo.group_id == currentGroupId)
             .Count();
+    }
+
+    public int SetGadgetState(Session session, int gadgetState)
+    {
+        if (targetEntity == null || targetEntity is not GadgetEntity)
+        {
+            Log("SetGadgetState failed: targetEntity is null or not a GadgetEntity");
+            return -1;
+        }
+        Log("Called SetGadgetState");
+        GadgetEntity gadget = (GadgetEntity)targetEntity;
+        gadget.ChangeState((GadgetState)gadgetState);
+        targetEntity = null;
+        return 0;
     }
 
     public int GetGroupMonsterCountByGroupId(Session session, int groupId)

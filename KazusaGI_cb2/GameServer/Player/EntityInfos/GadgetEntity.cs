@@ -71,12 +71,14 @@ namespace KazusaGI_cb2.GameServer
 				scriptLib.currentGroupId = (int)_gadgetLua!.group_id;
                 tGadgetLua["ScriptLib"] = scriptLib;
                 tGadgetLua["context_"] = session;
-				//groupLua["evt_"] = args.toTable();
+				ScriptLib.targetEntity = this;
+                //groupLua["evt_"] = args.toTable();
 
-				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+                string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
 						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
 						+ LuaManager.GetConfigEntityEnumAsLua() + "\n"
-						+ File.ReadAllText(luaPath);
+						+ File.ReadAllText(luaPath) + "\n"
+						+ $"OnClientExecuteReq(context_, {param1}, {param2}, {param3})";
 
 				try
 				{

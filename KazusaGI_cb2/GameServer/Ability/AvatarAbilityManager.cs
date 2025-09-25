@@ -13,20 +13,18 @@ namespace KazusaGI_cb2.GameServer.Ability;
 
 public class AvatarAbilityManager : BaseAbilityManager
 {
-	private AvatarEntity _avatar;
-	private SkillDepot CurDepot => (Owner as AvatarEntity).DbInfo.CurrentSkillDepot;
+	private readonly AvatarEntity avatar;
+	private SkillDepot CurDepot => avatar.DbInfo.CurrentSkillDepot;
 	private int CurDepotId => CurDepot.DepotId;
+	
 	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => CurDepot.Abilities;
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => CurDepot.AbilitySpecials;
-
 	public override HashSet<string> ActiveDynamicAbilities => CurDepot.ActiveDynamicAbilities;
-
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => CurDepot.UnlockedTalentParams;
-
 
 	public AvatarAbilityManager(AvatarEntity avatar) : base(avatar)
 	{
-		 _avatar = avatar;
+		this.avatar = avatar;
 	}
 
 	public override void Initialize()
@@ -35,10 +33,10 @@ public class AvatarAbilityManager : BaseAbilityManager
 		foreach (var proudSkill in CurDepot.InherentProudSkillOpens)
 		{
 			if (!string.IsNullOrEmpty(proudSkill.openConfig) && 
-				(Owner as AvatarEntity).DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) && 
-				(Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkill.openConfig))
+				avatar.DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) && 
+				avatar.DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkill.openConfig))
 			{
-				foreach (BaseConfigTalent config in (Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId][proudSkill.openConfig])
+				foreach (BaseConfigTalent config in avatar.DbInfo.ConfigTalentMap[CurDepotId][proudSkill.openConfig])
 				{
 					config.Apply(this, proudSkill.paramList);
 				}
@@ -60,16 +58,17 @@ public class AvatarAbilityManager : BaseAbilityManager
 					.FirstOrDefault(ps => ps.proudSkillGroupId == skillConfig.proudSkillGroupId && ps.level == skillLevel);
 					
 				if (proudSkillEntry != null && !string.IsNullOrEmpty(proudSkillEntry.openConfig) &&
-					(Owner as AvatarEntity).DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) &&
-					(Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkillEntry.openConfig))
+					avatar.DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) &&
+					avatar.DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkillEntry.openConfig))
 				{
-					foreach (BaseConfigTalent config in (Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId][proudSkillEntry.openConfig])
+					foreach (BaseConfigTalent config in avatar.DbInfo.ConfigTalentMap[CurDepotId][proudSkillEntry.openConfig])
 					{
 						config.Apply(this, proudSkillEntry.paramList);
 					}
 				}
 			}
 		}
+		
 		// Process energy skill
 		if (CurDepot.Element != null && CurDepot.EnergySkill != 0)
 		{
@@ -84,18 +83,20 @@ public class AvatarAbilityManager : BaseAbilityManager
 					.FirstOrDefault(ps => ps.proudSkillGroupId == skillConfig.proudSkillGroupId && ps.level == energySkillLevel);
 				
 				if (proudSkillEntry != null && !string.IsNullOrEmpty(proudSkillEntry.openConfig) && 
-					(Owner as AvatarEntity).DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) &&
-					(Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkillEntry.openConfig))
+					avatar.DbInfo.ConfigTalentMap.ContainsKey(CurDepotId) &&
+					avatar.DbInfo.ConfigTalentMap[CurDepotId].ContainsKey(proudSkillEntry.openConfig))
 				{
-					foreach (BaseConfigTalent config in (Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId][proudSkillEntry.openConfig])
+					foreach (BaseConfigTalent config in avatar.DbInfo.ConfigTalentMap[CurDepotId][proudSkillEntry.openConfig])
 					{
 						config.Apply(this, proudSkillEntry.paramList);
 					}
 				}
 			}
 		}
+		
 		base.Initialize();
 	}
+	
 	protected override void AddAbility(AbilityAppliedAbility ability)
 	{
 		base.AddAbility(ability);

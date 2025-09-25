@@ -24,6 +24,7 @@ namespace KazusaGI_cb2.GameServer
 			abilityManager = new AvatarAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
+			RegisterAbilities(); // Register abilities after initialization
 		}
 
 
@@ -193,6 +194,42 @@ namespace KazusaGI_cb2.GameServer
 			if (abilityHashMap.Count > 0)
 			{
 				DbInfo.AbilityHashMap.Add((int)DbInfo.SkillDepotId, abilityHashMap);
+			}
+		}
+		
+		/// <summary>
+		/// Register abilities with the ability manager after initialization
+		/// </summary>
+		private void RegisterAbilities()
+		{
+			if (abilityManager == null) return;
+			
+			// Register abilities from the skill depot
+			if (DbInfo.AbilityHashMap.TryGetValue((int)DbInfo.SkillDepotId, out var abilityHashMap))
+			{
+				uint instancedAbilityId = 1; // Start from 1, as 0 might be reserved
+				
+				foreach (var kvp in abilityHashMap)
+				{
+					uint abilityHash = kvp.Key;
+					ConfigAbility configAbility = kvp.Value;
+					
+					// Register in InstanceToAbilityHashMap
+					abilityManager.InstanceToAbilityHashMap[instancedAbilityId] = abilityHash;
+					
+					// Register in ConfigAbilityHashMap  
+					abilityManager.ConfigAbilityHashMap[abilityHash] = configAbility;
+					
+					session.c.LogInfo($"Registered ability: {configAbility.abilityName} (Hash: {abilityHash}, InstanceId: {instancedAbilityId})");
+					
+					instancedAbilityId++;
+				}
+				
+				session.c.LogInfo($"Total abilities registered for avatar {DbInfo.AvatarName}: {abilityHashMap.Count}");
+			}
+			else
+			{
+				session.c.LogWarning($"No ability hash map found for avatar {DbInfo.AvatarName} skill depot {DbInfo.SkillDepotId}");
 			}
 		}
 	}

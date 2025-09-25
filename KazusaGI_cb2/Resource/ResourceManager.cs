@@ -75,4 +75,18 @@ public class ResourceManager
         string directory = Path.Combine(this.loader._baseResourcePath, ResourceLoader.LuaSubPath, "Scene");
         return Directory.GetFiles(directory, $"*_group{groupId}.lua", SearchOption.AllDirectories).FirstOrDefault()!;
     }
+    
+    /// <summary>
+    /// Get ability data by name - compatibility method for AbilityManager
+    /// </summary>
+    /// <param name="abilityName">The ability name</param>
+    /// <returns>ConfigAbility if found, null otherwise</returns>
+    public ConfigAbility? GetAbilityData(string abilityName)
+    {
+        if (ConfigAbilityMap.TryGetValue(abilityName, out var container))
+        {
+            return container.Default as ConfigAbility;
+        }
+        return null;
+    }
 }

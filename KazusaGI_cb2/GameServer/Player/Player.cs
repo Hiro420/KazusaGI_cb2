@@ -36,6 +36,9 @@ public class Player
 	public InvokeNotifier<CombatInvokeEntry> CombatInvNotifyList;
 	//public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
     public Entity? MpLevelEntity;
+    
+    // Team management functionality - for compatibility with AbilityManager
+    public PlayerTeamManager TeamManager { get; private set; }
 
     public Player(Session session, uint uid)
     {
@@ -55,6 +58,9 @@ public class Player
         AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
         CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
         //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+        
+        // Initialize team manager
+        TeamManager = new PlayerTeamManager(this);
     }
 
     public void InitTeams()

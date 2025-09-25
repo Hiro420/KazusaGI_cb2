@@ -11,6 +11,20 @@ using System.Reflection;
 namespace KazusaGI_cb2.GameServer.Ability;
 
 /// <summary>
+/// Base player manager class that provides common functionality for all player-related managers.
+/// Each entity type (Avatar, Gadget, Monster) should have its own ability manager inheriting from this.
+/// </summary>
+public abstract class BasePlayerManager
+{
+    protected readonly Player player;
+    
+    protected BasePlayerManager(Player player)
+    {
+        this.player = player;
+    }
+}
+
+/// <summary>
 /// Information about an active modifier for tracking purposes
 /// </summary>
 public class ActiveModifierInfo
@@ -32,13 +46,13 @@ public class ActiveModifierInfo
 	}
 }
 
-public abstract class BaseAbilityManager
+public abstract class BaseAbilityManager : BasePlayerManager
 {
 	public static readonly Logger logger = new("AbilityManager");
 	protected readonly Entity Owner;
 	
 	/// <summary>
-	/// Static registry of mixin handlers, similar to GC's mixinHandlers HashMap
+	/// Static registry of mixin handlers
 	/// </summary>
 	private static readonly Dictionary<Type, AbilityMixinHandler> mixinHandlers = new();
 	
@@ -57,7 +71,7 @@ public abstract class BaseAbilityManager
 	public abstract Dictionary<string, HashSet<string>> UnlockedTalentParams { get; }
 	protected Dictionary<uint, string> AbilitySpecialHashMap = new(); // <hash, abilitySpecialName>
 
-	public Dictionary<AbilityString, AbilityScalarValueEntry> GlobalValueHashMap = new(); // <hash, value> TODO map the hashes to variable names
+	public Dictionary<AbilityString, AbilityScalarValueEntry> GlobalValueHashMap = new(); // <hash, value>
 	
 	/// <summary>
 	/// Tracks active modifiers by their local ID for easy removal
@@ -69,7 +83,7 @@ public abstract class BaseAbilityManager
 	/// </summary>
 	protected Dictionary<uint, HashSet<int>> EntityModifiers = new(); // <entityId, set of modifierLocalIds>
 	
-	protected BaseAbilityManager(Entity owner)
+	protected BaseAbilityManager(Entity owner) : base(owner.World.Host)
 	{
 		Owner = owner;
 	}
@@ -105,7 +119,7 @@ public abstract class BaseAbilityManager
 	}
 	
 	/// <summary>
-	/// Execute a mixin with the specified parameters, similar to GC's executeMixin method
+	/// Execute a mixin with the specified parameters
 	/// </summary>
 	/// <param name="ability">The ability containing the mixin</param>
 	/// <param name="mixin">The mixin to execute</param>
@@ -142,6 +156,8 @@ public abstract class BaseAbilityManager
 
 	public virtual void Initialize()
 	{
+		if (AbilitySpecials == null) return;
+		
 		foreach (var ability in AbilitySpecials)
 		{
 			uint ablHash = Utils.AbilityHash(ability.Key);
@@ -175,41 +191,49 @@ public abstract class BaseAbilityManager
 				&& InstanceToAbilityHashMap.TryGetValue(invoke.Head.InstancedAbilityId, out uint abilityHash)
 				&& ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
 			{
+				logger.LogInfo($"Found ability: {ability.abilityName} for LocalId={invoke.Head.LocalId}");
+				logger.LogInfo($"LocalIdToInvocationMap has {ability.LocalIdToInvocationMap?.Count ?? 0} entries");
+				
 				// Found specific ability - check for mixins/actions
-				if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
+				if (ability.LocalIdToInvocationMap?.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation) == true)
 				{
+					logger.LogInfo($"Found invocation for LocalId {invoke.Head.LocalId}: {invocation.GetType().Name}");
 					if (invocation is BaseAbilityMixin mixin)
 					{
+						logger.LogInfo($"Executing mixin: {mixin.GetType().Name}");
 						await ExecuteMixinAsync(ability, mixin, invoke.AbilityData, Owner);
 						return; // Mixin processed, don't continue to argument type processing
 					}
 					else
-					{
-						await invocation.Invoke(ability.abilityName, Owner);
+                    {
+                        logger.LogInfo($"Executing action: {invocation.GetType().Name}");
+                        await invocation.Invoke(ability.abilityName, Owner);
 						return; // Action processed, don't continue to argument type processing
 					}
 				}
+				else
+				{
+					logger.LogInfo($"LocalId {invoke.Head.LocalId} not found in LocalIdToInvocationMap (this is normal for modifier changes)");
+				}
 			}
-			
-			// If no specific ability action/mixin was found, continue to process by argument type
-			//logger.LogInfo($"No specific ability action found, processing by argument type: {invoke.ArgumentType}", false);
+			else
+			{
+				logger.LogInfo($"No ability found for InstancedAbilityId={invoke.Head.InstancedAbilityId}");
+			}
 		}
 		
 		switch (invoke.ArgumentType)
 		{
 			case AbilityInvokeArgument.AbilityNone:
 				logger.LogError($"Missing localId: {invoke.Head.LocalId}, ability: {invoke.Head.InstancedAbilityId}");
-				info = new AbilityMetaModifierChange(); // just to satisfy the compiler. In this case abilityData is empty anyway.
+				info = new AbilityMetaModifierChange();
 				break;
 			case AbilityInvokeArgument.AbilityMetaModifierChange:
 				info = Serializer.Deserialize<AbilityMetaModifierChange>(data);
 				var modifierChange = info as AbilityMetaModifierChange;
 				logger.LogInfo($"Processing modifier change: Action={modifierChange?.Action}", false);
-				ProcessModifierAction(modifierChange);
+				await ProcessModifierAction(modifierChange);
 				break;
-			// case AbilityInvokeArgument.AbilityMetaSpecialFloatArgument:
-			// 	info = Serializer.Deserialize<AbilityMetaSpecialFloatArgument>(data);
-			// 	break;
 			case AbilityInvokeArgument.AbilityMetaOverrideParam:
 				info = Serializer.Deserialize<AbilityScalarValueEntry>(data);
 				var asEntri = info as AbilityScalarValueEntry;
@@ -224,9 +248,6 @@ public abstract class BaseAbilityManager
 				var asEntry = info as AbilityScalarValueEntry;
 				GlobalValueHashMap[asEntry.Key] = asEntry;
 				break;
-			// case AbilityInvokeArgument.AbilityMetaAddOrGetAbilityAndTrigger:
-			// 	info = Serializer.Deserialize<AbilityMetaAddOrGetAbilityAndTrigger>(data);
-			// 	break;
 			case AbilityInvokeArgument.AbilityMetaAddNewAbility:
 				info = Serializer.Deserialize<AbilityMetaAddAbility>(data);
 				AddAbility((info as AbilityMetaAddAbility).Ability);
@@ -234,7 +255,6 @@ public abstract class BaseAbilityManager
 			case AbilityInvokeArgument.AbilityMetaModifierDurabilityChange:
 				info = Serializer.Deserialize<AbilityMetaModifierDurabilityChange>(data);
 				var durabilityChange = info as AbilityMetaModifierDurabilityChange;
-				//logger.LogInfo($"Processing modifier durability change: {invoke.Head.InstancedModifierId}", false);
 				break;
 			case AbilityInvokeArgument.AbilityActionTriggerAbility:
 				info = Serializer.Deserialize<AbilityActionTriggerAbility>(data);
@@ -245,61 +265,38 @@ public abstract class BaseAbilityManager
 				info = Serializer.Deserialize<AbilityActionGenerateElemBall>(data);
 				Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
 				break;
-			// case AbilityInvokeArgument.AbilityMixinWindZone:
-			// 	info = Serializer.Deserialize<AbilityMixinWindZone>(data);
-			// 	break;
-			// case AbilityInvokeArgument.AbilityMixinCostStamina:
-			// 	info = Serializer.Deserialize<AbilityMixinCostStamina>(data);
-			// 	break;
-			// case AbilityInvokeArgument.AbilityMixinGlobalShield:
-			// 	info = Serializer.Deserialize<AbilityMixinGlobalShield>(data);
-			// 	break;
-			// case AbilityInvokeArgument.AbilityMixinWindSeedSpawner:
-			// 	info = Serializer.Deserialize<AbilityMixinWindSeedSpawner>(data);
-			// 	break;
 			case AbilityInvokeArgument.AbilityMetaSetKilledSetate:
 				info = Serializer.Deserialize<AbilityMetaSetKilledState>(data);
 				AbilityMetaSetKilledState state = (AbilityMetaSetKilledState)info;
 				if (state.Killed)
 				{
-					//Owner.ForceKill();
+					// Handle kill state
 				}
 				break;
 			default:
 				logger.LogWarning($"Unhandled AbilityInvokeArgument: {invoke.ArgumentType}");
-				info = new AbilityMetaModifierChange(); // should not happen, just to satisfy the compiler
+				info = new AbilityMetaModifierChange();
 				break;
 		}
-
-		//logger.LogInfo($"RECV ability invoke: {invoke} {info.GetType()} {Owner._EntityId}", true);
 	}
 	
 	/// <summary>
-	/// Process modifier action (add/remove modifiers), similar to GC's modifier handling
+	/// Process modifier action (add/remove modifiers)
 	/// </summary>
 	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessModifierAction(AbilityMetaModifierChange? modifierChange)
+	protected virtual async Task ProcessModifierAction(AbilityMetaModifierChange? modifierChange)
 	{
-		if (modifierChange == null)
-		{
-			logger.LogWarning("ProcessModifierAction called with null modifierChange");
-			return;
-		}
+		if (modifierChange == null) return;
 		
 		try
 		{
 			switch (modifierChange.Action)
 			{
 				case ModifierAction.Added:
-					ProcessAddModifier(modifierChange);
+					await ProcessAddModifier(modifierChange);
 					break;
-					
 				case ModifierAction.Removed:
-					ProcessRemoveModifier(modifierChange);
-					break;
-					
-				default:
-					logger.LogWarning($"Unknown modifier action: {modifierChange.Action}");
+					await ProcessRemoveModifier(modifierChange);
 					break;
 			}
 		}
@@ -313,21 +310,13 @@ public abstract class BaseAbilityManager
 	/// Process adding a modifier to an entity
 	/// </summary>
 	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessAddModifier(AbilityMetaModifierChange modifierChange)
+	protected virtual async Task ProcessAddModifier(AbilityMetaModifierChange modifierChange)
 	{
-		//logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
-		//	$"ParentAbility={modifierChange.ParentAbilityName?.Str}, " +
-		//	$"ApplyEntityId={modifierChange.ApplyEntityId}, " +
-		//	$"Properties={modifierChange.Properties.Count}", false);
-		
-		// Process modifier properties if any
+		// Process modifier properties
 		if (modifierChange.Properties.Count > 0)
 		{
 			foreach (var property in modifierChange.Properties)
 			{
-				//logger.LogInfo($"Modifier property: {property.Key?.Str} = {property.Value}", false);
-				
-				// Store property values in global value map for later use
 				if (property.Key != null)
 				{
 					var entry = new AbilityScalarValueEntry
@@ -341,22 +330,11 @@ public abstract class BaseAbilityManager
 			}
 		}
 		
-		// Handle attached modifier if present
-		if (modifierChange.AttachedInstancedModifier != null 
-			&& modifierChange.AttachedInstancedModifier.OwnerEntityId != 0)
-		{
-			var attached = modifierChange.AttachedInstancedModifier;
-			//logger.LogInfo($"Attached modifier: InstancedId={attached.InstancedModifierId}, " +
-			//	$"OwnerEntityId={attached.OwnerEntityId}, IsInvalid={attached.IsInvalid}", false);
-		}
-		
-		// Implement actual modifier application to entity
+		// Track the modifier for proper lifecycle management
 		try
 		{
-			// 1. Find the target entity by ApplyEntityId (default to owner if 0)
 			uint targetEntityId = modifierChange.ApplyEntityId != 0 ? modifierChange.ApplyEntityId : Owner._EntityId;
 			
-			// 2. Create the modifier tracking info
 			var modifierInfo = new ActiveModifierInfo(
 				modifierChange.ModifierLocalId, 
 				targetEntityId, 
@@ -371,21 +349,16 @@ public abstract class BaseAbilityManager
 				modifierInfo.InstancedModifierId = modifierChange.AttachedInstancedModifier.InstancedModifierId;
 			}
 			
-			// 3. Track the modifier for later removal
 			ActiveModifiers[modifierChange.ModifierLocalId] = modifierInfo;
 			
-			// Track by entity for cleanup
 			if (!EntityModifiers.ContainsKey(targetEntityId))
 			{
 				EntityModifiers[targetEntityId] = new HashSet<int>();
 			}
 			EntityModifiers[targetEntityId].Add(modifierChange.ModifierLocalId);
 			
-			//logger.LogInfo($"Successfully applied and tracked modifier: LocalId={modifierChange.ModifierLocalId}, " +
-			//	$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
-				
-			// 4. Apply modifier effects
-			// For now, we're just tracking the modifier for proper lifecycle management
+			// Execute modifier's onAdded actions
+			await ExecuteModifierActions(modifierChange, true);
 		}
 		catch (Exception ex)
 		{
@@ -397,67 +370,34 @@ public abstract class BaseAbilityManager
 	/// Process removing a modifier from an entity
 	/// </summary>
 	/// <param name="modifierChange">The modifier change data</param>
-	protected virtual void ProcessRemoveModifier(AbilityMetaModifierChange modifierChange)
+	protected virtual async Task ProcessRemoveModifier(AbilityMetaModifierChange modifierChange)
 	{
-		//logger.LogInfo($"Removing modifier: LocalId={modifierChange.ModifierLocalId}, " +
-		//	$"ParentAbility={modifierChange.ParentAbilityName?.Str}, " +
-		//	$"ApplyEntityId={modifierChange.ApplyEntityId}", false);
-		
-		// Handle attached modifier removal if present
-		if (modifierChange.AttachedInstancedModifier != null)
-		{
-			var attached = modifierChange.AttachedInstancedModifier;
-			//logger.LogInfo($"Removing attached modifier: InstancedId={attached.InstancedModifierId}, " +
-			//	$"OwnerEntityId={attached.OwnerEntityId}", false);
-		}
-		
-		// Implement actual modifier removal from entity
 		try
 		{
-			// 1. Find the modifier by LocalId
+			// Execute modifier's onRemoved actions before removing
+			await ExecuteModifierActions(modifierChange, false);
+			
 			if (ActiveModifiers.TryGetValue(modifierChange.ModifierLocalId, out var modifierInfo))
 			{
-				// 2. Remove from entity tracking
 				if (EntityModifiers.TryGetValue(modifierInfo.ApplyEntityId, out var entityMods))
 				{
 					entityMods.Remove(modifierChange.ModifierLocalId);
-					
-					// Clean up empty entity entries
 					if (entityMods.Count == 0)
 					{
 						EntityModifiers.Remove(modifierInfo.ApplyEntityId);
 					}
 				}
 				
-				// 3. Remove from active modifiers
 				ActiveModifiers.Remove(modifierChange.ModifierLocalId);
-				
-				//logger.LogInfo($"Successfully removed modifier: LocalId={modifierChange.ModifierLocalId}, " +
-				//	$"TargetEntity={modifierInfo.ApplyEntityId}, Duration={(DateTime.UtcNow - modifierInfo.AppliedTime).TotalSeconds:F1}s", false);
-					
-				// 4. Remove modifier effects from entity (implement based on your entity system)
-				// Note: This would need to be implemented based on your specific entity system
 			}
-			else
+			else if (modifierChange.AttachedInstancedModifier != null)
 			{
-				//logger.LogWarning($"Modifier not found in active tracking: LocalId={modifierChange.ModifierLocalId}");
+				var instancedId = modifierChange.AttachedInstancedModifier.InstancedModifierId;
+				var foundModifier = ActiveModifiers.Values.FirstOrDefault(m => m.InstancedModifierId == instancedId);
 				
-				// Try to find by InstancedModifierId as fallback
-				if (modifierChange.AttachedInstancedModifier != null)
+				if (foundModifier != null)
 				{
-					var instancedId = modifierChange.AttachedInstancedModifier.InstancedModifierId;
-					var foundModifier = ActiveModifiers.Values.FirstOrDefault(m => m.InstancedModifierId == instancedId);
-					
-					if (foundModifier != null)
-					{
-						// Remove using the found LocalId
-						RemoveModifierByLocalId(foundModifier.LocalId);
-						//logger.LogInfo($"Removed modifier by InstancedModifierId: {instancedId} -> LocalId={foundModifier.LocalId}", false);
-					}
-					else
-					{
-						//logger.LogWarning($"Modifier not found by InstancedModifierId: {instancedId}");
-					}
+					RemoveModifierByLocalId(foundModifier.LocalId);
 				}
 			}
 		}
@@ -468,14 +408,12 @@ public abstract class BaseAbilityManager
 	}
 	
 	/// <summary>
-	/// Helper method to remove a modifier by its LocalId
+	/// Remove a modifier by its LocalId
 	/// </summary>
-	/// <param name="localId">The LocalId of the modifier to remove</param>
 	protected virtual bool RemoveModifierByLocalId(int localId)
 	{
 		if (ActiveModifiers.TryGetValue(localId, out var modifierInfo))
 		{
-			// Remove from entity tracking
 			if (EntityModifiers.TryGetValue(modifierInfo.ApplyEntityId, out var entityMods))
 			{
 				entityMods.Remove(localId);
@@ -485,7 +423,6 @@ public abstract class BaseAbilityManager
 				}
 			}
 			
-			// Remove from active modifiers
 			ActiveModifiers.Remove(localId);
 			return true;
 		}
@@ -493,100 +430,40 @@ public abstract class BaseAbilityManager
 	}
 	
 	/// <summary>
-	/// Remove all modifiers from a specific entity (useful for entity cleanup)
+	/// Remove all modifiers from a specific entity
 	/// </summary>
-	/// <param name="entityId">The entity ID to clean up</param>
 	public virtual void RemoveAllModifiersFromEntity(uint entityId)
 	{
 		if (EntityModifiers.TryGetValue(entityId, out var modifierIds))
 		{
-			var idsToRemove = modifierIds.ToList(); // Copy to avoid modification during iteration
-			
+			var idsToRemove = modifierIds.ToList();
 			foreach (var modifierId in idsToRemove)
 			{
 				RemoveModifierByLocalId(modifierId);
 			}
-			
-			logger.LogInfo($"Removed {idsToRemove.Count} modifiers from entity {entityId}", false);
 		}
 	}
 	
 	/// <summary>
-	/// Get information about active modifiers for debugging
+	/// Process trigger ability action
 	/// </summary>
-	/// <returns>Dictionary of active modifiers with their info</returns>
-	public virtual Dictionary<int, ActiveModifierInfo> GetActiveModifiers()
-	{
-		return new Dictionary<int, ActiveModifierInfo>(ActiveModifiers);
-	}
-	
-	/// <summary>
-	/// Get count of active modifiers
-	/// </summary>
-	/// <returns>Number of active modifiers</returns>
-	public virtual int GetActiveModifierCount()
-	{
-		return ActiveModifiers.Count;
-	}
-	
-	/// <summary>
-	/// Get modifiers for a specific entity
-	/// </summary>
-	/// <param name="entityId">The entity ID</param>
-	/// <returns>List of modifier info for the entity</returns>
-	public virtual List<ActiveModifierInfo> GetModifiersForEntity(uint entityId)
-	{
-		if (!EntityModifiers.TryGetValue(entityId, out var modifierIds))
-		{
-			return new List<ActiveModifierInfo>();
-		}
-		
-		return modifierIds
-			.Where(id => ActiveModifiers.ContainsKey(id))
-			.Select(id => ActiveModifiers[id])
-			.ToList();
-	}
-
-	/// <summary>
-	/// Process trigger ability action - triggers another ability
-	/// </summary>
-	/// <param name="triggerAction">The trigger action data</param>
 	protected virtual void ProcessTriggerAbilityAction(AbilityActionTriggerAbility? triggerAction)
 	{
-		if (triggerAction == null)
-		{
-			logger.LogWarning("ProcessTriggerAbilityAction called with null triggerAction");
-			return;
-		}
+		if (triggerAction == null) return;
+
+		logger.LogWarning($"ProcessTriggerAbilityAction {triggerAction.OtherId}");
 		
 		try
 		{
-			logger.LogInfo($"Triggering ability: OtherId={triggerAction.OtherId}", false);
-			
-			// Try to find the ability to trigger by OtherId
 			ConfigAbility? targetAbility = null;
 			if (InstanceToAbilityHashMap.TryGetValue(triggerAction.OtherId, out uint abilityHash)
 				&& ConfigAbilityHashMap.TryGetValue(abilityHash, out targetAbility))
 			{
-				logger.LogInfo($"Found target ability to trigger: {targetAbility.abilityName}", false);
-				
-				// Implement actual ability triggering by instance ID
 				_ = TriggerAbilityByInstance(triggerAction.OtherId, targetAbility);
 			}
-			else
+			else if (ConfigAbilityHashMap.TryGetValue(triggerAction.OtherId, out targetAbility))
 			{
-				// If not found by instance ID, it might be a direct ability hash
-				if (ConfigAbilityHashMap.TryGetValue(triggerAction.OtherId, out targetAbility))
-				{
-					logger.LogInfo($"Found target ability by direct hash: {targetAbility.abilityName}", false);
-					
-					// Implement direct ability hash triggering
-					_ = TriggerAbilityByHash(triggerAction.OtherId, targetAbility);
-				}
-				else
-				{
-					logger.LogWarning($"Could not find ability to trigger: OtherId={triggerAction.OtherId}");
-				}
+				_ = TriggerAbilityByHash(triggerAction.OtherId, targetAbility);
 			}
 		}
 		catch (Exception ex)
@@ -598,64 +475,10 @@ public abstract class BaseAbilityManager
 	/// <summary>
 	/// Trigger an ability by its instance ID
 	/// </summary>
-	/// <param name="instancedAbilityId">The instanced ability ID</param>
-	/// <param name="ability">The ability configuration</param>
 	protected virtual async Task TriggerAbilityByInstance(uint instancedAbilityId, ConfigAbility ability)
-	{
-		try
+    {
+        try
 		{
-			// Create a new ability invoke entry for the triggered ability
-			var triggerInvoke = new AbilityInvokeEntry
-			{
-				Head = new AbilityInvokeEntryHead
-				{
-					InstancedAbilityId = instancedAbilityId,
-					LocalId = 0, // Set to 0 for triggered abilities unless specific LocalId is needed
-					TargetId = Owner._EntityId
-				},
-				EntityId = Owner._EntityId,
-				ArgumentType = AbilityInvokeArgument.AbilityNone, // Default to None for triggered abilities
-				AbilityData = Array.Empty<byte>() // Empty data for basic trigger
-			};
-			
-			logger.LogInfo($"Triggering ability by instance: {ability.abilityName} (InstanceId={instancedAbilityId})", false);
-			
-			// Process the triggered ability through the normal invoke flow
-			await HandleAbilityInvokeAsync(triggerInvoke);
-			
-			logger.LogSuccess($"Successfully triggered ability: {ability.abilityName}", false);
-		}
-		catch (Exception ex)
-		{
-			logger.LogError($"Failed to trigger ability by instance {instancedAbilityId}: {ex.Message}");
-		}
-	}
-	
-	/// <summary>
-	/// Trigger an ability by its hash directly
-	/// </summary>
-	/// <param name="abilityHash">The ability hash</param>
-	/// <param name="ability">The ability configuration</param>
-	protected virtual async Task TriggerAbilityByHash(uint abilityHash, ConfigAbility ability)
-	{
-		try
-		{
-			// Find or create an instance ID for this ability
-			uint instancedAbilityId = 0;
-			
-			// Try to find existing instance ID for this ability hash
-			var existingInstance = InstanceToAbilityHashMap.FirstOrDefault(kvp => kvp.Value == abilityHash);
-			if (existingInstance.Key != 0)
-			{
-				instancedAbilityId = existingInstance.Key;
-			}
-			else
-			{
-				logger.LogWarning($"Instance ID {instancedAbilityId} for ability hash {abilityHash}");
-				return; // Cannot trigger ability without a valid instance ID
-			}
-			
-			// Create a new ability invoke entry for the triggered ability
 			var triggerInvoke = new AbilityInvokeEntry
 			{
 				Head = new AbilityInvokeEntryHead
@@ -669,12 +492,38 @@ public abstract class BaseAbilityManager
 				AbilityData = Array.Empty<byte>()
 			};
 			
-			logger.LogInfo($"Triggering ability by hash: {ability.abilityName} (Hash={abilityHash}, InstanceId={instancedAbilityId})", false);
-			
-			// Process the triggered ability through the normal invoke flow
 			await HandleAbilityInvokeAsync(triggerInvoke);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Failed to trigger ability by instance {instancedAbilityId}: {ex.Message}");
+		}
+	}
+	
+	/// <summary>
+	/// Trigger an ability by its hash directly
+	/// </summary>
+	protected virtual async Task TriggerAbilityByHash(uint abilityHash, ConfigAbility ability)
+	{
+		try
+		{
+			var existingInstance = InstanceToAbilityHashMap.FirstOrDefault(kvp => kvp.Value == abilityHash);
+			if (existingInstance.Key == 0) return;
 			
-			logger.LogSuccess($"Successfully triggered ability by hash: {ability.abilityName}", false);
+			var triggerInvoke = new AbilityInvokeEntry
+			{
+				Head = new AbilityInvokeEntryHead
+				{
+					InstancedAbilityId = existingInstance.Key,
+					LocalId = 0,
+					TargetId = Owner._EntityId
+				},
+				EntityId = Owner._EntityId,
+				ArgumentType = AbilityInvokeArgument.AbilityNone,
+				AbilityData = Array.Empty<byte>()
+			};
+			
+			await HandleAbilityInvokeAsync(triggerInvoke);
 		}
 		catch (Exception ex)
 		{
@@ -733,6 +582,83 @@ public abstract class BaseAbilityManager
 						break;
 				}
 			}
+		}
+	}
+	
+	/// <summary>
+	/// Execute actions associated with a modifier being added or removed
+	/// </summary>
+	/// <param name="modifierChange">The modifier change data</param>
+	/// <param name="isAdding">True if adding modifier (execute onAdded), false if removing (execute onRemoved)</param>
+	protected virtual async Task ExecuteModifierActions(AbilityMetaModifierChange modifierChange, bool isAdding)
+	{
+		try
+		{
+			// Find the parent ability
+			string? parentAbilityName = modifierChange.ParentAbilityName?.Str;
+			if (string.IsNullOrEmpty(parentAbilityName))
+			{
+				logger.LogInfo("No parent ability name for modifier action execution");
+				return;
+			}
+			
+			// Find the ability configuration
+			var abilityHash = ConfigAbilityHashMap.FirstOrDefault(kvp => kvp.Value.abilityName == parentAbilityName);
+			if (abilityHash.Value == null)
+			{
+				logger.LogInfo($"Parent ability {parentAbilityName} not found in ConfigAbilityHashMap");
+				return;
+			}
+			
+			ConfigAbility ability = abilityHash.Value;
+			
+			// Find the specific modifier in the ability
+			if (ability.modifiers == null)
+			{
+				logger.LogInfo($"No modifiers found in ability {parentAbilityName}");
+				return;
+			}
+			
+			// Try to find modifier by name (this might need adjustment based on how modifier names are stored)
+			AbilityModifier? modifier = null;
+			foreach (var mod in ability.modifiers.Values)
+			{
+				// For now, we'll execute the first modifier's actions
+				// TODO: Find the correct modifier based on modifierChange data
+				modifier = mod;
+				break;
+			}
+			
+			if (modifier == null)
+			{
+				logger.LogInfo($"No matching modifier found in ability {parentAbilityName}");
+				return;
+			}
+			
+			// Execute the appropriate actions
+			BaseAction[]? actionsToExecute = isAdding ? modifier.onAdded : modifier.onRemoved;
+			if (actionsToExecute == null || actionsToExecute.Length == 0)
+			{
+				logger.LogInfo($"No {(isAdding ? "onAdded" : "onRemoved")} actions for modifier in {parentAbilityName}");
+				return;
+			}
+			
+			logger.LogInfo($"Executing {actionsToExecute.Length} {(isAdding ? "onAdded" : "onRemoved")} actions for modifier in {parentAbilityName}");
+			
+			// Execute each action
+			foreach (var action in actionsToExecute)
+			{
+				if (action == null) continue;
+				
+				logger.LogInfo($"Executing modifier action: {action.GetType().Name}");
+				
+				// Use the action's Invoke method directly
+				await action.Invoke(parentAbilityName, Owner, null);
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"Error executing modifier actions: {ex.Message}");
 		}
 	}
 }

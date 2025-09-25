@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Linq;
 using Newtonsoft.Json;
 using KazusaGI_cb2.Resource;
 
@@ -27,6 +28,12 @@ public class ConfigAbility : BaseConfigAbility
 
     [JsonIgnore] public ConcurrentDictionary<uint, IInvocation> LocalIdToInvocationMap;
     [JsonIgnore] public SortedList<uint, AbilityModifier> ModifierList;
+    
+    // Compatibility property for AbilityManager
+    [JsonIgnore] public Dictionary<int, BaseAction> LocalIdToAction => 
+        LocalIdToInvocationMap
+            .Where(kvp => kvp.Value is BaseAction)
+            .ToDictionary(kvp => (int)kvp.Key, kvp => (BaseAction)kvp.Value);
 
     internal async Task Initialize()
     {

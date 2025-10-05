@@ -1,22 +1,20 @@
-﻿using KazusaGI_cb2.GameServer.Tower;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KazusaGI_cb2.GameServer.Handlers;
+namespace KazusaGI_cb2.GameServer.Handlers.Recv;
 
-public class Tower
+internal class HandleTowerAllDataReq
 {
-    public static uint curScheduleId = MainApp.resourceManager.TowerScheduleExcel.Keys.Last();
     [Packet.PacketCmdId(PacketId.TowerAllDataReq)]
-    public static void HandleGetShopReq(Session session, Packet packet)
+    public static void OnPacket(Session session, Packet packet)
     {
+        uint curScheduleId = MainApp.resourceManager.TowerScheduleExcel.Keys.Last();
         TowerAllDataRsp rsp = new TowerAllDataRsp()
         {
             TowerScheduleId = curScheduleId,
@@ -35,7 +33,7 @@ public class Tower
             TowerFloorRecord towerFloorRecord = new TowerFloorRecord()
             {
                 FloorId = floor,
-                FloorStarRewardProgress = (uint)(3*towerLevelExcelConfigs.Count)
+                FloorStarRewardProgress = (uint)(3 * towerLevelExcelConfigs.Count)
             };
             for (int i = 0; i < towerLevelExcelConfigs.Count; i++)
             {
@@ -54,29 +52,5 @@ public class Tower
             }
         }
         session.SendPacket(rsp);
-    }
-
-    [Packet.PacketCmdId(PacketId.TowerEnterLevelReq)]
-    public static void HandleTowerEnterLevelReq(Session session, Packet packet)
-    {
-        TowerEnterLevelReq towerEnterLevelReq = packet.GetDecodedBody<TowerEnterLevelReq>();
-        if (session.player!.towerInstance == null)
-        {
-            session.c.LogError("TowerInstance is null");
-            session.SendPacket(new TowerEnterLevelRsp()
-            {
-                Retcode = -1,
-            });
-            return;
-        }
-        session.player.towerInstance.HandleTowerEnterLevelReq(packet);
-    }
-
-    [Packet.PacketCmdId(PacketId.TowerTeamSelectReq)]
-    public static void HandleTowerTeamSelectReq(Session session, Packet packet)
-    {
-        TowerTeamSelectReq towerTeamSelectReq = packet.GetDecodedBody<TowerTeamSelectReq>();
-        session.player!.towerInstance = new TowerInstance(session, session.player);
-        session.player!.towerInstance.HandleTowerTeamSelectReq(packet);
     }
 }

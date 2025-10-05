@@ -228,7 +228,7 @@ public class ResourceLoader
 
     public Dictionary<string, ConfigAbilityContainer> LoadConfigAbilityMap()
     {
-		Dictionary<string, ConfigAbilityContainer> ret = new();
+        ConcurrentDictionary<string, ConfigAbilityContainer> ret = new();
 
 		string[] filePaths = Directory.GetFiles(
 			Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp"),
@@ -251,7 +251,7 @@ public class ResourceLoader
 			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
 		});
 
-		return ret;
+		return ret.ToDictionary();
 	}
 
 	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()

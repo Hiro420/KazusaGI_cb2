@@ -12,47 +12,6 @@ namespace KazusaGI_cb2.GameServer.Handlers;
 
 public class Investigation
 {
-    [Packet.PacketCmdId(PacketId.GetInvestigationMonsterReq)]
-    public static void HandleDungeonEntryInfoReq(Session session, Packet packet)
-    {
-        List<MonsterLua> alreadySpawned = session.player!.Scene.alreadySpawnedMonsters;
-        GetInvestigationMonsterReq req = packet.GetDecodedBody<GetInvestigationMonsterReq>();
-        GetInvestigationMonsterRsp rsp = new GetInvestigationMonsterRsp();
-        foreach (uint cityId in req.CityIdLists)
-        {
-            List<InvestigationMonsterConfig> investigationMonsters = MainApp.resourceManager.InvestigationMonsterExcel.Values.Where(x => x.cityId == cityId).ToList();
-            foreach (InvestigationMonsterConfig investigationMonster in investigationMonsters)
-            {
-                SceneGroupLua sceneGroup = GetSceneGroupLua(investigationMonster.groupIdList[0], alreadySpawned);
-                MonsterLua? monsterLua = GetFirstMonster(investigationMonster.monsterId, sceneGroup, alreadySpawned);
-                if (monsterLua == null)
-                {
-					rsp.MonsterLists.Add(new InvestigationMonster()
-					{
-						Id = investigationMonster.id,
-						CityId = investigationMonster.cityId,
-						Level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel,
-						IsAlive = false,
-						Pos = Session.Vector3ToVector(GetFirstMonster(investigationMonster.monsterId, sceneGroup, new List<MonsterLua>())!.pos),
-						MaxBossChestNum = 69420,
-						WorldResin = 1
-					});
-					continue;
-                }
-                rsp.MonsterLists.Add(new InvestigationMonster()
-                {
-                    Id = investigationMonster.id,
-                    CityId = investigationMonster.cityId,
-                    Level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel,
-                    IsAlive = true,
-                    Pos = Session.Vector3ToVector(monsterLua.pos),
-                    MaxBossChestNum = 69420,
-                    WorldResin = 1
-                });
-            }
-        }
-        session.SendPacket(rsp);
-    }
 
     public static void SendInvestigationNotify(Session session)
     {

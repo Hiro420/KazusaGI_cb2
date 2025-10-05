@@ -109,4 +109,10 @@ public class ConfigAbility : BaseConfigAbility
             await Task.WhenAll(tasks);
         }
     }
+
+    public AbilityModifier? GetModifierByName(string name)
+    {
+        if (modifiers == null) return null;
+        return modifiers.TryGetValue(name, out var m) ? m : null;
+    }
 }

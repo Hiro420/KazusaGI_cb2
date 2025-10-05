@@ -27,6 +27,8 @@ using System.Text.RegularExpressions;
 using KazusaGI_cb2.Resource.Json.Avatar;
 using System.Collections.Concurrent;
 using System.Collections;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json.Converters;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -234,24 +236,47 @@ public class ResourceLoader
 			Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp"),
 			"*.json", SearchOption.AllDirectories
 		);
-		var tasks = new List<Task>();
-		filePaths.AsParallel().ForAll(async file =>
-		{
+        // Use a thread-safe parallel loop and avoid sharing JsonTextReader/Serializer across threads.
+        // JsonConvert.DeserializeObject is thread-safe for independent calls.
+        System.Threading.Tasks.Parallel.ForEach(filePaths, file =>
+        {
             try
             {
-				var filePath = new FileInfo(file);
-				using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
-				using var jr = new JsonTextReader(sr);
-				var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
-				foreach (var c in fileData)
-				{
+                string data = File.ReadAllText(file);
+                var fileData = JsonConvert.DeserializeObject<ConfigAbilityContainer[]>(data, new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Objects,
+                    SerializationBinder = Serializer.SerializationBinder,
+                });
+                if (fileData == null) return;
+                foreach (var c in fileData)
+                {
+                    if (c?.Default == null) continue;
                     var ability = (ConfigAbility)c.Default;
-					ret[ability.abilityName] = c;
-				}
-			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
-		});
+                    if (string.IsNullOrEmpty(ability?.abilityName)) continue;
+                    ret[ability.abilityName] = c;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Failed to load ability file: {file}");
+                Console.WriteLine(e);
+            }
+        });
 
-		return ret.ToDictionary();
+
+        JsonSerializerSettings settings = new JsonSerializerSettings()
+        {
+            Formatting = Formatting.Indented,
+            NullValueHandling = NullValueHandling.Ignore,
+        };
+
+        settings.Converters.Add(new StringEnumConverter());
+
+        File.WriteAllText("Ability.json", JsonConvert.SerializeObject(ret, settings));
+
+		// Convert ConcurrentDictionary to a normal Dictionary before returning.
+		return new Dictionary<string, ConfigAbilityContainer>(ret);
 	}
 
 	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()

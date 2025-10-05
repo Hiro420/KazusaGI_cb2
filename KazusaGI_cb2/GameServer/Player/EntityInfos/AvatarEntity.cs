@@ -194,6 +194,25 @@ namespace KazusaGI_cb2.GameServer
 			{
 				DbInfo.AbilityHashMap.Add((int)DbInfo.SkillDepotId, abilityHashMap);
 			}
+
+			// Instantiate runtime ability instances for this avatar so InstanceToAbilityHashMap is populated
+			if (DbInfo.AbilityConfigMap.TryGetValue((int)DbInfo.SkillDepotId, out var containers))
+			{
+				foreach (var container in containers)
+				{
+					if (container.Default is ConfigAbility cfg)
+					{
+						abilityManager.AddAbilityToEntity(this, cfg);
+					}
+				}
+			}
+			else if (abilityHashMap.Count > 0)
+			{
+				foreach (var cfg in abilityHashMap.Values)
+				{
+					abilityManager.AddAbilityToEntity(this, cfg);
+				}
+			}
 		}
 	}
 }

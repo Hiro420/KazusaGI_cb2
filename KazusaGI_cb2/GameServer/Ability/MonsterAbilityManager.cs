@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
-public class MonsterAbilityManager : BaseAbilityManager
+public class MonsterAbilityManager : AbilityManager
 {
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => throw new NotImplementedException();
 
@@ -19,7 +19,7 @@ public class MonsterAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => throw new NotImplementedException();
 
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => throw new NotImplementedException();
+	public static Dictionary<uint, ConfigAbility> ConfigAbilityHashMap;
 
 	public MonsterAbilityManager(MonsterEntity owner) : base(owner)
 	{

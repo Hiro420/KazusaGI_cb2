@@ -178,6 +178,8 @@ namespace KazusaGI_cb2.GameServer
 				{
 					uint abilityHash = (uint)Ability.Utils.AbilityHash(ability.abilityName);
 					AbilityHashMap[abilityHash] = ability;
+					// Instantiate runtime ability on the gadget entity so InstanceToAbilityHashMap is filled
+					abilityManager.AddAbilityToEntity(this, ability);
 				}
 			}
 		}

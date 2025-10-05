@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
-public class GadgetAbilityManager : BaseAbilityManager
+public class GadgetAbilityManager : AbilityManager
 {
 	private GadgetEntity _gadget => (GadgetEntity)Owner;
 	
@@ -21,7 +21,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => _gadget.UnlockedTalentParams;
 
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => _gadget.AbilityHashMap;
+	public static Dictionary<uint, ConfigAbility> ConfigAbilityHashMap;
 
 	public GadgetAbilityManager(Entity owner) : base(owner)
 	{

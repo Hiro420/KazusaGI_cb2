@@ -11,12 +11,12 @@ using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
-public class AvatarAbilityManager : BaseAbilityManager
+public class AvatarAbilityManager : AbilityManager
 {
 	private AvatarEntity _avatar;
 	private SkillDepot CurDepot => (Owner as AvatarEntity).DbInfo.CurrentSkillDepot;
 	private int CurDepotId => CurDepot.DepotId;
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => CurDepot.Abilities;
+	public static Dictionary<uint, ConfigAbility> ConfigAbilityHashMap;
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => CurDepot.AbilitySpecials;
 
 	public override HashSet<string> ActiveDynamicAbilities => CurDepot.ActiveDynamicAbilities;

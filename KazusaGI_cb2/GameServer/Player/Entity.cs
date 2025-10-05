@@ -17,7 +17,11 @@ namespace KazusaGI_cb2.GameServer
 
 	public abstract class Entity
 	{
-		public BaseAbilityManager? abilityManager = null;
+		public AbilityManager? abilityManager = null;
+		// Instanced abilities attached to this entity (1-based instanced IDs correspond to list index+1)
+		public List<KazusaGI_cb2.GameServer.Ability.Ability> InstancedAbilities { get; } = new();
+		// Instanced modifiers attached to this entity: <instancedModifierId, controller>
+		public Dictionary<uint, KazusaGI_cb2.GameServer.Ability.AbilityModifierController> InstancedModifiers { get; } = new();
 		public uint _EntityId { get; protected set; }
 		public Vector3 Position { get; set; }
 		public Vector3 Rotation { get; set; }
@@ -126,7 +130,7 @@ namespace KazusaGI_cb2.GameServer
 						AbilityName = new AbilityString()
 						{
 							Hash = appliedAbility,
-							Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
+							Str = AbilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
 						},
 					};
 					ret.AppliedAbilities.Add(proto);

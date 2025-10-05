@@ -4,6 +4,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -33,6 +34,116 @@ namespace KazusaGI_cb2.GameServer
 
 			ReCalculateFightProps();
 			abilityManager = new MonsterAbilityManager(this);
+			// Instance abilities from monster config and affixes before Initialize so InstanceToAbilityHashMap is populated
+			// Affix and default abilities
+			// Try to replicate Grasscutter ordering: preAdd affixes -> default non-humanoid -> config abilities -> elite -> postAdd affixes -> level config abilities
+			// Pre-add affixes
+			var resourceManager = MainApp.resourceManager;
+			List<uint>? affixes = null;
+			// group affixes
+			// NOTE: session.player may be null during monster creation in some paths; try to retrieve group config safely
+			try
+			{
+				var optionalGroup = session.player?.Scene?.GetGroup((int)(_monsterInfo?.group_id ?? 0));
+				// if available, collect affixes
+				// we will fallback to _monsterInfo data below
+			}
+			catch { }
+
+			//if (_monsterInfo != null)
+			//{
+			//	affixes = _monsterInfo.affix;
+			//}
+
+			//if (affixes != null)
+			//{
+			//	foreach (var affixId in affixes)
+			//	{
+			//		// Pre-add handling: in Grasscutter some affixes are preAdd; we'll conservatively add all here
+			//		if (resourceManager.ConfigMonsterAffixMap.TryGetValue((int)affixId, out var affixCfg))
+			//		{
+			//			if (affixCfg.abilityName != null)
+			//			{
+			//				foreach (var name in affixCfg.abilityName)
+			//				{
+			//					var container = MainApp.resourceManager.ConfigAbilityMap.GetValueOrDefault(name);
+			//					if (container?.Default is ConfigAbility cfg)
+			//						abilityManager.AddAbilityToEntity(this, cfg);
+			//				}
+			//			}
+			//		}
+			//	}
+			//}
+
+			// Add default abilities from GlobalCombatData so monsters have baseline abilities
+			try
+			{
+				var defaults = resourceManager.GlobalCombatData?.defaultAbilities;
+				if (defaults != null)
+				{
+					// Default non-humanoid move abilities
+					if (defaults.nonHumanoidMoveAbilities != null)
+					{
+						foreach (var name in defaults.nonHumanoidMoveAbilities)
+						{
+							if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(name, out var cont) && cont.Default is ConfigAbility cfg)
+								abilityManager.AddAbilityToEntity(this, cfg);
+						}
+					}
+
+					// Elite monster default ability (if this monster is elite)
+					if ((_monsterInfo?.isElite ?? false) && !string.IsNullOrEmpty(defaults.monterEliteAbilityName))
+					{
+						var name = defaults.monterEliteAbilityName;
+						if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(name, out var cont) && cont.Default is ConfigAbility cfg)
+							abilityManager.AddAbilityToEntity(this, cfg);
+					}
+
+					// Level-based default abilities
+					if (defaults.levelDefaultAbilities != null)
+					{
+						foreach (var name in defaults.levelDefaultAbilities)
+						{
+							if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(name, out var cont) && cont.Default is ConfigAbility cfg)
+								abilityManager.AddAbilityToEntity(this, cfg);
+						}
+					}
+				}
+			}
+			catch { }
+
+			// Config entity monster abilities
+			//if (excelConfig != null)
+			//{
+			//	// Monster config abilities are stored in BinOutput; try to pull them
+			//	// If the mapping exists in resource manager, iterate
+			//	if (MainApp.resourceManager.ConfigMonsterMap.TryGetValue((int)_monsterId, out var configMonster))
+			//	{
+			//		if (configMonster.abilities != null)
+			//		{
+			//			foreach (var abil in configMonster.abilities)
+			//			{
+			//				if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(abil.abilityName, out var cont) && cont.Default is ConfigAbility cfg)
+			//					abilityManager.AddAbilityToEntity(this, cfg);
+			//			}
+			//		}
+			//	}
+			//}
+
+			// Level entity based abilities
+			//var levelEntityConfig = MainApp.resourceManager.LevelEntityConfig;
+			//if (levelEntityConfig != null && MainApp.resourceManager.ConfigLevelEntityMap.TryGetValue(levelEntityConfig, out var lvlCfg))
+			//{
+			//	if (lvlCfg.MonsterAbilities != null)
+			//	{
+			//		foreach (var mb in lvlCfg.MonsterAbilities)
+			//		{
+			//			if (MainApp.resourceManager.ConfigAbilityMap.TryGetValue(mb.abilityName, out var cont) && cont.Default is ConfigAbility cfg)
+			//				abilityManager.AddAbilityToEntity(this, cfg);
+			//		}
+			//	}
+			//}
+
 			abilityManager.Initialize();
 		}
 

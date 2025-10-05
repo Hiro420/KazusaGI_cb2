@@ -39,6 +39,7 @@ public class ResourceLoader
     public static readonly string LuaSubPath = "Lua";
     public string _baseResourcePath;
     private ResourceManager _resourceManager;
+    private Logger logger = new("Resource Loader");
 
     public string LuaPath => Path.Combine(_baseResourcePath, LuaSubPath);
 
@@ -141,8 +142,12 @@ public class ResourceLoader
         JsonConvert.DeserializeObject<List<WorldLevelExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "WorldLevelExcelConfigData.json"))
         )!.ToDictionary(data => data.level);
+	private Dictionary<uint, SceneExcelConfig> LoadSceneExcel() =>
+		JsonConvert.DeserializeObject<List<SceneExcelConfig>>(
+			File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "SceneExcelConfigData.json"))
+		)!.ToDictionary(data => data.id);
 
-    private Dictionary<uint, WeaponCurveExcelConfig> LoadWeaponCurveExcelConfig() =>
+	private Dictionary<uint, WeaponCurveExcelConfig> LoadWeaponCurveExcelConfig() =>
         JsonConvert.DeserializeObject<List<WeaponCurveExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "WeaponCurveExcelConfigData.json"))
         )!.ToDictionary(data => data.level);
@@ -152,7 +157,12 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterCurveExcelConfigData.json"))
         )!.ToDictionary(data => data.level);
 
-    private Dictionary<uint, ProudSkillExcelConfig> LoadProudSkillExcel() =>
+	private Dictionary<uint, MonsterAffixExcelConfig> LoadMonsterAffixExcel() =>
+		JsonConvert.DeserializeObject<List<MonsterAffixExcelConfig>>(
+			File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterAffixExcelConfigData.json"))
+		)!.ToDictionary(data => data.id);
+
+	private Dictionary<uint, ProudSkillExcelConfig> LoadProudSkillExcel() =>
         JsonConvert.DeserializeObject<List<ProudSkillExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ProudSkillExcelConfigData.json"))
         )!.ToDictionary(
@@ -228,7 +238,102 @@ public class ResourceLoader
         return new ConcurrentDictionary<uint, ScenePoint>(scenePoints);
 	}
 
-    public Dictionary<string, ConfigAbilityContainer> LoadConfigAbilityMap()
+    public Dictionary<uint, LevelEntityConfig> LoadConfigLevelEntityMap()
+    {
+		ConcurrentDictionary<string, LevelEntityConfig> levelConfigs = new();
+		ConcurrentDictionary<uint, LevelEntityConfig> ret = new();
+
+		string[] filePaths = Directory.GetFiles(
+			Path.Combine(_baseResourcePath, JsonSubPath, "LevelEntity"),
+			"*.json", SearchOption.AllDirectories
+		);
+
+		// Use a thread-safe parallel loop and avoid sharing JsonTextReader/Serializer across threads.
+		// JsonConvert.DeserializeObject is thread-safe for independent calls.
+		_ = System.Threading.Tasks.Parallel.ForEach(filePaths, file =>
+		{
+			try
+			{
+				string data = File.ReadAllText(file);
+				Dictionary<string, LevelEntityConfig> jsondata = JsonConvert.DeserializeObject<Dictionary<string, LevelEntityConfig>>(data)!;
+                // couldnt use Concat here, massive skill issue
+                foreach (var kvp in jsondata)
+                { levelConfigs[kvp.Key] = kvp.Value; }
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine($"Failed to load LevelEntity file: {file}");
+				Console.WriteLine(e);
+			}
+		});
+
+
+		JsonSerializerSettings settings = new JsonSerializerSettings()
+		{
+			Formatting = Formatting.Indented,
+			NullValueHandling = NullValueHandling.Ignore,
+		};
+
+		settings.Converters.Add(new StringEnumConverter());
+
+		File.WriteAllText("LevelEntity.json", JsonConvert.SerializeObject(levelConfigs, settings));
+
+        foreach (KeyValuePair<uint, SceneExcelConfig> keyValuePair in this.LoadSceneExcel())
+        {
+            if (string.IsNullOrEmpty(keyValuePair.Value.levelEntityConfig))
+                continue;
+            if (!levelConfigs.TryGetValue(keyValuePair.Value.levelEntityConfig, out LevelEntityConfig? config))
+            {
+                logger.LogError($"LevelEntity binoutput is missing {keyValuePair.Value.levelEntityConfig} for scene id {keyValuePair.Key}");
+                continue;
+			}
+            ret[keyValuePair.Key] = config;
+		}
+
+        return new Dictionary<uint, LevelEntityConfig>(ret);
+	}
+
+	public Dictionary<string, ConfigMonster> LoadConfigMonsterMap()
+    {
+		ConcurrentDictionary<string, ConfigMonster> ret = new();
+
+		string[] filePaths = Directory.GetFiles(
+			Path.Combine(_baseResourcePath, JsonSubPath, "Monster"),
+			"*.json", SearchOption.AllDirectories
+		);
+		// Use a thread-safe parallel loop and avoid sharing JsonTextReader/Serializer across threads.
+		// JsonConvert.DeserializeObject is thread-safe for independent calls.
+		System.Threading.Tasks.Parallel.ForEach(filePaths, file =>
+		{
+			try
+			{
+				string data = File.ReadAllText(file);
+                string filename = Path.GetFileName(file).Replace(".json", "");
+                ret[filename] = JsonConvert.DeserializeObject<ConfigMonster>(data);
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine($"Failed to load ability file: {file}");
+				Console.WriteLine(e);
+			}
+		});
+
+
+		JsonSerializerSettings settings = new JsonSerializerSettings()
+		{
+			Formatting = Formatting.Indented,
+			NullValueHandling = NullValueHandling.Ignore,
+		};
+
+		settings.Converters.Add(new StringEnumConverter());
+
+		File.WriteAllText("Monster.json", JsonConvert.SerializeObject(ret, settings));
+
+		// Convert ConcurrentDictionary to a normal Dictionary before returning.
+		return new Dictionary<string, ConfigMonster>(ret);
+	}
+
+	public Dictionary<string, ConfigAbilityContainer> LoadConfigAbilityMap()
     {
         ConcurrentDictionary<string, ConfigAbilityContainer> ret = new();
 
@@ -265,15 +370,15 @@ public class ResourceLoader
         });
 
 
-        JsonSerializerSettings settings = new JsonSerializerSettings()
-        {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore,
-        };
+        //JsonSerializerSettings settings = new JsonSerializerSettings()
+        //{
+        //    Formatting = Formatting.Indented,
+        //    NullValueHandling = NullValueHandling.Ignore,
+        //};
 
-        settings.Converters.Add(new StringEnumConverter());
+        //settings.Converters.Add(new StringEnumConverter());
 
-        File.WriteAllText("Ability.json", JsonConvert.SerializeObject(ret, settings));
+        //File.WriteAllText("Ability.json", JsonConvert.SerializeObject(ret, settings));
 
 		// Convert ConcurrentDictionary to a normal Dictionary before returning.
 		return new Dictionary<string, ConfigAbilityContainer>(ret);
@@ -583,7 +688,8 @@ public class ResourceLoader
         _resourceManager.AvatarTalentExcel = this.LoadAvatarTalentExcelConfig();
 		_resourceManager.WeaponExcel = this.LoadWeaponExcel();
         _resourceManager.ScenePoints = LoadScenePointsAsync().Result;
-        _resourceManager.MonsterExcel = this.loadMonsterExcel();
+		_resourceManager.SceneExcel = LoadSceneExcel();
+		_resourceManager.MonsterExcel = this.loadMonsterExcel();
         _resourceManager.GadgetExcel = this.LoadGadgetExcel();
         _resourceManager.MaterialExcel = this.LoadMaterialExcel();
         _resourceManager.GachaExcel = this.LoadGachaExcel();
@@ -592,7 +698,8 @@ public class ResourceLoader
         _resourceManager.WeaponCurveExcel = this.LoadWeaponCurveExcelConfig();
         _resourceManager.WorldLevelExcel = this.LoadWorldLevelExcel();
         _resourceManager.MonsterCurveExcel = this.LoadMonsterCurveExcelConfig();
-        _resourceManager.ShopGoodsExcel = this.LoadShopGoodsExcelConfig();
+		_resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
+		_resourceManager.ShopGoodsExcel = this.LoadShopGoodsExcelConfig();
         _resourceManager.ShopPlanExcel = this.LoadShopPlanExcelConfig();
         _resourceManager.DungeonExcel = this.LoadDungeonExcelConfig();
         _resourceManager.DailyDungeonExcel = this.LoadDailyDungeonConfig();
@@ -610,6 +717,8 @@ public class ResourceLoader
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
 		_resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
+        _resourceManager.ConfigMonsterMap = this.LoadConfigMonsterMap();
+        _resourceManager.ConfigLevelEntityMap = this.LoadConfigLevelEntityMap();
 	}
 
 

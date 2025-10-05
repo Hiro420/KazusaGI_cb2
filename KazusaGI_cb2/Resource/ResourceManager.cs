@@ -25,7 +25,8 @@ public class ResourceManager
     public Dictionary<uint, WeaponExcelConfig> WeaponExcel { get; set; }
     public Dictionary<uint, MonsterExcelConfig> MonsterExcel { get; set; }
     public Dictionary<uint, GadgetExcelConfig> GadgetExcel { get; set; }
-    public ConcurrentDictionary<uint, ScenePoint> ScenePoints { get; set; }
+    public Dictionary<uint, SceneExcelConfig> SceneExcel { get; set; }
+	public ConcurrentDictionary<uint, ScenePoint> ScenePoints { get; set; }
     public ConcurrentDictionary<uint, SceneLua> SceneLuas { get; set; }
     public Dictionary<uint, MaterialExcelConfig> MaterialExcel { get; set; }
     public Dictionary<uint, GachaExcel> GachaExcel { get; set; }
@@ -45,7 +46,8 @@ public class ResourceManager
     public Dictionary<uint, TowerFloorExcelConfig> TowerFloorExcel { get; set; }
     public Dictionary<uint, TowerScheduleExcelConfig> TowerScheduleExcel { get; set; }
     public Dictionary<uint, TowerLevelExcelConfig> TowerLevelExcel { get; set; }
-    public Dictionary<uint, string> GadgetLuaConfig { get; set; }
+	public Dictionary<uint, MonsterAffixExcelConfig> MonsterAffixExcel { get; set; }
+	public Dictionary<uint, string> GadgetLuaConfig { get; set; }
     public GlobalCombatData GlobalCombatData { get; set; }
 
 
@@ -53,6 +55,8 @@ public class ResourceManager
 	public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
     public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
 	public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }
+    public Dictionary<string, ConfigMonster> ConfigMonsterMap { get; set; }
+    public Dictionary<uint, LevelEntityConfig> ConfigLevelEntityMap { get; set; }
 
 
 	public ResourceManager(string baseResourcePath = "resources")

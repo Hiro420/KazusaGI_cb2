@@ -221,6 +221,11 @@ public class Player
 
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)
     {
+        foreach (var entity in session.entityMap.Values)
+        {
+            if (entity.abilityManager != null)
+                entity.abilityManager.IsInited = false;
+        }
         uint oldSceneId = session.player!.SceneId;
         session.player!.Scene.isFinishInit = false;
         ResourceManager resourceManager = MainApp.resourceManager;

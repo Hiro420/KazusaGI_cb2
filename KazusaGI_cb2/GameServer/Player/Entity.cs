@@ -110,36 +110,36 @@ namespace KazusaGI_cb2.GameServer
 
 		public AbilitySyncStateInfo GetAbilityStates()
 		{
-			if (abilityManager == null)
+			if (abilityManager == null || abilityManager.IsInited == false)
 				return new();
 			AbilitySyncStateInfo ret = new AbilitySyncStateInfo()
 			{
-				//IsInited = true // todo: acutally check
-			};
-		
-			//if (abilityManager.InstanceToAbilityHashMap != null)
-			//{
-			//	foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
-			//	{
-			//		AbilityAppliedAbility proto = new AbilityAppliedAbility()
-			//		{
-			//			AbilityName = new AbilityString()
-			//			{
-			//				Hash = appliedAbility,
-			//				Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
-			//			},
-			//		};
-			//		ret.AppliedAbilities.Add(proto);
-			//	}
-			//}
-		
-			//if (abilityManager.GlobalValueHashMap != null)
-			//{
-			//	foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
-			//	{
-			//		ret.DynamicValueMaps.Add(dynamicValue.Value);
-			//	}
-			//}
+                IsInited = abilityManager.IsInited,
+            };
+
+			if (abilityManager.InstanceToAbilityHashMap != null)
+			{
+				foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
+				{
+					AbilityAppliedAbility proto = new AbilityAppliedAbility()
+					{
+						AbilityName = new AbilityString()
+						{
+							Hash = appliedAbility,
+							Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
+						},
+					};
+					ret.AppliedAbilities.Add(proto);
+				}
+			}
+
+			if (abilityManager.GlobalValueHashMap != null)
+			{
+				foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
+				{
+					ret.DynamicValueMaps.Add(dynamicValue.Value);
+				}
+			}
 
 			return ret;
 		}

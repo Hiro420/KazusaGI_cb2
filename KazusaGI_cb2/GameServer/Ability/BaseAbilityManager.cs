@@ -73,11 +73,14 @@ public abstract class BaseAbilityManager
 	{
 		Owner = owner;
 	}
-	
-	/// <summary>
-	/// Register all mixin handlers by scanning assemblies for classes with AbilityMixinAttribute
-	/// </summary>
-	private static void RegisterMixinHandlers()
+
+	// Dunno how to handle it
+	public bool IsInited { get; set; } = false;
+
+    /// <summary>
+    /// Register all mixin handlers by scanning assemblies for classes with AbilityMixinAttribute
+    /// </summary>
+    private static void RegisterMixinHandlers()
 	{
 		try
 		{
@@ -155,7 +158,8 @@ public abstract class BaseAbilityManager
 				}
 			}
 		}
-	}
+
+    }
 
 
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
@@ -219,15 +223,23 @@ public abstract class BaseAbilityManager
 				info = Serializer.Deserialize<AbilityMetaReInitOverrideMap>(data);
 				ReInitOverrideMap(InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId], info as AbilityMetaReInitOverrideMap);
 				break;
-			case AbilityInvokeArgument.AbilityMetaGlobalFloatValue:
-				info = Serializer.Deserialize<AbilityScalarValueEntry>(data);
-				var asEntry = info as AbilityScalarValueEntry;
+            case AbilityInvokeArgument.AbilityMetaGlobalFloatValue:
+            {
+                info = Serializer.Deserialize<AbilityScalarValueEntry>(data);
+                var asEntry = info as AbilityScalarValueEntry;
+                if (asEntry == null)
+                    break;
+
+				AbilityString? existing = GlobalValueHashMap.Keys.FirstOrDefault(k => k.Hash == asEntry.Key.Hash);
+				if (existing != null)
+					GlobalValueHashMap.Remove(existing);
 				GlobalValueHashMap[asEntry.Key] = asEntry;
-				break;
-			// case AbilityInvokeArgument.AbilityMetaAddOrGetAbilityAndTrigger:
-			// 	info = Serializer.Deserialize<AbilityMetaAddOrGetAbilityAndTrigger>(data);
-			// 	break;
-			case AbilityInvokeArgument.AbilityMetaAddNewAbility:
+                break;
+            }
+            // case AbilityInvokeArgument.AbilityMetaAddOrGetAbilityAndTrigger:
+            // 	info = Serializer.Deserialize<AbilityMetaAddOrGetAbilityAndTrigger>(data);
+            // 	break;
+            case AbilityInvokeArgument.AbilityMetaAddNewAbility:
 				info = Serializer.Deserialize<AbilityMetaAddAbility>(data);
 				AddAbility((info as AbilityMetaAddAbility).Ability);
 				break;

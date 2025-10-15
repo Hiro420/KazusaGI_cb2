@@ -102,7 +102,7 @@ namespace KazusaGI_cb2.GameServer.Ability
 			}
 		}
 
-		public virtual async Task ExecuteMixinAsync(ConfigAbility ability, BaseAbilityMixin mixin, byte[] abilityData, Entity source, Entity? target = null)
+		public virtual async Task ExecuteMixinAsync(ConfigAbility ability, BaseAbilityMixin mixin, Entity source, Entity? target = null)
 		{
 			var mixinType = mixin.GetType();
 			if (!mixinHandlers.TryGetValue(mixinType, out var handler))
@@ -113,7 +113,7 @@ namespace KazusaGI_cb2.GameServer.Ability
 
 			try
 			{
-				var result = await handler.ExecuteAsync(ability, mixin, abilityData, source, target);
+				var result = await handler.ExecuteAsync(ability, mixin, source, target);
 				if (!result)
 				{
 					logger.LogWarning($"Mixin handler {handler.GetType().Name} returned false for ability: {ability.abilityName}");
@@ -147,49 +147,6 @@ namespace KazusaGI_cb2.GameServer.Ability
 		{
 			ProtoBuf.IExtensible info = new AbilityMetaModifierChange();
 			MemoryStream data = new MemoryStream(invoke.AbilityData);
-
-			if (invoke.Head.LocalId != 0 && invoke.Head.LocalId != 255 && invoke.Head.InstancedAbilityId != 0)
-			{
-				logger.LogInfo($"Server-sided ability invoke: LocalId={invoke.Head.LocalId}, ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}", false);
-				ConfigAbility? ability = null;
-				if (invoke.Head.InstancedAbilityId != 0
-					&& InstanceToAbilityHashMap.TryGetValue(invoke.Head.InstancedAbilityId, out uint abilityHash)
-					&& ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
-				{
-					if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
-					{
-						if (invocation is BaseAbilityMixin mixin)
-						{
-							logger.LogSuccess($"Executing mixin: {mixin.GetType().Name} for ability: {ability.abilityName}", false);
-							await ExecuteMixinAsync(ability, mixin, invoke.AbilityData, Owner);
-							return;
-						}
-						else
-						{
-							logger.LogSuccess($"Invoking ability action: {ability.abilityName} LocalId={invoke.Head.LocalId}", false);
-							await invocation.Invoke(ability.abilityName, Owner);
-							return;
-						}
-					}
-					else
-					{
-						logger.LogWarning($"Invocation not found: LocalId={invoke.Head.LocalId} in ability {ability.abilityName}");
-						logger.LogWarning($"LocalIdToInvocationMap {JsonConvert.SerializeObject(ability.LocalIdToInvocationMap)}");
-						return;
-					}
-				}
-				else
-				{
-					logger.LogWarning($"Ability not found for invoke: InstancedAbilityId={invoke.Head.InstancedAbilityId}, LocalId={invoke.Head.LocalId}");
-					logger.LogWarning($"InstanceToAbilityHashMap {JsonConvert.SerializeObject(InstanceToAbilityHashMap)}");
-					if (InstanceToAbilityHashMap.TryGetValue(invoke.Head.InstancedAbilityId, out uint abilityHash1))
-					{
-						string tolog = ConfigAbilityHashMap.ContainsKey(abilityHash1) ? "found" : "not found";
-						logger.LogWarning($"abilityHash = {abilityHash1} {tolog} in ConfigAbilityHashMap");
-					}
-
-				}
-			}
 
 			switch (invoke.ArgumentType)
 			{
@@ -279,6 +236,7 @@ namespace KazusaGI_cb2.GameServer.Ability
 			catch (Exception ex)
 			{
 				logger.LogError($"Error processing modifier action: {ex.Message}");
+				logger.LogError($"{ex.StackTrace}");
 			}
 		}
 
@@ -347,6 +305,33 @@ namespace KazusaGI_cb2.GameServer.Ability
 			catch (Exception ex)
 			{
 				logger.LogError($"Failed to apply modifier: {ex.Message}");
+			}
+
+			ConfigAbility? ability = null;
+			if (InstanceToAbilityHashMap.TryGetValue((uint)modifierChange.ModifierLocalId, out uint abilityHash)
+				&& ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
+			{
+				if (ability.LocalIdToInvocationMap.TryGetValue((uint)modifierChange.ModifierLocalId, out IInvocation? invocation))
+				{
+					if (invocation is BaseAbilityMixin mixin)
+					{
+						logger.LogSuccess($"Executing mixin: {mixin.GetType().Name} for ability: {ability.abilityName}", false);
+						_ = ExecuteMixinAsync(ability, mixin, Owner);
+						return;
+					}
+					else
+					{
+						logger.LogSuccess($"Invoking ability action: {ability.abilityName} ModifierLocalId={modifierChange.ModifierLocalId}", false);
+						_ = invocation.Invoke(ability.abilityName, Owner);
+						return;
+					}
+				}
+				else
+				{
+					logger.LogWarning($"Invocation not found: ModifierLocalId={modifierChange.ModifierLocalId} in ability {ability.abilityName}");
+					logger.LogWarning($"LocalIdToInvocationMap {JsonConvert.SerializeObject(ability.LocalIdToInvocationMap)}");
+					return;
+				}
 			}
 		}
 

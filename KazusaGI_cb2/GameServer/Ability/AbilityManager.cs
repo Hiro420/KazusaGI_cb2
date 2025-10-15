@@ -64,9 +64,9 @@ public class AbilityManager : BaseAbilityManager
         }
     }
 
-    public async Task ExecuteMixinAsync(ConfigAbility ability, BaseAbilityMixin mixin, byte[] abilityData)
+    public async Task ExecuteMixinAsync(ConfigAbility ability, BaseAbilityMixin mixin)
     {
-        await base.ExecuteMixinAsync(ability, mixin, abilityData, Owner);
+        await base.ExecuteMixinAsync(ability, mixin, Owner);
     }
 
     public void AddAbilityToEntity(Entity entity, string name)

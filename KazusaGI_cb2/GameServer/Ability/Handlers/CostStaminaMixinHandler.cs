@@ -14,7 +14,6 @@ public class CostStaminaMixinHandler : AbilityMixinHandler
     public override async Task<bool> ExecuteAsync(
         ConfigAbility ability, 
         BaseAbilityMixin mixin, 
-        byte[] abilityData, 
         Entity source, 
         Entity? target)
     {

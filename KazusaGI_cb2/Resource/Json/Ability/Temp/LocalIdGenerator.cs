@@ -23,27 +23,36 @@ public class LocalIdGenerator
         for (ushort i = 0; i < actions.Length; i++)
         {
             ActionIndex++;
-            uint id = GetLocalId();
+            uint id = (uint)GetLocalId();
             localIdToInvocationMap.Add(id, actions[i]);
         }
         ActionIndex = 0;
     }
 
-    public uint GetLocalId()
-    {
-        switch (Type)
-        {
-            case ConfigAbilitySubContainerType.ACTION:
-                return (uint)Type + (ConfigIndex << 3) + (ActionIndex << 9);
-            case ConfigAbilitySubContainerType.MIXIN:
-                return (uint)Type + (MixinIndex << 3) + (ConfigIndex << 9) + (ActionIndex << 15);
-            case ConfigAbilitySubContainerType.MODIFIER_ACTION:
-                return (uint)Type + (ModifierIndex << 3) + (ConfigIndex << 9) + (ActionIndex << 15);
-            case ConfigAbilitySubContainerType.MODIFIER_MIXIN:
-                return (uint)Type + (ModifierIndex << 3) + (MixinIndex << 9) + (ConfigIndex << 15) + (ActionIndex << 21);
-            default:
-				logger.LogWarning("Invalid ConfigAbilitySubContainerType");
-                return 0;
+    public long GetLocalId() {
+        switch (Type) {
+            case ConfigAbilitySubContainerType.ACTION: {
+                return (long)Type + (ConfigIndex << 3) + (ActionIndex << 9);
+            }
+            case ConfigAbilitySubContainerType.MIXIN: {
+                return (long)Type + (MixinIndex << 3) + (ConfigIndex << 9) + (ActionIndex << 15);
+            }
+            case ConfigAbilitySubContainerType.MODIFIER_ACTION: {
+                return (long)Type + (ModifierIndex << 3) + (ConfigIndex << 9) + (ActionIndex << 15);
+            }
+            case ConfigAbilitySubContainerType.MODIFIER_MIXIN: {
+                return (long) Type
+                        + (ModifierIndex << 3)
+                        + (MixinIndex << 9)
+                        + (ConfigIndex << 15)
+                        + (ActionIndex << 21);
+            }
+            case ConfigAbilitySubContainerType.NONE: {
+                logger.LogError("LocalIdGenerator: Type is NONE");
+                return -1;
+            }
         }
+
+        return -1;
     }
 }

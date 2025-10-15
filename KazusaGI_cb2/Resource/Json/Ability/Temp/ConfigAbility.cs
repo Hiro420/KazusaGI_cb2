@@ -25,7 +25,7 @@ public class ConfigAbility : BaseConfigAbility
     [JsonProperty] public readonly BaseAction[]? onVehicleOut;
     [JsonProperty] public readonly bool isDynamicAbility; // if true, disable this ability by default. Enable via ConfigTalent AddAbility     
 
-    [JsonIgnore] public ConcurrentDictionary<uint, IInvocation> LocalIdToInvocationMap;
+    [JsonIgnore] public ConcurrentDictionary<uint, IInvocation> LocalIdToInvocationMap = new();
     [JsonIgnore] public SortedList<uint, AbilityModifier> ModifierList;
 
     internal async Task Initialize()

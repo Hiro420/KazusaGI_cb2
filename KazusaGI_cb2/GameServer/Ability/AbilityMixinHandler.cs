@@ -21,7 +21,6 @@ public abstract class AbilityMixinHandler
     public abstract Task<bool> ExecuteAsync(
         ConfigAbility ability, 
         BaseAbilityMixin mixin, 
-        byte[] abilityData, 
         Entity source, 
         Entity? target);
 }

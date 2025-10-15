@@ -381,7 +381,37 @@ public class ResourceLoader
         //File.WriteAllText("Ability.json", JsonConvert.SerializeObject(ret, settings));
 
 		// Convert ConcurrentDictionary to a normal Dictionary before returning.
-		return new Dictionary<string, ConfigAbilityContainer>(ret);
+
+        // After all ability configs are loaded, initialize each ConfigAbility so
+        // its LocalIdToInvocationMap and related data structures are populated.
+        var initTasks = new List<Task>();
+        foreach (var kv in ret)
+        {
+            try
+            {
+                if (kv.Value?.Default is ConfigAbility cfg)
+                {
+                    initTasks.Add(cfg.Initialize());
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Failed scheduling initialize for ability {kv.Key}: {e}");
+            }
+        }
+        if (initTasks.Count > 0)
+        {
+            try
+            {
+                Task.WhenAll(initTasks).GetAwaiter().GetResult();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Failed to initialize abilities: {e}");
+            }
+        }
+
+        return new Dictionary<string, ConfigAbilityContainer>(ret);
 	}
 
 	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()

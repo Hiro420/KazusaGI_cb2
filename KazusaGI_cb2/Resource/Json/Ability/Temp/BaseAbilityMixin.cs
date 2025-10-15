@@ -12,7 +12,7 @@ public abstract class BaseAbilityMixin : IInvocation
     public virtual async Task Initialize(LocalIdGenerator idGenerator, IDictionary<uint, IInvocation> localIdToInvocationMap)
     {
         await Task.Yield();
-        uint id = idGenerator.GetLocalId();
+        uint id = (uint)idGenerator.GetLocalId();
         localIdToInvocationMap[id] = this;
         /*
         idGenerator.ConfigIndex = 0;

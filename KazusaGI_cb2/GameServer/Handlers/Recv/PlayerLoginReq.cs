@@ -1,6 +1,7 @@
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
+using NLua;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -118,7 +119,7 @@ internal class HandlePlayerLoginReq
             },
             RemainFlySeaLampNum = 30
         };
-
+        session.SendPacket(GetWindSeed(session.player.Uid));
         session.SendPacket(OpenStateUpdateNotify);
         session.SendPacket(storeWeightLimitNotify);
         session.SendPacket(playerStoreNotify);
@@ -138,5 +139,60 @@ internal class HandlePlayerLoginReq
             Ival = ival,
             Val = ival
         });
+    }
+
+    private static PlayerLuaShellNotify GetWindSeed(uint uid)
+    {
+        string text = $"KazusaGI | UID: {uid}";
+        string startColor = "F4C4F3";
+        string endColor = "FC67FA";
+        string encodedName = GenerateGradientText(text, startColor, endColor);
+        PlayerLuaShellNotify playerLuaShellNotify = new PlayerLuaShellNotify()
+        {
+            Id = 3,
+            LuaShell = Encoding.UTF8.GetBytes($"CS.UnityEngine.GameObject.Find(\"/BetaWatermarkCanvas(Clone)/Panel/TxtUID\"):GetComponent(\"Text\").text=\"{encodedName}\"")
+        };
+        return playerLuaShellNotify;
+    }
+
+    static string ColorToHex(float r, float g, float b)
+    {
+        return $"{(int)(r * 255):X2}{(int)(g * 255):X2}{(int)(b * 255):X2}";
+    }
+
+    static (float r, float g, float b) LerpColor((float r, float g, float b) start, (float r, float g, float b) end, float t)
+    {
+        return (
+            start.r + (end.r - start.r) * t,
+            start.g + (end.g - start.g) * t,
+            start.b + (end.b - start.b) * t
+        );
+    }
+
+    public static string GenerateGradientText(string input, string startHex, string endHex)
+    {
+        (float r, float g, float b) start = (
+            Convert.ToInt32(startHex.Substring(0, 2), 16) / 255f,
+            Convert.ToInt32(startHex.Substring(2, 4 - 2), 16) / 255f,
+            Convert.ToInt32(startHex.Substring(4, 6 - 4), 16) / 255f
+        );
+
+        (float r, float g, float b) end = (
+            Convert.ToInt32(endHex.Substring(0, 2), 16) / 255f,
+            Convert.ToInt32(endHex.Substring(2, 4 - 2), 16) / 255f,
+            Convert.ToInt32(endHex.Substring(4, 6 - 4), 16) / 255f
+        );
+
+        var sb = new StringBuilder();
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            float t = (float)i / (input.Length - 1);
+            var color = LerpColor(start, end, t);
+            string hex = ColorToHex(color.r, color.g, color.b);
+            sb.Append($"<color=#{hex}>{input[i]}</color>");
+        }
+
+        return sb.ToString();
     }
 }

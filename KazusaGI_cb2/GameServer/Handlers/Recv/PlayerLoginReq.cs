@@ -103,6 +103,22 @@ internal class HandlePlayerLoginReq
         AddPropMap(PropType.PROP_IS_MP_MODE_AVAILABLE, 1, playerDataNotify.PropMaps);
         AddPropMap(PropType.PROP_PLAYER_MP_SETTING_TYPE, (uint)MpSettingType.MpSettingNoEnter, playerDataNotify.PropMaps);
 
+        ActivityScheduleInfoNotify activity = new ActivityScheduleInfoNotify()
+        {
+            ActivityScheduleLists =
+            {
+                new ActivityScheduleInfo()
+                {
+                    ActivityId = 1001,
+                    BeginTime = 0,
+                    EndTime = 4102415999,
+                    IsOpen = true,
+                    ScheduleId = 1
+                }
+            },
+            RemainFlySeaLampNum = 30
+        };
+
         session.SendPacket(OpenStateUpdateNotify);
         session.SendPacket(storeWeightLimitNotify);
         session.SendPacket(playerStoreNotify);
@@ -110,6 +126,7 @@ internal class HandlePlayerLoginReq
         session.player.SendAvatarDataNotify(session);
         Investigation.SendInvestigationNotify(session);
         session.player.EnterScene(session, session.player.SceneId);
+        session.SendPacket(activity);
         session.SendPacket(rsp);
     }
 

@@ -100,6 +100,8 @@ internal class HandlePlayerLoginReq
         AddPropMap(PropType.PROP_PLAYER_LEVEL, (uint)session.player!.Level, playerDataNotify.PropMaps);
         AddPropMap(PropType.PROP_PLAYER_EXP, 0, playerDataNotify.PropMaps);
         AddPropMap(PropType.PROP_PLAYER_HCOIN, 999999, playerDataNotify.PropMaps); // todo: get from inventory
+        AddPropMap(PropType.PROP_IS_MP_MODE_AVAILABLE, 1, playerDataNotify.PropMaps);
+        AddPropMap(PropType.PROP_PLAYER_MP_SETTING_TYPE, (uint)MpSettingType.MpSettingNoEnter, playerDataNotify.PropMaps);
 
         session.SendPacket(OpenStateUpdateNotify);
         session.SendPacket(storeWeightLimitNotify);

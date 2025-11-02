@@ -343,6 +343,9 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 
+# Custom shit
+grasscutter/
+
 # OpenCover UI analysis results
 OpenCover/
 

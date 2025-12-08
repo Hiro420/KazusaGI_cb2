@@ -20,15 +20,16 @@ public class ActiveModifierInfo
 	public uint? InstancedModifierId { get; set; }
 	public uint ApplyEntityId { get; set; }
 	public uint OwnerEntityId { get; set; }
-	public string? ParentAbilityName { get; set; }
+	public uint ParentAbilityNameHash { get; set; }
 	public DateTime AppliedTime { get; set; }
 	public List<ModifierProperty> Properties { get; set; } = new();
-	
-	public ActiveModifierInfo(int localId, uint applyEntityId, uint ownerEntityId)
+
+	public ActiveModifierInfo(int localId, uint applyEntityId, uint ownerEntityId, uint parentAbilityNameHash)
 	{
 		LocalId = localId;
 		ApplyEntityId = applyEntityId;
 		OwnerEntityId = ownerEntityId;
+		ParentAbilityNameHash = parentAbilityNameHash;
 		AppliedTime = DateTime.UtcNow;
 	}
 }
@@ -201,22 +202,19 @@ public abstract class BaseAbilityManager
 
 				foreach (var entry in ActiveModifiers)
 				{
-					Console.WriteLine($"Active Modifier: LocalId={entry.Key}, InstancedModifierId={entry.Value.InstancedModifierId}, ParentAbility={entry.Value.ParentAbilityName}");
+					Console.WriteLine($"Active Modifier: LocalId={entry.Key}, InstancedModifierId={entry.Value.InstancedModifierId}, ParentAbility={entry.Value.ParentAbilityNameHash}");
                 }
 
 				var instModId = invoke.Head.InstancedModifierId;
                 ActiveModifiers.TryGetValue((int)instModId, out var activeMod);
                 if (activeMod != null)
 				{
-					logger.LogWarning($"Found active modifier for instancedModifierId: {instModId} -> LocalId={activeMod.LocalId}, ParentAbility={activeMod.ParentAbilityName}");
-                    if (InstanceToAbilityHashMap.TryGetValue(instModId, out uint abilityHash))
+					logger.LogWarning($"Found active modifier for instancedModifierId: {instModId} -> LocalId={activeMod.LocalId}, ParentAbility={activeMod.ParentAbilityNameHash}");
+					if (activeMod.ParentAbilityNameHash != null && ConfigAbilityHashMap.TryGetValue(activeMod.ParentAbilityNameHash, out ability))
 					{
-						if (ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
-						{
-							logger.LogSuccess($"Resolved ability by instancedModifierId: {instModId} -> {ability.abilityName}", false);
-						}
-                    }
-                }
+						logger.LogSuccess($"Resolved ability by instancedModifierId: {instModId} -> {ability.abilityName}", false);
+					}
+				}
             }
 
             /*
@@ -232,7 +230,7 @@ public abstract class BaseAbilityManager
 				var instAblId = invoke.Head.InstancedAbilityId;
 				foreach (var entry in InstanceToAbilityHashMap)
 				{
-					Console.WriteLine($"InstanceToAbilityHashMap: InstancedAbilityId={entry.Key}, AbilityHash={entry.Value:X}");
+					Console.WriteLine($"InstanceToAbilityHashMap: InstancedAbilityId={entry.Key}, AbilityHash={entry.Value}");
                 }
                 if (InstanceToAbilityHashMap.TryGetValue(instAblId, out uint abilityHash))
 				{
@@ -324,7 +322,7 @@ public abstract class BaseAbilityManager
 				break;
 			case AbilityInvokeArgument.AbilityActionGenerateElemBall:
 				info = Serializer.Deserialize<AbilityActionGenerateElemBall>(data);
-				Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
+				//Owner.GenerateElemBall((AbilityActionGenerateElemBall)info);
 				break;
 			// case AbilityInvokeArgument.AbilityMixinWindZone:
 			// 	info = Serializer.Deserialize<AbilityMixinWindZone>(data);
@@ -430,9 +428,9 @@ public abstract class BaseAbilityManager
 			var modifierInfo = new ActiveModifierInfo(
 				modifierChange.ModifierLocalId, 
 				targetEntityId, 
-				modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId)
+				modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId,
+				modifierChange.ParentAbilityName?.Hash ?? 0)
 			{
-				ParentAbilityName = modifierChange.ParentAbilityName?.Str,
 				Properties = modifierChange.Properties.ToList()
 			};
 			

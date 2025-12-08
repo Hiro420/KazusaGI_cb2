@@ -183,7 +183,7 @@ namespace KazusaGI_cb2.GameServer
 			}
 
 
-
+			Directory.CreateDirectory("Test");
 			File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
 
         }

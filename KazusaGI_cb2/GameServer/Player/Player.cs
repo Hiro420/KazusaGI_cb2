@@ -244,16 +244,18 @@ public class Player
         // mark existing ability managers as not initialized
         foreach (var entity in session.player.Scene.EntityManager.Entities.Values)
         {
-            if (entity.abilityManager != null)
-                entity.abilityManager.IsInited = false;
-        }
+            if (entity is IDamageable damageableEntity)
+            {
+				// remove the entity from the scene
+                entity.ForceKill();
+			}
+		}
+        
         uint oldSceneId = session.player!.SceneId;
         session.player!.Scene.isFinishInit = false;
         ResourceManager resourceManager = MainApp.resourceManager;
         Vector3 oldPos = session.player!.Pos;
         Vector3 newPos;
-
-        session.player.Scene.EntityManager.Add(new SceneEntity(session));
 
         resourceManager.ScenePoints.TryGetValue(sceneId, out ScenePoint? point);
         if (point == null)
@@ -276,6 +278,7 @@ public class Player
         this.SceneId = sceneId;
         // instantiate a fresh scene (and EntityManager) for the new scene id
         this.Scene = new Scene(session, this);
+		this.Scene.EntityManager.Add(new SceneEntity(session));
 
         // re-add core player-related entities into the new scene's entity manager
         // 1) avatars in current lineup

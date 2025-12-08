@@ -210,7 +210,7 @@ public abstract class BaseAbilityManager
                 if (activeMod != null)
 				{
 					logger.LogWarning($"Found active modifier for instancedModifierId: {instModId} -> LocalId={activeMod.LocalId}, ParentAbility={activeMod.ParentAbilityNameHash}");
-					if (activeMod.ParentAbilityNameHash != null && ConfigAbilityHashMap.TryGetValue(activeMod.ParentAbilityNameHash, out ability))
+					if (ConfigAbilityHashMap.TryGetValue(activeMod.ParentAbilityNameHash, out ability))
 					{
 						logger.LogSuccess($"Resolved ability by instancedModifierId: {instModId} -> {ability.abilityName}", false);
 					}

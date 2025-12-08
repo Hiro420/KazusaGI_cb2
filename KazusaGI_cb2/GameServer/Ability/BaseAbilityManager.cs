@@ -63,6 +63,7 @@ public abstract class BaseAbilityManager
 		RegisterMixinHandlers();
 	}
 	public Dictionary<uint, uint> InstanceToAbilityHashMap = new(); // <instancedAbilityId, abilityNameHash>
+	public Dictionary<uint, uint> ModifierToParentAbilityHash = new();
 	public abstract Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } // <abilityNameHash, configAbility>
 	public readonly Dictionary<uint, Dictionary<uint, float>> AbilitySpecialOverrideMap = new(); // <abilityNameHash, <abilitySpecialNameHash, value>>
 	public abstract Dictionary<string, Dictionary<string, float>?>? AbilitySpecials { get; }// <abilityName, <abilitySpecial, value>>
@@ -187,63 +188,14 @@ public abstract class BaseAbilityManager
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}", false);
 
 			// Try to find the ability and execute mixin/action if found
-			ConfigAbility? ability = null;
-			if (invoke.Head.InstancedAbilityId == 0)
-				return;
+			ConfigAbility? ability = ResolveAbilityFromInvoke(invoke, Owner);
 
-			if (invoke.Head.InstancedModifierId != 0)
+			if (ability == null)
 			{
-				/*
-					if (head.getInstancedModifierId() != 0
-							&& entity.getInstancedModifiers().containsKey(head.getInstancedModifierId())) {
-						ability = entity.getInstancedModifiers().get(head.getInstancedModifierId()).getAbility();
-					}
-				*/
-
-				foreach (var entry in ActiveModifiers)
-				{
-					Console.WriteLine($"Active Modifier: LocalId={entry.Key}, InstancedModifierId={entry.Value.InstancedModifierId}, ParentAbility={entry.Value.ParentAbilityNameHash}");
-                }
-
-				var instModId = invoke.Head.InstancedModifierId;
-                ActiveModifiers.TryGetValue((int)instModId, out var activeMod);
-                if (activeMod != null)
-				{
-					logger.LogWarning($"Found active modifier for instancedModifierId: {instModId} -> LocalId={activeMod.LocalId}, ParentAbility={activeMod.ParentAbilityNameHash}");
-					if (ConfigAbilityHashMap.TryGetValue(activeMod.ParentAbilityNameHash, out ability))
-					{
-						logger.LogSuccess($"Resolved ability by instancedModifierId: {instModId} -> {ability.abilityName}", false);
-					}
-				}
-            }
-
-            /*
-				if (ability == null
-						&& head.getInstancedAbilityId() != 0
-						&& (head.getInstancedAbilityId() - 1) < entity.getInstancedAbilities().size()) {
-					ability = entity.getInstancedAbilities().get(head.getInstancedAbilityId() - 1);
-				}
-			*/
-
-			if (ability == null && invoke.Head.InstancedAbilityId != 0)
-			{
-				var instAblId = invoke.Head.InstancedAbilityId;
-				foreach (var entry in InstanceToAbilityHashMap)
-				{
-					Console.WriteLine($"InstanceToAbilityHashMap: InstancedAbilityId={entry.Key}, AbilityHash={entry.Value}");
-                }
-                if (InstanceToAbilityHashMap.TryGetValue(instAblId, out uint abilityHash))
-				{
-					if (ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
-					{
-						logger.LogSuccess($"Resolved ability by instancedAbilityId: {instAblId} -> {ability.abilityName}", false);
-					}
-				}
-            }
-
-            if (ability == null)
-			{
-				logger.LogError($"[AbilityManager] Ability not found: ability {invoke.Head.InstancedAbilityId} modifier {invoke.Head.InstancedModifierId}");
+				logger.LogError(
+					$"Ability not found. " +
+					$"InstancedAbilityId={invoke.Head.InstancedAbilityId}, " +
+					$"InstancedModifierId={invoke.Head.InstancedModifierId}");
 				return;
 			}
 
@@ -453,13 +405,13 @@ public abstract class BaseAbilityManager
 			if (modifierChange.ParentAbilityName != null)
 			{
 				uint abilityHash = modifierChange.ParentAbilityName.Hash;
-                if (!InstanceToAbilityHashMap.ContainsValue(abilityHash) && modifierInfo.InstancedModifierId.HasValue)
+				if (modifierInfo.InstancedModifierId.HasValue && abilityHash != 0)
 				{
-					InstanceToAbilityHashMap[modifierInfo.InstancedModifierId.Value] = abilityHash;
+					ModifierToParentAbilityHash[modifierInfo.InstancedModifierId.Value] = abilityHash;
 				}
 			}
 
-            logger.LogInfo($"Successfully applied and tracked modifier: ModifierLocalId={modifierChange.ModifierLocalId}, " +
+			logger.LogInfo($"Successfully applied and tracked modifier: ModifierLocalId={modifierChange.ModifierLocalId}, " +
 				$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
 
 		}
@@ -779,6 +731,47 @@ public abstract class BaseAbilityManager
 				AbilitySpecialOverrideMap[abilityNameHash][entry.Key.Hash] = entry.FloatValue;
 			}
 		}
+	}
+
+	private ConfigAbility? ResolveAbilityFromInvoke(
+		AbilityInvokeEntry invoke,
+		Entity owner)
+	{
+		uint instancedAbilityId = invoke.Head.InstancedAbilityId;
+		uint targetId = invoke.Head.TargetId;
+
+		// 1. Try target entity instanced abilities
+		if (targetId != 0)
+		{
+			owner.session.player.Scene.EntityManager.TryGet(targetId, out var target);
+			if (target?.abilityManager != null)
+			{
+				if (target.abilityManager.InstanceToAbilityHashMap
+					.TryGetValue(instancedAbilityId, out uint hash) &&
+					ConfigAbilityHashMap.TryGetValue(hash, out var ability))
+				{
+					return ability;
+				}
+			}
+		}
+
+		// 2. Try owner entity instanced abilities
+		if (InstanceToAbilityHashMap.TryGetValue(instancedAbilityId, out uint ownerHash) &&
+			ConfigAbilityHashMap.TryGetValue(ownerHash, out var ownerAbility))
+		{
+			return ownerAbility;
+		}
+
+		// 3. Fallback: parent ability from modifier
+		if (invoke.Head.InstancedModifierId != 0 &&
+			InstanceToAbilityHashMap.TryGetValue(
+				invoke.Head.InstancedModifierId, out uint parentHash) &&
+			ConfigAbilityHashMap.TryGetValue(parentHash, out var parentAbility))
+		{
+			return parentAbility;
+		}
+
+		return null;
 	}
 
 	protected virtual void AddAbility(AbilityAppliedAbility ability)

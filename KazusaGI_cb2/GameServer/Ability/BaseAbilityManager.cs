@@ -156,8 +156,8 @@ public abstract class BaseAbilityManager
 	}
 
 	public virtual void Initialize()
-	{
-		foreach (var ability in AbilitySpecials)
+    {
+        foreach (var ability in AbilitySpecials)
 		{
 			uint ablHash = Utils.AbilityHash(ability.Key);
 			AbilitySpecialOverrideMap[ablHash] = new();
@@ -178,37 +178,94 @@ public abstract class BaseAbilityManager
 	{
 		ProtoBuf.IExtensible info = new AbilityMetaModifierChange();
 		MemoryStream data = new MemoryStream(invoke.AbilityData);
-		
-		// First, try to handle server-sided invokes (when LocalId != 0) for specific abilities
-		if (invoke.Head.LocalId != 0)
+
+		// First, try to handle server-sided invokes (when LocalId != 255) for specific abilities
+		if (invoke.Head.LocalId != 255) // INVOCATION_META_LOCALID = 255
 		{
 			logger.LogInfo($"Server-sided ability invoke: LocalId={invoke.Head.LocalId}, " +
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}", false);
-			
+
 			// Try to find the ability and execute mixin/action if found
 			ConfigAbility? ability = null;
-			if (invoke.Head.InstancedAbilityId != 0
-				&& InstanceToAbilityHashMap.TryGetValue(invoke.Head.InstancedAbilityId, out uint abilityHash)
-				&& ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
+			if (invoke.Head.InstancedAbilityId == 0)
+				return;
+
+			if (invoke.Head.InstancedModifierId != 0)
 			{
-				// Found specific ability - check for mixins/actions
-				if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
-				{
-					if (invocation is BaseAbilityMixin mixin)
-					{
-						await ExecuteMixinAsync(ability, mixin, invoke.AbilityData, Owner);
-						return; // Mixin processed, don't continue to argument type processing
+				/*
+					if (head.getInstancedModifierId() != 0
+							&& entity.getInstancedModifiers().containsKey(head.getInstancedModifierId())) {
+						ability = entity.getInstancedModifiers().get(head.getInstancedModifierId()).getAbility();
 					}
-					else
+				*/
+
+				foreach (var entry in ActiveModifiers)
+				{
+					Console.WriteLine($"Active Modifier: LocalId={entry.Key}, InstancedModifierId={entry.Value.InstancedModifierId}, ParentAbility={entry.Value.ParentAbilityName}");
+                }
+
+				var instModId = invoke.Head.InstancedModifierId;
+                ActiveModifiers.TryGetValue((int)instModId, out var activeMod);
+                if (activeMod != null)
+				{
+					logger.LogWarning($"Found active modifier for instancedModifierId: {instModId} -> LocalId={activeMod.LocalId}, ParentAbility={activeMod.ParentAbilityName}");
+                    if (InstanceToAbilityHashMap.TryGetValue(instModId, out uint abilityHash))
 					{
-						await invocation.Invoke(ability.abilityName, Owner);
-						return; // Action processed, don't continue to argument type processing
+						if (ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
+						{
+							logger.LogSuccess($"Resolved ability by instancedModifierId: {instModId} -> {ability.abilityName}", false);
+						}
+                    }
+                }
+            }
+
+            /*
+				if (ability == null
+						&& head.getInstancedAbilityId() != 0
+						&& (head.getInstancedAbilityId() - 1) < entity.getInstancedAbilities().size()) {
+					ability = entity.getInstancedAbilities().get(head.getInstancedAbilityId() - 1);
+				}
+			*/
+
+			if (ability == null && invoke.Head.InstancedAbilityId != 0)
+			{
+				var instAblId = invoke.Head.InstancedAbilityId;
+				foreach (var entry in InstanceToAbilityHashMap)
+				{
+					Console.WriteLine($"InstanceToAbilityHashMap: InstancedAbilityId={entry.Key}, AbilityHash={entry.Value:X}");
+                }
+                if (InstanceToAbilityHashMap.TryGetValue(instAblId, out uint abilityHash))
+				{
+					if (ConfigAbilityHashMap.TryGetValue(abilityHash, out ability))
+					{
+						logger.LogSuccess($"Resolved ability by instancedAbilityId: {instAblId} -> {ability.abilityName}", false);
 					}
 				}
+            }
+
+            if (ability == null)
+			{
+				logger.LogError($"[AbilityManager] Ability not found: ability {invoke.Head.InstancedAbilityId} modifier {invoke.Head.InstancedModifierId}");
+				return;
 			}
-			
-			// If no specific ability action/mixin was found, continue to process by argument type
-			//logger.LogInfo($"No specific ability action found, processing by argument type: {invoke.ArgumentType}", false);
+
+			// Found specific ability - check for mixins/actions
+			if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation invocation))
+            {
+                if (invocation is BaseAbilityMixin mixin)
+                {
+                    await ExecuteMixinAsync(ability, mixin, invoke.AbilityData, Owner);
+                    return; // Mixin processed, don't continue to argument type processing
+                }
+                else
+                {
+                    await invocation.Invoke(ability.abilityName, Owner);
+                    return; // Action processed, don't continue to argument type processing
+                }
+            }
+
+            // If no specific ability action/mixin was found, continue to process by argument type
+            logger.LogInfo($"No specific ability action found, processing by argument type: {invoke.ArgumentType}", false);
 		}
 		
 		switch (invoke.ArgumentType)
@@ -339,11 +396,9 @@ public abstract class BaseAbilityManager
 	/// <param name="modifierChange">The modifier change data</param>
 	protected virtual void ProcessAddModifier(AbilityMetaModifierChange modifierChange)
 	{
-		//logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
-		//	$"ParentAbility={modifierChange.ParentAbilityName?.Str}, " +
-		//	$"ApplyEntityId={modifierChange.ApplyEntityId}, " +
-		//	$"Properties={modifierChange.Properties.Count}", false);
-		
+		logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
+			$"ParentAbility={modifierChange.ParentAbilityName?.Hash:X} ");
+
 		// Process modifier properties if any
 		if (modifierChange.Properties.Count > 0)
 		{
@@ -363,15 +418,6 @@ public abstract class BaseAbilityManager
 					GlobalValueHashMap[property.Key] = entry;
 				}
 			}
-		}
-		
-		// Handle attached modifier if present
-		if (modifierChange.AttachedInstancedModifier != null 
-			&& modifierChange.AttachedInstancedModifier.OwnerEntityId != 0)
-		{
-			var attached = modifierChange.AttachedInstancedModifier;
-			//logger.LogInfo($"Attached modifier: InstancedId={attached.InstancedModifierId}, " +
-			//	$"OwnerEntityId={attached.OwnerEntityId}, IsInvalid={attached.IsInvalid}", false);
 		}
 		
 		// Implement actual modifier application to entity
@@ -404,14 +450,22 @@ public abstract class BaseAbilityManager
 				EntityModifiers[targetEntityId] = new HashSet<int>();
 			}
 			EntityModifiers[targetEntityId].Add(modifierChange.ModifierLocalId);
-			
-			//logger.LogInfo($"Successfully applied and tracked modifier: LocalId={modifierChange.ModifierLocalId}, " +
-			//	$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
-				
-			// 4. Apply modifier effects
-			// For now, we're just tracking the modifier for proper lifecycle management
+
+			// add it to InstanceToAbilityHashMap
+			if (modifierChange.ParentAbilityName != null)
+			{
+				uint abilityHash = modifierChange.ParentAbilityName.Hash;
+                if (!InstanceToAbilityHashMap.ContainsValue(abilityHash) && modifierInfo.InstancedModifierId.HasValue)
+				{
+					InstanceToAbilityHashMap[modifierInfo.InstancedModifierId.Value] = abilityHash;
+				}
+			}
+
+            logger.LogInfo($"Successfully applied and tracked modifier: ModifierLocalId={modifierChange.ModifierLocalId}, " +
+				$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
+
 		}
-		catch (Exception ex)
+        catch (Exception ex)
 		{
 			logger.LogError($"Failed to apply modifier: {ex.Message}");
 		}

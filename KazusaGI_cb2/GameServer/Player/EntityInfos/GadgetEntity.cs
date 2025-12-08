@@ -8,6 +8,7 @@ using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using System.Linq;
 using KazusaGI_cb2.Resource.Json.Avatar;
+using Newtonsoft.Json;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -180,6 +181,11 @@ namespace KazusaGI_cb2.GameServer
 					AbilityHashMap[abilityHash] = ability;
 				}
 			}
-		}
+
+
+
+			File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
+
+        }
 	}
 }

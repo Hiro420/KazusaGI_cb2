@@ -32,9 +32,12 @@ public class AbilityModifier
     [JsonProperty] public readonly BaseAction[]? onZoneExit;
     [JsonProperty] public readonly BaseAction[]? onHeal;
     [JsonProperty] public readonly BaseAction[]? onBeingHealed;
+    [JsonIgnore]
+    public LocalIdGenerator? generator = null!;
 
     internal async Task Initialize(LocalIdGenerator idGenerator, IDictionary<uint, IInvocation> localIdToInvocationMap)
     {
+        generator = idGenerator;
         ushort configIndex = 0;
         // DO NOT CHANGE THE ORDER
         var tasks = new Task[]

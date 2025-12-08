@@ -253,6 +253,8 @@ public class Player
         Vector3 oldPos = session.player!.Pos;
         Vector3 newPos;
 
+        session.player.Scene.EntityManager.Add(new SceneEntity(session));
+
         resourceManager.ScenePoints.TryGetValue(sceneId, out ScenePoint? point);
         if (point == null)
         {

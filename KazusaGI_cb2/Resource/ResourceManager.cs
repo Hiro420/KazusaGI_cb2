@@ -66,6 +66,19 @@ public class ResourceManager
         // Load all resources here
         this.loader = new(this, baseResourcePath);
 
+        // Initialize all loaded ConfigAbility instances (build local id maps etc.)
+        if (ConfigAbilityMap != null)
+        {
+            foreach (var container in ConfigAbilityMap.Values)
+            {
+                if (container.Default is ConfigAbility configAbility)
+                {
+                    // fire-and-forget; initialization work is confined to startup
+                    _ = configAbility.Initialize();
+                }
+            }
+        }
+
         // Log SUCCESS
         c.LogSuccess("Loaded Resources");
 	}

@@ -24,6 +24,7 @@ public class LocalIdGenerator
         {
             ActionIndex++;
             uint id = GetLocalId();
+            //Console.WriteLine($"Generated Local ID: {id} for Action: {actions[i].GetType()}");
             localIdToInvocationMap.Add(id, actions[i]);
         }
         ActionIndex = 0;
@@ -45,5 +46,17 @@ public class LocalIdGenerator
 				logger.LogWarning("Invalid ConfigAbilitySubContainerType");
                 return 0;
         }
+    }
+
+    public static (ConfigAbilitySubContainerType type, int s3, int s9, int s15, int s21)
+        DecodeLocalId(uint localId)
+    {
+        int s21 = (int)(localId >> 21);
+        int s15 = (int)((localId - ((uint)s21 << 21)) >> 15);
+        int s9 = (int)((localId - ((uint)s21 << 21) - ((uint)s15 << 15)) >> 9);
+        int s3 = (int)((localId - ((uint)s21 << 21) - ((uint)s15 << 15) - ((uint)s9 << 9)) >> 3);
+        int s = (int)(localId - ((uint)s21 << 21) - ((uint)s15 << 15) - ((uint)s9 << 9) - ((uint)s3 << 3));
+
+        return ((ConfigAbilitySubContainerType)s, s3, s9, s15, s21);
     }
 }

@@ -24,8 +24,8 @@ internal class HandleEvtBeingHitsCombineNotify
             var sourceEntityId = attackResult.AttackerId;
             var targetEntityId = attackResult.DefenseId;
 
-            session.entityMap.TryGetValue(sourceEntityId, out var sourceEntity);
-            session.entityMap.TryGetValue(targetEntityId, out var targetEntity);
+            session.player.Scene.EntityManager.TryGet(sourceEntityId, out var sourceEntity);
+            session.player.Scene.EntityManager.TryGet(targetEntityId, out var targetEntity);
 
             if (sourceEntity == null || targetEntity == null)
             {

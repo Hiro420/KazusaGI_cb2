@@ -34,7 +34,7 @@ public class PlayerWeapon
         this.GadgetId = weaponExcel.gadgetId;
         this.WeaponEntityId = weaponEntity._EntityId;
         session.player!.weaponDict.Add(this.Guid, this);
-        session.entityMap.Add(this.WeaponEntityId, weaponEntity);
+        session.player.Scene.EntityManager.Add(weaponEntity);
     }
 
     public void EquipOnAvatar(PlayerAvatar avatar)

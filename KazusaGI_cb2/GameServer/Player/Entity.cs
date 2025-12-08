@@ -1,8 +1,7 @@
-﻿using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.Protocol;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Numerics;
-using System.Reflection;
+using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Ability;
 
@@ -28,11 +27,10 @@ namespace KazusaGI_cb2.GameServer
 		protected Entity(Session session, Vector3? position, Vector3? rotation, ProtEntityType entityType, uint? entityId = null)
 		{
 			this.session = session;
-			this.Position = position ?? session.player!.Pos;
-			this.Rotation = rotation ?? session.player!.Rot;
-			this.EntityType = entityType;
-
-			this._EntityId = entityId ?? session.GetEntityId(entityType);
+			Position = position ?? session.player!.Pos;
+			Rotation = rotation ?? session.player!.Rot;
+			EntityType = entityType;
+			_EntityId = entityId ?? session.GetEntityId(entityType);
 		}
 
 		protected virtual uint? GetLevel() => null;
@@ -73,7 +71,7 @@ namespace KazusaGI_cb2.GameServer
 			return new SceneEntityAiInfo { IsAiOpen = true, BornPos = born };
 		}
 
-        protected void InjectCommonProps(SceneEntityInfo info)
+		protected void InjectCommonProps(SceneEntityInfo info)
 		{
 			info.LifeState = GetLifeState();
 
@@ -146,42 +144,28 @@ namespace KazusaGI_cb2.GameServer
 
 		public virtual void ForceKill()
 		{
-			if (this is IDamageable damageable)
+			if (this is not IDamageable)
+				return;
+
+			OnDied(Protocol.VisionType.VisionDie);
+		}
+
+		protected virtual void OnDied(Protocol.VisionType disappearType)
+		{
+			// Prefer going through the owning scene's EntityManager when available.
+			if (session.player?.Scene != null)
 			{
-				// Force HP to 0 and notify of HP change
-				var hpField = damageable.GetType().GetProperty("Hp");
-				if (hpField != null && hpField.CanWrite)
-				{
-					hpField.SetValue(damageable, 0f);
-				}
-
-				// Send HP update notification
-				var upd = new EntityFightPropUpdateNotify
-				{
-					EntityId = _EntityId
-				};
-				upd.FightPropMaps[(uint)Resource.FightPropType.FIGHT_PROP_CUR_HP] = 0f;
-				session.SendPacket(upd);
-
-				// Send life state change notification (dead)
-				session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
-
-				// Send entity disappear notification
-				session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = Protocol.VisionType.VisionDie });
-
-				// Remove from entity map
-				session.entityMap.Remove(_EntityId);
-
-				// If this is a MonsterEntity, trigger lua events
-				if (this is MonsterEntity monster && monster._monsterInfo != null)
-				{
-					Lua.LuaManager.executeTriggersLua(
-						session,
-						session.player!.Scene.GetGroup((int)monster._monsterInfo.group_id)!,
-						new Lua.ScriptArgs((int)monster._monsterInfo.group_id, (int)Lua.TriggerEventType.EVENT_ANY_MONSTER_DIE, (int)monster._monsterInfo.config_id)
-					);
-				}
+				session.player.Scene.EntityManager.Remove(_EntityId, disappearType);
+				return;
 			}
+
+			// Fallback: directly notify and do not assume a backing map.
+			session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
+			session.SendPacket(new SceneEntityDisappearNotify
+			{
+				EntityLists = { _EntityId },
+				DisappearType = disappearType
+			});
 		}
 
 		public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);

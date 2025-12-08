@@ -16,16 +16,17 @@ internal class HandleSceneEntitiesMovesReq
         SceneEntitiesMovesReq req = packet.GetDecodedBody<SceneEntitiesMovesReq>();
         SceneEntitiesMovesRsp rsp = new SceneEntitiesMovesRsp();
         bool needsUpdate = false;
+        EntityManager entityManager = session.player!.Scene.EntityManager;
         foreach (EntityMoveInfo move in req.EntityMoveInfoLists)
         {
-            if (Session.VectorProto2Vector3(move.MotionInfo.Pos) == Vector3.Zero || !session.entityMap.ContainsKey(move.EntityId))
+            if (Session.VectorProto2Vector3(move.MotionInfo.Pos) == Vector3.Zero || !entityManager.TryGet(move.EntityId, out Entity? entity))
             {
                 session.c.LogWarning($"[FUCKED MOVEMENT] Entity {move.EntityId} moved to {move.MotionInfo.Pos.X}, {move.MotionInfo.Pos.Y}, {move.MotionInfo.Pos.Z}");
                 // may happen sometimes, may not. better be safe.
                 continue;
             }
-            session.entityMap[move.EntityId].Position = Session.VectorProto2Vector3(move.MotionInfo.Pos);
-            if (session.entityMap[move.EntityId] is AvatarEntity)
+            entity.Position = Session.VectorProto2Vector3(move.MotionInfo.Pos);
+            if (entity is AvatarEntity)
             {
                 needsUpdate = true;
                 session.player!.TeleportToPos(session, Session.VectorProto2Vector3(move.MotionInfo.Pos), true);

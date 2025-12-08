@@ -9,10 +9,10 @@ namespace KazusaGI_cb2.GameServer
 {
 	public class MonsterEntity : Entity, IDamageable
 	{
-		public MonsterLua? _monsterInfo;
-		public MonsterExcelConfig excelConfig;
-		public uint _monsterId;
-		public uint level;
+		public MonsterLua? _monsterInfo { get; }
+		public MonsterExcelConfig excelConfig { get; }
+		public uint _monsterId { get; }
+		public uint level { get; }
 		public float Hp { get; private set; }
 		public float MaxHp { get; private set; }
 		public float Atk { get; private set; }
@@ -112,7 +112,7 @@ namespace KazusaGI_cb2.GameServer
 						EntityId = weaponEntity._EntityId,
 						GadgetId = equipId,
 					});
-					session.entityMap[weaponEntity._EntityId] = weaponEntity;
+					session.player!.Scene.EntityManager.Add(weaponEntity);
 				}
 			}
 
@@ -121,34 +121,44 @@ namespace KazusaGI_cb2.GameServer
 
 		public void Damage(float dmg)
 		{
-			Hp -= dmg;
-			if (Hp < 0) Hp = 0;
+			if (dmg <= 0)
+				return;
 
-			var upd = new EntityFightPropUpdateNotify
+			Hp -= dmg;
+			if (Hp < 0)
+				Hp = 0;
+
+			var update = new EntityFightPropUpdateNotify
 			{
 				EntityId = _EntityId
 			};
-			upd.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
-			session.SendPacket(upd);
+			update.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
+			session.SendPacket(update);
 
-			if (Hp <= 0) Die();
+			if (Hp <= 0)
+				OnDied(Protocol.VisionType.VisionDie);
 		}
 
 		public void Die(Protocol.VisionType vision = Protocol.VisionType.VisionDie)
 		{
 			Hp = 0;
-			session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
-			session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = vision });
-			session.entityMap.Remove(_EntityId);
+			OnDied(vision);
+		}
 
-			if (_monsterInfo != null)
-			{
-				Lua.LuaManager.executeTriggersLua(
-					session,
-					session.player!.Scene.GetGroup((int)_monsterInfo.group_id)!,
-					new Lua.ScriptArgs((int)_monsterInfo.group_id, (int)Lua.TriggerEventType.EVENT_ANY_MONSTER_DIE, (int)_monsterInfo.config_id)
-				);
-			}
+		protected override void OnDied(Protocol.VisionType disappearType)
+		{
+			base.OnDied(disappearType);
+
+			if (_monsterInfo == null)
+				return;
+
+			Lua.LuaManager.executeTriggersLua(
+				session,
+				session.player!.Scene.GetGroup((int)_monsterInfo.group_id)!,
+				new Lua.ScriptArgs(
+					(int)_monsterInfo.group_id,
+					(int)Lua.TriggerEventType.EVENT_ANY_MONSTER_DIE,
+					(int)_monsterInfo.config_id));
 		}
 	}
 }

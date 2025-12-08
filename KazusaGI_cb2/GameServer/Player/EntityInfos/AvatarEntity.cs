@@ -125,7 +125,7 @@ namespace KazusaGI_cb2.GameServer
 
 			if (configContainerList.Count > 0)
 			{
-				DbInfo.AbilityConfigMap.Add((int)DbInfo.SkillDepotId, configContainerList.ToArray());
+				DbInfo.AbilityConfigMap.TryAdd((int)DbInfo.SkillDepotId, configContainerList.ToArray());
 			}
 
 			var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.skills.Contains(w.Key) || 
@@ -153,7 +153,7 @@ namespace KazusaGI_cb2.GameServer
 
 			foreach (var i in dict1)
 			{
-				DbInfo.ProudSkillData.Add((int)i.Key, i.Value);
+				DbInfo.ProudSkillData.TryAdd((int)i.Key, i.Value);
 			}
 
 			foreach (var skilldata in dictionary1.Values)
@@ -192,7 +192,7 @@ namespace KazusaGI_cb2.GameServer
 			
 			if (abilityHashMap.Count > 0)
 			{
-				DbInfo.AbilityHashMap.Add((int)DbInfo.SkillDepotId, abilityHashMap);
+				DbInfo.AbilityHashMap.TryAdd((int)DbInfo.SkillDepotId, abilityHashMap);
 			}
 		}
 	}

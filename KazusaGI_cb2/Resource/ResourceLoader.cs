@@ -37,6 +37,7 @@ public class ResourceLoader
     public static readonly string LuaSubPath = "Lua";
     public string _baseResourcePath;
     private ResourceManager _resourceManager;
+    private static Logger logger1 = new("ResourceLoader");
 
     public string LuaPath => Path.Combine(_baseResourcePath, LuaSubPath);
 
@@ -235,12 +236,12 @@ public class ResourceLoader
 			"*.json", SearchOption.AllDirectories
 		);
 		var tasks = new List<Task>();
-		filePaths.AsParallel().ForAll(async file =>
+		filePaths.AsParallel().ForAll(file =>
 		{
             try
             {
 				var filePath = new FileInfo(file);
-				using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
+				using var sr = new StringReader(File.ReadAllText(filePath.FullName));
 				using var jr = new JsonTextReader(sr);
 				var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
 				foreach (var c in fileData)
@@ -251,7 +252,9 @@ public class ResourceLoader
 			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
 		});
 
-		return ret.ToDictionary();
+        logger1.LogSuccess($"Loaded {ret.Count} abilities.");
+
+        return ret.ToDictionary();
 	}
 
 	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()

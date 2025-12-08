@@ -38,12 +38,12 @@ public class PlayerAvatar
     public uint UltSkillId { get; set; }
     public ulong EquipGuid { get; set; }
     public Dictionary<uint, uint> SkillLevels { get; set; }
-    public List<uint> UnlockedTalents { get; set; }
-    public List<uint> ProudSkills { get; set; }
+    public HashSet<uint> UnlockedTalents { get; set; }
+    public HashSet<uint> ProudSkills { get; set; }
 	public string AvatarName => avatarExcel.iconName.Split("_").Last();
 
     public Dictionary<int, SortedList<uint, AvatarSkillExcelConfig>> SkillData = new();
-    public List<AvatarTalentExcelConfig> TalentData = new();
+    public HashSet<AvatarTalentExcelConfig> TalentData = new();
 	public Dictionary<int, ProudSkillExcelConfig> ProudSkillData = new();
 	public Dictionary<int, Dictionary<uint, ConfigAbility>?> AbilityHashMap = new();
 	public Dictionary<int, ConfigAbilityContainer[]> AbilityConfigMap = new(); // depotId
@@ -59,8 +59,8 @@ public class PlayerAvatar
         this.avatarSkillDepotExcel = resourceManager.AvatarSkillDepotExcel[this.SkillDepotId];
         this.UltSkillId = avatarSkillDepotExcel.energySkill;
         this.SkillLevels = new Dictionary<uint, uint>();
-        this.UnlockedTalents = new List<uint>();
-        this.ProudSkills = new List<uint>();
+        this.UnlockedTalents = new HashSet<uint>();
+        this.ProudSkills = new HashSet<uint>();
         this.Guid = session.GetGuid();
         this.AvatarId = AvatarId;
         this.Level = 90;

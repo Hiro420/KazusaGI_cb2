@@ -15,7 +15,7 @@ internal class HandlePostEnterSceneReq
         PostEnterSceneReq req = packet.GetDecodedBody<PostEnterSceneReq>();
         session.SendPacket(new PostEnterSceneRsp());
 
-        foreach (var entity in session.entityMap.Values)
+        foreach (var entity in session.player.Scene.EntityManager.Entities.Values)
         {
             if (entity.abilityManager != null)
                 entity.abilityManager.IsInited = true;

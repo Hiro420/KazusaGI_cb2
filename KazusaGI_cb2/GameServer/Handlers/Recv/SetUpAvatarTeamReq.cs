@@ -26,7 +26,7 @@ internal class HandleSetUpAvatarTeamReq
         // this is the team were working with
         PlayerTeam targetTeam = session.player!.teamList[(int)req.TeamId - 1];
 
-        List<AvatarEntity> avatarEntities = session.entityMap.Values
+        List<AvatarEntity> avatarEntities = session.player.Scene.EntityManager.Entities.Values
             .OfType<AvatarEntity>()
             .ToList(); // get all current avatar entities
 
@@ -35,7 +35,13 @@ internal class HandleSetUpAvatarTeamReq
 
         // its leader
         AvatarEntity oldLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, oldTeamLeader)!;
-        AvatarEntity newLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, newLeaderAvatar)!;
+        AvatarEntity? newLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, newLeaderAvatar);
+
+        if (newLeaderEntity == null)
+        {
+            newLeaderEntity = new AvatarEntity(session, newLeaderAvatar);
+            session.player.Scene.EntityManager.Add(newLeaderEntity);
+        }
 
         targetTeam.Avatars = new List<PlayerAvatar>(); // empty the avatars list
 
@@ -47,10 +53,17 @@ internal class HandleSetUpAvatarTeamReq
             targetTeam.AddAvatar(session, targetAvatar);
             rsp.AvatarTeamGuidLists.Add(targetAvatarGuid);
 
+            AvatarEntity? avatarEntity = session.player!.FindEntityByPlayerAvatar(session, targetAvatar);
+            if (avatarEntity == null)
+            {
+                avatarEntity = new AvatarEntity(session, targetAvatar);
+                session.player.Scene.EntityManager.Add(avatarEntity);
+            }
+
             notify.SceneTeamAvatarLists.Add(new SceneTeamAvatar()
             {
                 AvatarGuid = targetAvatar.Guid,
-                EntityId = avatarEntities.First(c => c.DbInfo == targetAvatar)._EntityId,
+                EntityId = avatarEntity._EntityId,
                 AvatarInfo = targetAvatar.ToAvatarInfo(),
                 PlayerUid = session.player.Uid,
                 SceneId = session.player!.SceneId,

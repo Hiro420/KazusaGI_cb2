@@ -1,17 +1,18 @@
-﻿using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using ProtoBuf;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using System.Reflection;
+using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using ProtoBuf;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
 /// <summary>
-/// Information about an active modifier for tracking purposes
+/// Tracks information about a modifier currently applied to an entity.
+/// Mirrors the bookkeeping Grasscutter does for modifier state.
 /// </summary>
 public class ActiveModifierInfo
 {
@@ -32,18 +33,29 @@ public class ActiveModifierInfo
 	}
 }
 
+/// <summary>
+/// Central ability manager for an entity.
+///
+/// This plays a similar role to Grasscutter's AbilityManager: it owns
+/// mixin/action handler registration, dispatches AbilityInvokeEntry messages,
+/// tracks modifier state, and maintains ability override/global values.
+///
+/// Concrete subclasses (avatar, monster, gadget) provide their own
+/// ConfigAbility collections and specials, then call Initialize() to wire
+/// hashes and override maps.
+/// </summary>
 public abstract class BaseAbilityManager
 {
 	public static readonly Logger logger = new("AbilityManager");
 	protected readonly Entity Owner;
 	
 	/// <summary>
-	/// Static registry of mixin handlers, similar to GC's mixinHandlers HashMap
+	/// Static registry of mixin handlers, similar to Grasscutter's mixinHandlers.
 	/// </summary>
 	private static readonly Dictionary<Type, AbilityMixinHandler> mixinHandlers = new();
 	
 	/// <summary>
-	/// Static constructor to register mixin handlers automatically
+	/// Static constructor: scan assembly once and register all mixin handlers.
 	/// </summary>
 	static BaseAbilityManager()
 	{

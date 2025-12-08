@@ -12,6 +12,7 @@ public class Scene
 {
     public Session session { get; private set; }
     public Player player { get; private set; }
+    public EntityManager EntityManager { get; }
     public SceneLua sceneLua { get; private set; }
     public SceneBlockLua? sceneBlockLua { get; private set; }
     private static ResourceManager resourceManager { get; } = MainApp.resourceManager;
@@ -50,11 +51,12 @@ public class Scene
 
     private readonly List<uint> _tmpDisappearIds = new(capacity: 32);
 
-    public Scene(Session _session, Player _player)
+    public Scene(Session _session, Player _player, bool newManager = false)
     {
         session = _session;
         player = _player;
         sceneLua = MainApp.resourceManager.SceneLuas[_player.SceneId];
+        EntityManager = new EntityManager(session);
     }
 
     public void UpdateOnMove()
@@ -158,7 +160,7 @@ public class Scene
                 uint eid = _tmpDisappearIds[i];
                 disappear.EntityLists.Add(eid);
                 session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
-                session.entityMap.Remove(eid);
+                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss);
             }
             session.SendPacket(disappear);
             _tmpDisappearIds.Clear();
@@ -313,7 +315,7 @@ public class Scene
                         uint monsterId = m.monster_id;
                         MonsterExcelConfig monster = resourceManager.MonsterExcel[monsterId];
                         var ent = new MonsterEntity(session, monsterId, m, m.pos, m.rot);
-                        session.entityMap.Add(ent._EntityId, ent);
+                        EntityManager.Add(ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedMonsters.Add(m);
                         if (currentNtf.EntityLists.Count >= 10)
@@ -350,7 +352,7 @@ public class Scene
                     {
                         uint npcId = n.npc_id;
                         var ent = new NpcEntity(session, npcId, n, n.pos, n.rot);
-                        session.entityMap.Add(ent._EntityId, ent);
+                        EntityManager.Add(ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedNpcs.Add(n);
                         if (currentNtf.EntityLists.Count >= 10)
@@ -388,7 +390,7 @@ public class Scene
                     {
                         uint gid = g.gadget_id;
                         var ent = new GadgetEntity(session, gid, g, g.pos, g.rot);
-                        session.entityMap.Add(ent._EntityId, ent);
+                        EntityManager.Add(ent);
                         currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
                         alreadySpawnedGadgets.Add(g);
                         if (currentNtf.EntityLists.Count >= 10)
@@ -427,7 +429,7 @@ public class Scene
                 uint eid = _tmpDisappearIds[i];
                 disappear.EntityLists.Add(eid);
                 session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
-                session.entityMap.Remove(eid);
+                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss);
             }
             session.SendPacket(disappear);
             _tmpDisappearIds.Clear();
@@ -482,7 +484,7 @@ public class Scene
                 if (!IsInRange(m.pos, player.Pos, 50f) || alreadySpawnedMonsters.Contains(m)) continue;
 
                 var ent = new MonsterEntity(session, m.monster_id, m, m.pos, m.rot);
-                session.entityMap.Add(ent._EntityId, ent);
+                EntityManager.Add(ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedMonsters.Add(m);
                 if (current.EntityLists.Count >= 10)
@@ -502,7 +504,7 @@ public class Scene
                 if (!IsInRange(n.pos, player.Pos, 50f) || alreadySpawnedNpcs.Contains(n)) continue;
 
                 var ent = new NpcEntity(session, n.npc_id, n, n.pos);
-                session.entityMap.Add(ent._EntityId, ent);
+                EntityManager.Add(ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedNpcs.Add(n);
                 if (current.EntityLists.Count >= 10)
@@ -522,7 +524,7 @@ public class Scene
                 if (!IsInRange(g.pos, player.Pos, 50f) || alreadySpawnedGadgets.Contains(g)) continue;
 
                 var ent = new GadgetEntity(session, g.gadget_id, g, g.pos, g.rot);
-                session.entityMap.Add(ent._EntityId, ent);
+                EntityManager.Add(ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedGadgets.Add(g);
                 if (current.EntityLists.Count >= 10)
@@ -557,7 +559,7 @@ public class Scene
                 if (ent != null)
                 {
                     disappear.EntityLists.Add(ent._EntityId);
-                    session.entityMap.Remove(ent._EntityId);
+                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss);
                 }
             }
         }
@@ -569,7 +571,7 @@ public class Scene
                 if (ent != null)
                 {
                     disappear.EntityLists.Add(ent._EntityId);
-                    session.entityMap.Remove(ent._EntityId);
+                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss);
                 }
             }
         }
@@ -591,20 +593,7 @@ public class Scene
         // TODO: parse modifier and actually get proper data from there
 
         GadgetEntity gadgetEntity = new GadgetEntity(session, (uint)ConfigId, null, Session.VectorProto2Vector3(pos), Session.VectorProto2Vector3(rot));
-        if (!session.entityMap.TryAdd(gadgetEntity._EntityId, gadgetEntity))
-        {
-            session.c.LogError($"[WARNING] Entity ID collision when adding gadget {ConfigId} with entity ID {gadgetEntity._EntityId}");
-            return;
-        }
-        SceneEntityAppearNotify ntf = new SceneEntityAppearNotify()
-        {
-            AppearType = Protocol.VisionType.VisionMeet,
-            EntityLists =
-            {
-                gadgetEntity.ToSceneEntityInfo(),
-            }
-        };
-        session.SendPacket(ntf);
+        EntityManager.Add(gadgetEntity);
 	}
 
 	public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
@@ -625,14 +614,14 @@ public class Scene
     }
 
     public MonsterEntity? MonsterEntity2DespawnMonster(MonsterLua m)
-        => session.entityMap.Values.OfType<MonsterEntity>().FirstOrDefault(x => x._monsterInfo == m);
+        => EntityManager.Entities.Values.OfType<MonsterEntity>().FirstOrDefault(x => x._monsterInfo == m);
 
     public NpcEntity? NpcEntity2DespawnNpc(NpcLua n)
-        => session.entityMap.Values.OfType<NpcEntity>().FirstOrDefault(x => x._npcInfo == n);
+        => EntityManager.Entities.Values.OfType<NpcEntity>().FirstOrDefault(x => x._npcInfo == n);
 
     public GadgetEntity? GadgetEntity2DespawnGadget(GadgetLua g)
-        => session.entityMap.Values.OfType<GadgetEntity>().FirstOrDefault(x => x._gadgetLua == g);
+        => EntityManager.Entities.Values.OfType<GadgetEntity>().FirstOrDefault(x => x._gadgetLua == g);
 
     public Entity? FindEntityByEntityId(uint entityId)
-        => session.entityMap.GetValueOrDefault(entityId);
+        => EntityManager.Entities.GetValueOrDefault(entityId);
 }

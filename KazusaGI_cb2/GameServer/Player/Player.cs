@@ -86,8 +86,6 @@ public class Player
             {
                 this.teamList[0] = new PlayerTeam(session, playerAvatar);
             }
-            AvatarEntity avatarEntity = new AvatarEntity(session, playerAvatar);
-            session.entityMap.Add(avatarEntity._EntityId, avatarEntity);
             session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
         }
     }
@@ -125,7 +123,7 @@ public class Player
     
     public AvatarEntity? FindEntityByPlayerAvatar(Session session, PlayerAvatar playerAvatar)
     {
-        List<AvatarEntity> avatarEntities = session.entityMap.Values
+        List<AvatarEntity> avatarEntities = session.player.Scene.EntityManager.Entities.Values
             .OfType<AvatarEntity>()
             .ToList();
         return avatarEntities.FirstOrDefault(c => c.DbInfo == playerAvatar);
@@ -134,7 +132,7 @@ public class Player
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
 		this.MpLevelEntity = new MpLevelEntity(session);
-        session.entityMap.Add(MpLevelEntity._EntityId, MpLevelEntity);
+        session.player.Scene.EntityManager.Add(MpLevelEntity);
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
@@ -184,24 +182,46 @@ public class Player
         session.SendPacket(notify);
 	}
 
-	public void SendSceneTeamUpdateNotify(Session session)
+    public void SendSceneTeamUpdateNotify(Session session)
     {
         SceneTeamUpdateNotify notify = new SceneTeamUpdateNotify();
-        foreach(PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)
+
+        // Snapshot avatar entities once outside the loop
+        List<AvatarEntity> avatarEntities = session.player!.Scene.EntityManager.Entities.Values
+            .OfType<AvatarEntity>()
+            .ToList();
+
+        foreach (var entity in avatarEntities)
         {
-            List<AvatarEntity> avatarEntities = session.entityMap.Values
-                .OfType<AvatarEntity>()
-                .ToList();
+            Console.WriteLine($"Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
+        }
+
+        foreach (var entity in session.player!.Scene.EntityManager.Entities.Values)
+        {
+            Console.WriteLine($"[?] Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
+        }
+
+        foreach (PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)
+        {
+            var avatarEntity = avatarEntities.FirstOrDefault(c => c.DbInfo.Guid == playerAvatar.Guid);
+            if (avatarEntity == null)
+            {
+                // If you want, you can log this instead of silently skipping
+                logger.LogWarning($"No AvatarEntity found for guid {playerAvatar.Guid} (ID {playerAvatar.AvatarId}) in SendSceneTeamUpdateNotify.");
+                continue;
+            }
+
             notify.SceneTeamAvatarLists.Add(new SceneTeamAvatar()
             {
                 AvatarGuid = playerAvatar.Guid,
-                EntityId = avatarEntities.First(c => c.DbInfo == playerAvatar)._EntityId,
+                EntityId = avatarEntity._EntityId,
                 AvatarInfo = playerAvatar.ToAvatarInfo(),
                 PlayerUid = this.Uid,
                 SceneId = session.player!.SceneId,
                 SceneAvatarInfo = playerAvatar.ToSceneAvatarInfo(),
             });
         }
+
         session.SendPacket(notify);
     }
 
@@ -221,7 +241,8 @@ public class Player
 
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)
     {
-        foreach (var entity in session.entityMap.Values)
+        // mark existing ability managers as not initialized
+        foreach (var entity in session.player.Scene.EntityManager.Entities.Values)
         {
             if (entity.abilityManager != null)
                 entity.abilityManager.IsInited = false;
@@ -251,7 +272,37 @@ public class Player
         }
 
         this.SceneId = sceneId;
-        this.Scene = new(session, this);
+        // instantiate a fresh scene (and EntityManager) for the new scene id
+        this.Scene = new Scene(session, this);
+
+        // re-add core player-related entities into the new scene's entity manager
+        // 1) avatars in current lineup
+        foreach (var avatar in GetCurrentLineup().Avatars)
+        {
+            var avatarEntity = new AvatarEntity(session, avatar);
+            Scene.EntityManager.Add(avatarEntity);
+
+            // ensure weapon entity exists if equipped
+            //if (avatar.EquipGuid != 0 && weaponDict.TryGetValue(avatar.EquipGuid, out var playerWeapon))
+            //{
+            //    var weaponEntity = new WeaponEntity(session, playerWeapon.ItemId)
+            //    {
+            //        WeaponGuid = playerWeapon.Guid
+            //    };
+            //    playerWeapon.WeaponEntityId = weaponEntity._EntityId;
+            //    Scene.EntityManager.Add(weaponEntity);
+            //}
+        }
+
+        // 2) team entity
+        if (GetCurrentLineup().teamEntity == null)
+            GetCurrentLineup().teamEntity = new TeamEntity(session);
+        Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
+
+        // 3) MP level entity
+        MpLevelEntity = new MpLevelEntity(session);
+        Scene.EntityManager.Add(MpLevelEntity);
+
         PlayerEnterSceneNotify enterSceneNotify = new()
         {
             SceneId = sceneId,

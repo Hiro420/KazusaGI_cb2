@@ -19,7 +19,6 @@ public class Session
     public readonly Logger c;
     private readonly ENetClient _client;
     public Player player;
-    public Dictionary<uint, Entity> entityMap;
     public IntPtr _peer;
     public byte[]? key;
     private ulong lastGuid = 0;
@@ -38,7 +37,6 @@ public class Session
     {
         _client = client;
         _peer = peer;
-        entityMap = new();
         c = new Logger($"Session {_peer}");
         if (Path.Exists(logsFolder))
             Directory.CreateDirectory(logsFolder);
@@ -88,7 +86,7 @@ public class Session
     public SceneEntityInfo CreateSceneEntityInfoFromPlayerAvatar(Session session, PlayerAvatar playerAvatar)
     {
         AvatarEntity avatarEntity = new AvatarEntity(session, playerAvatar);
-        this.entityMap.Add(avatarEntity._EntityId, avatarEntity);
+        this.player.Scene.EntityManager.Add(avatarEntity);
         return avatarEntity.ToSceneEntityInfo(session);
     }
 

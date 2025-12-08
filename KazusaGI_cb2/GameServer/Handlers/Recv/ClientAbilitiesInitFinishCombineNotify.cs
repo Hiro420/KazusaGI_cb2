@@ -21,7 +21,7 @@ internal class HandleClientAbilitiesInitFinishCombineNotify
                 //session.player!.ClientAbilityInitFinishNotifyList.AddEntry(invoke);
 
                 // Handle the ability invoke on the entity if it exists
-                if (session.entityMap.TryGetValue(invoke.EntityId, out GameServer.Entity? entity))
+                if (session.player.Scene.EntityManager.TryGet(invoke.EntityId, out GameServer.Entity? entity))
                 {
                     // For now, just log that we're handling the ability invoke
                     // Later, when ability system is more complete, we can add proper handling
@@ -33,13 +33,13 @@ internal class HandleClientAbilitiesInitFinishCombineNotify
                 }
                 else
                 {
-                    //session.c.LogWarning($"Failed to find entity {invoke.EntityId} for ability invoke");
-                    //session.SendPacket(new AbilityInvocationFailNotify()
-                    //{
-                    //	Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
-                    //	EntityId = invoke.EntityId,
-                    //	Invoke = invoke,
-                    //});
+                    session.c.LogWarning($"Failed to find entity {invoke.EntityId} for ability invoke");
+                    session.SendPacket(new AbilityInvocationFailNotify()
+                    {
+                        Reason = $"Failed to find entity {invoke.EntityId} for ability invoke",
+                        EntityId = invoke.EntityId,
+                        Invoke = invoke,
+                    });
                 }
             }
         }

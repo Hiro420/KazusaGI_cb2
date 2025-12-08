@@ -35,7 +35,7 @@ public class Spawn
 
             MonsterEntity monsterEntity = new MonsterEntity(session, monsterId);
             SceneEntityInfo sceneEntityInfo = monsterEntity.ToSceneEntityInfo();
-            session.entityMap.Add(monsterEntity._EntityId, monsterEntity);
+            session.player.Scene.EntityManager.Add(monsterEntity);
 
             session.SendPacket(new SceneEntityAppearNotify()
             {

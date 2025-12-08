@@ -15,7 +15,7 @@ internal class HandleEnterSceneDoneReq
     {
         EnterSceneDoneReq req = packet.GetDecodedBody<EnterSceneDoneReq>();
         SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify();
-        List<AvatarEntity> avatarEntities = session.entityMap.Values
+        List<AvatarEntity> avatarEntities = session.player.Scene.EntityManager.Entities.Values
                 .OfType<AvatarEntity>()
                 .ToList();
         PlayerAvatar currentAvatar = session.player!.GetCurrentLineup().Leader!;

@@ -21,7 +21,7 @@ public class ScriptLib
     public int GetGroupMonsterCount(Session session)
     {
         Log("Called GetGroupMonsterCount");
-        return currentSession.entityMap.Values
+        return currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is MonsterEntity monster &&
                         monster._monsterInfo != null &&
                         monster._monsterInfo.group_id == currentGroupId)
@@ -31,7 +31,7 @@ public class ScriptLib
     public int GetGroupMonsterCountByGroupId(Session session, int groupId)
     {
         Log("Called GetGroupMonsterCountByGroupId");
-        return currentSession.entityMap.Values
+        return currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is MonsterEntity monster &&
                         monster._monsterInfo != null &&
                         monster._monsterInfo.group_id == groupId)
@@ -70,7 +70,7 @@ public class ScriptLib
     public int SetGadgetStateByConfigId(Session session, int config_id, int state)
     {
         Log("Called SetGadgetStateByConfigId");
-        IEnumerable<Entity> entities = currentSession.entityMap.Values
+        IEnumerable<Entity> entities = currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is GadgetEntity gadget &&
                         gadget._gadgetLua != null &&
                         gadget._gadgetLua.config_id == config_id);
@@ -83,7 +83,7 @@ public class ScriptLib
     {
         Log("Called SetGroupGadgetStateByConfigId");
         GadgetState state = (GadgetState)_state;
-        IEnumerable<Entity> entities = currentSession.entityMap.Values
+        IEnumerable<Entity> entities = currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is GadgetEntity gadget &&
                         gadget._gadgetLua != null &&
                         gadget._gadgetLua.group_id == group_id &&
@@ -96,7 +96,7 @@ public class ScriptLib
     public int GetGadgetStateByConfigId(Session session, int group_id, int config_id)
     {
         Log("Called GetGadgetStateByConfigId");
-        GadgetEntity? gadget = currentSession.entityMap.Values
+        GadgetEntity? gadget = currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is GadgetEntity g &&
                         g._gadgetLua != null &&
                         g._gadgetLua.group_id == group_id &&

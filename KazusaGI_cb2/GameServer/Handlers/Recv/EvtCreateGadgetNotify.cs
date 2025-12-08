@@ -18,8 +18,9 @@ internal class HandleEvtCreateGadgetNotify
         uint gadgetId = req.ConfigId;
         Protocol.Vector pos = req.InitPos;
         GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos), Vector3.Zero, entityId);
-        if (!session.entityMap.TryAdd(entityId, gadgetEntity))
-            session.c.LogError($"[WARNING] Entity ID collision when adding gadget {gadgetId} with entity ID {entityId}");
+
+        session.player.Scene.EntityManager.Add(gadgetEntity);
+            //session.c.LogError($"[WARNING] Entity ID collision when adding gadget {gadgetId} with entity ID {entityId}");
         // session.SendPacket(req);
     }
 }

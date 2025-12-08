@@ -20,7 +20,7 @@ internal class HandleAbilityInvocationsNotify
             session.player!.AbilityInvNotifyList.AddEntry(invoke);
 
             // Handle the ability invoke on the entity if it exists
-            if (session.entityMap.TryGetValue(invoke.EntityId, out GameServer.Entity? entity))
+            if (session.player.Scene.EntityManager.TryGet(invoke.EntityId, out GameServer.Entity? entity))
             {
                 // For now, just log that we're handling the ability invoke
                 // Later, when ability system is more complete, we can add proper handling

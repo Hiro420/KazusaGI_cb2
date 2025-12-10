@@ -82,7 +82,7 @@ public abstract class BaseAbilityManager
 
 			if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation? invocation))
 			{
-				logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {invoke.Head.LocalId}");
+				logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {invoke.Head.LocalId} | {invocation.GetType().Name}");
 				await invocation.Invoke(ability.abilityName, Owner);
 			}
 			else

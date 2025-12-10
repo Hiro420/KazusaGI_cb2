@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
@@ -16,12 +17,10 @@ namespace KazusaGI_cb2.GameServer.Ability;
 public class MonsterAbilityManager : BaseAbilityManager
 {
 	private readonly MonsterEntity _monster;
-	private readonly Dictionary<uint, ConfigAbility> _configAbilities = new();
+	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } = new();
 	private readonly Dictionary<string, Dictionary<string, float>?> _abilitySpecials = new();
 	private readonly HashSet<string> _activeDynamicAbilities = new();
 	private readonly Dictionary<string, HashSet<string>> _unlockedTalentParams = new();
-
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => _configAbilities;
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => _abilitySpecials;
 	public override HashSet<string> ActiveDynamicAbilities => _activeDynamicAbilities;
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => _unlockedTalentParams;
@@ -88,7 +87,7 @@ public class MonsterAbilityManager : BaseAbilityManager
                     continue;
 
                 uint hash = Utils.AbilityHash(abilityName);
-                _configAbilities[hash] = configAbility;
+                ConfigAbilityHashMap[hash] = configAbility;
 
                 // Ensure we have a specials map entry for this ability name so that
                 // BaseAbilityManager.Initialize can build override maps.

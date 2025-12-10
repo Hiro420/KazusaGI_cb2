@@ -4,6 +4,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -16,6 +17,9 @@ namespace KazusaGI_cb2.GameServer
 
 	public abstract class Entity
 	{
+		public List<AbilityInstance> InstancedAbilities { get; } = new();
+		public Dictionary<uint, AbilityModifierController> InstancedModifiers { get; } = new();
+
 		public BaseAbilityManager? abilityManager = null;
 		public uint _EntityId { get; protected set; }
 		public Vector3 Position { get; set; }
@@ -98,48 +102,12 @@ namespace KazusaGI_cb2.GameServer
 				EntityId = this._EntityId,
 				MotionInfo = MakeMotion(luaPos, luaRot),
 				AiInfo = MakeAi(luaPos),
-				AbilityInfo = GetAbilityStates()
+				AbilityInfo = new()
 			};
 
 			BuildKindSpecific(info);
 			InjectCommonProps(info);
 			return info;
-		}
-
-		public AbilitySyncStateInfo GetAbilityStates()
-		{
-			if (abilityManager == null || abilityManager.IsInited == false)
-				return new();
-			AbilitySyncStateInfo ret = new AbilitySyncStateInfo()
-			{
-                IsInited = abilityManager.IsInited,
-            };
-
-			if (abilityManager.InstanceToAbilityHashMap != null)
-			{
-				foreach (var appliedAbility in abilityManager.InstanceToAbilityHashMap.Values)
-				{
-					AbilityAppliedAbility proto = new AbilityAppliedAbility()
-					{
-						AbilityName = new AbilityString()
-						{
-							Hash = appliedAbility,
-							Str = abilityManager.ConfigAbilityHashMap?.GetValueOrDefault(appliedAbility)?.abilityName,
-						},
-					};
-					ret.AppliedAbilities.Add(proto);
-				}
-			}
-
-			if (abilityManager.GlobalValueHashMap != null)
-			{
-				foreach (var dynamicValue in abilityManager.GlobalValueHashMap)
-				{
-					ret.DynamicValueMaps.Add(dynamicValue.Value);
-				}
-			}
-
-			return ret;
 		}
 
 		public virtual void ForceKill()

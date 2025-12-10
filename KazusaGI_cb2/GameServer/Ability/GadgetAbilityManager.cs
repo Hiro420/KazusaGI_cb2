@@ -1,4 +1,5 @@
 ﻿using KazusaGI_cb2.GameServer.Handlers;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;

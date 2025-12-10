@@ -1,4 +1,5 @@
 ﻿using KazusaGI_cb2.GameServer.Handlers;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
@@ -15,13 +16,13 @@ public class SceneAbilityManager : BaseAbilityManager
 {
 	private SceneEntity _scene => (SceneEntity)Owner;
 
+	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } = new();
+
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => new();
 
 	public override HashSet<string> ActiveDynamicAbilities => new();
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => new();
-
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => new();
 
 	public SceneAbilityManager(Entity owner) : base(owner)
 	{
@@ -46,11 +47,11 @@ public class SceneAbilityManager : BaseAbilityManager
 				var abilityData = MainApp.resourceManager.ConfigAbilityMap[abilityName];
 				if (abilityData != null)
 				{
-                    ConfigAbilityHashMap[Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
-                }
+					ConfigAbilityHashMap[Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
+				}
 			}
-        }
-    }
+		}
+	}
 
 	public override async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{

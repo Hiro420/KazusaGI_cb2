@@ -157,7 +157,7 @@ public class Player
                 AvatarEntityId = avatarentity._EntityId,
                 WeaponGuid = playerAvatar.EquipGuid,
                 WeaponEntityId = weaponDict[playerAvatar.EquipGuid].WeaponEntityId,
-                AvatarAbilityInfo = avatarentity.GetAbilityStates(),
+                AvatarAbilityInfo = new(),
                 WeaponAbilityInfo = new()
             });
         }

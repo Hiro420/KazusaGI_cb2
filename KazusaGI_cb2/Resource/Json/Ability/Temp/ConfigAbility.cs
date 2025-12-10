@@ -36,47 +36,46 @@ public class ConfigAbility : BaseConfigAbility
             InitializeModifierIds(),
             InitializeActionIds()
         };
-
-        //if (abilityName == "SceneObj_Environment_Rock_StonePile")
-        //{
-        //    //Console.WriteLine(JsonConvert.SerializeObject(ModifierList, Formatting.Indented));
-        //    foreach (var kvp in LocalIdToInvocationMap)
-        //    {
-        //        uint localId = kvp.Key;
-        //        var (type, s3, s9, s15, s21) = LocalIdGenerator.DecodeLocalId(localId);
-
-        //        switch (type)
-        //        {
-        //            case ConfigAbilitySubContainerType.ACTION:
-        //                Console.WriteLine(
-        //                    $"LocalId {localId} -> Action: ConfigIndex={s3} [{ConfigIndexAction.GetValueOrDefault(s3, "?")}] | ActionIndex={s9} | Invocation={kvp.Value.GetType().Name}");
-        //                break;
-
-        //            case ConfigAbilitySubContainerType.MIXIN:
-        //                Console.WriteLine(
-        //                    $"LocalId {localId} -> Mixin: MixinIndex={s3} | ConfigIndex={s9} [?] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
-        //                break;
-
-        //            case ConfigAbilitySubContainerType.MODIFIER_ACTION:
-        //                Console.WriteLine(
-        //                    $"LocalId {localId} -> ModifierAction: ModifierIndex={s3} | ConfigIndex={s9} [{ConfigIndexModifier.GetValueOrDefault(s9, "?")}] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
-        //                break;
-
-        //            case ConfigAbilitySubContainerType.MODIFIER_MIXIN:
-        //                Console.WriteLine(
-        //                    $"LocalId {localId} -> ModifierMixin: ModifierIndex={s3} | MixinIndex={s9} | ConfigIndex={s15} [?] | ActionIndex={s21} | Invocation={kvp.Value.GetType().Name}");
-        //                break;
-
-        //            default:
-        //                Console.WriteLine(
-        //                    $"LocalId {localId} -> Unsupported type {(int)type}: s={(int)type}, s3={s3}, s9={s9}, s15={s15}, s21={s21}");
-        //                break;
-        //        }
-        //    }
-        //}
-
         await Task.WhenAll(tasks);
     }
+
+    public void DebugAbility(Logger logger)
+    {
+		//Console.WriteLine(JsonConvert.SerializeObject(ModifierList, Formatting.Indented));
+		foreach (var kvp in LocalIdToInvocationMap)
+		{
+			uint localId = kvp.Key;
+			var (type, s3, s9, s15, s21) = LocalIdGenerator.DecodeLocalId(localId);
+
+			switch (type)
+			{
+				case ConfigAbilitySubContainerType.ACTION:
+					logger.LogWarning(
+						$"LocalId {localId} -> Action: ConfigIndex={s3} [{ConfigIndexAction.GetValueOrDefault(s3, "?")}] | ActionIndex={s9} | Invocation={kvp.Value.GetType().Name}");
+					break;
+
+				case ConfigAbilitySubContainerType.MIXIN:
+					logger.LogWarning(
+						$"LocalId {localId} -> Mixin: MixinIndex={s3} | ConfigIndex={s9} [?] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
+					break;
+
+				case ConfigAbilitySubContainerType.MODIFIER_ACTION:
+					logger.LogWarning(
+						$"LocalId {localId} -> ModifierAction: ModifierIndex={s3} | ConfigIndex={s9} [{ConfigIndexModifier.GetValueOrDefault(s9, "?")}] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
+					break;
+
+				case ConfigAbilitySubContainerType.MODIFIER_MIXIN:
+					logger.LogWarning(
+						$"LocalId {localId} -> ModifierMixin: ModifierIndex={s3} | MixinIndex={s9} | ConfigIndex={s15} [?] | ActionIndex={s21} | Invocation={kvp.Value.GetType().Name}");
+					break;
+
+				default:
+					logger.LogWarning(
+						$"LocalId {localId} -> Unsupported type {(int)type}: s={(int)type}, s3={s3}, s9={s9}, s15={s15}, s21={s21}");
+					break;
+			}
+		}
+	}
 
     private async Task InitializeActionIds()
     {
@@ -139,40 +138,40 @@ public class ConfigAbility : BaseConfigAbility
         }
     }
 
-    //private static readonly Dictionary<int, string> ConfigIndexAction = new()
-    //{
-    //    [0] = "onAdded",
-    //    [1] = "onRemoved",
-    //    [2] = "onAbilityStart",
-    //    [3] = "onKill",
-    //    [4] = "onFieldEnter",
-    //    [5] = "onFieldExit",
-    //    [6] = "onAttach",
-    //    [7] = "onDetach",
-    //    [8] = "onAdded",
-    //    [9] = "onAvatarIn",
-    //    [10] = "onAvatarOut",
-    //};
+    private static readonly Dictionary<int, string> ConfigIndexAction = new()
+    {
+        [0] = "onAdded",
+        [1] = "onRemoved",
+        [2] = "onAbilityStart",
+        [3] = "onKill",
+        [4] = "onFieldEnter",
+        [5] = "onFieldExit",
+        [6] = "onAttach",
+        [7] = "onDetach",
+        [8] = "onAdded",
+        [9] = "onAvatarIn",
+        [10] = "onAvatarOut",
+    };
 
-    //private static readonly Dictionary<int, string> ConfigIndexModifier = new()
-    //{
-    //    [0] = "onAdded",
-    //    [1] = "onRemoved",
-    //    [2] = "onBeingHit",
-    //    [3] = "onAttackLanded",
-    //    [4] = "onHittingOther",
-    //    [5] = "onThinkInterval",
-    //    [6] = "onKill",
-    //    [7] = "onCrash",
-    //    [8] = "onAvatarIn",
-    //    [9] = "onAvatarOut",
-    //    [10] = "onReconnect",
-    //    [11] = "onChangeAuthority",
-    //    [12] = "onVehicleIn",
-    //    [13] = "onVehicleOut",
-    //    [14] = "onZoneEnter",
-    //    [15] = "onZoneExit",
-    //    [16] = "onHeal",
-    //    [17] = "onBeingHealed"
-    //};
+    private static readonly Dictionary<int, string> ConfigIndexModifier = new()
+    {
+        [0] = "onAdded",
+        [1] = "onRemoved",
+        [2] = "onBeingHit",
+        [3] = "onAttackLanded",
+        [4] = "onHittingOther",
+        [5] = "onThinkInterval",
+        [6] = "onKill",
+        [7] = "onCrash",
+        [8] = "onAvatarIn",
+        [9] = "onAvatarOut",
+        [10] = "onReconnect",
+        [11] = "onChangeAuthority",
+        [12] = "onVehicleIn",
+        [13] = "onVehicleOut",
+        [14] = "onZoneEnter",
+        [15] = "onZoneExit",
+        [16] = "onHeal",
+        [17] = "onBeingHealed"
+    };
 }

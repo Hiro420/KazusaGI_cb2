@@ -1,8 +1,9 @@
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.GameServer.PlayerInfos;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Talent;
-using KazusaGI_cb2.GameServer.PlayerInfos;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -97,7 +98,8 @@ namespace KazusaGI_cb2.GameServer
             // Add default avatar abilities if available
             // This would need to be adapted based on your resource structure
             // For now, we'll skip this part to avoid additional complexity
-        }
+            //Console.WriteLine($"Initialized SkillDepot for DepotId: {DepotId} with {Abilities.Count} abilities.");
+		}
 
         public Dictionary<int, int> GetSkillLevelMap()
         {
@@ -124,20 +126,14 @@ namespace KazusaGI_cb2.GameServer
         public void AddTalent(uint talentId, BaseAbilityManager abilityManager)
         {
             Talents.Add(talentId);
-            
+
             // Apply talent configuration if available
-            if (Owner.ConfigTalentMap.ContainsKey(DepotId))
-            {
-                foreach (var configGroup in Owner.ConfigTalentMap[DepotId].Values)
-                {
-                    foreach (var config in configGroup)
-                    {
-                        // Apply talent configuration
-                        // This would need the proper parameter list from the talent data
-                        // config.Apply(abilityManager, paramList);
-                    }
-                }
-            }
-        }
+            var talentData = Owner.TalentData[DepotId][talentId];
+			Talents.Add(talentData.talentId);
+			foreach (BaseConfigTalent config in Owner.ConfigTalentMap[DepotId][talentData.openConfig])
+			{
+				config.Apply(abilityManager, talentData.paramList.ToArray());
+			}
+		}
     }
 }

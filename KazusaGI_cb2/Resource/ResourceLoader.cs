@@ -27,6 +27,7 @@ using System.Text.RegularExpressions;
 using KazusaGI_cb2.Resource.Json.Avatar;
 using System.Collections.Concurrent;
 using System.Collections;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -254,7 +255,16 @@ public class ResourceLoader
 
         logger1.LogSuccess($"Loaded {ret.Count} abilities.");
 
-        return ret.ToDictionary();
+        //Dictionary<uint, string> Embryos = ret.Keys.ToDictionary(
+        //    k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k),
+        //    v => v
+        //);
+
+        //File.WriteAllText(
+        //    "AbilityEmbryos.json",
+        //    JsonConvert.SerializeObject(Embryos, Formatting.Indented)
+        //);
+		return ret.ToDictionary();
 	}
 
 	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()
@@ -588,6 +598,11 @@ public class ResourceLoader
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
 		_resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
+
+		_resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
+	        k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),
+	        k => k.Value.Default as ConfigAbility
+		)!;
 	}
 
 

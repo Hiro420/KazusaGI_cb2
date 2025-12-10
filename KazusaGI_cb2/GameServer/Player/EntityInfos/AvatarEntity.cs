@@ -10,6 +10,7 @@ using KazusaGI_cb2.Resource;
 using System.Linq;
 using System.Text.RegularExpressions;
 using KazusaGI_cb2.Resource.Json.Talent;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -106,7 +107,8 @@ namespace KazusaGI_cb2.GameServer
 		{
 			var resourceManager = MainApp.resourceManager;
 			string name = $"Avatar_{DbInfo.AvatarName}";
-			
+			int CurDepotId = (int)DbInfo.SkillDepotId;
+
 			// Build AbilityConfigMap using TargetAbilities from ConfigAvatarMap
 			List<ConfigAbilityContainer> configContainerList = new();
 			
@@ -140,20 +142,20 @@ namespace KazusaGI_cb2.GameServer
 			
 			foreach (var skill in dictionary1)
 			{
-				DbInfo.SkillData[(int)DbInfo.SkillDepotId][skill.Key] = skill.Value;
+				DbInfo.SkillData[CurDepotId][skill.Key] = skill.Value;
 			}
 
 			var talentList = resourceManager.AvatarTalentExcel.Where(w => DbInfo.avatarSkillDepotExcel.talents.Contains((uint)w.Value.talentId));
 			foreach (var i in talentList)
 			{
-				DbInfo.TalentData.Add(i.Value);
+				DbInfo.TalentData[CurDepotId][i.Key] = i.Value;
 			}
 
 			var dict1 = resourceManager.ProudSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.inherentProudSkillOpens.Exists(y => y.proudSkillGroupId == w.Value.proudSkillGroupId)).ToDictionary(x => x.Key, x => x.Value);
 
 			foreach (var i in dict1)
 			{
-				DbInfo.ProudSkillData.TryAdd((int)i.Key, i.Value);
+				DbInfo.ProudSkillData[CurDepotId].TryAdd(i.Key, i.Value);
 			}
 
 			foreach (var skilldata in dictionary1.Values)
@@ -161,7 +163,7 @@ namespace KazusaGI_cb2.GameServer
 				var proudData = resourceManager.ProudSkillExcel.Where(w => w.Value.proudSkillGroupId == skilldata.proudSkillGroupId);
 				foreach (var proud in proudData)
 				{
-					DbInfo.ProudSkillData[(int)proud.Key] = proud.Value;
+					DbInfo.ProudSkillData[CurDepotId][proud.Key] = proud.Value;
 				}
 			}
 

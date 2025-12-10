@@ -1,6 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using Newtonsoft.Json;
-using KazusaGI_cb2.GameServer.Ability;
+using System.Text.RegularExpressions;
 
 namespace KazusaGI_cb2.Resource.Json.Talent;
 
@@ -24,26 +25,26 @@ internal class ModifyAbility : BaseConfigTalent
         }
 
         float special = abilityManager.AbilitySpecials[abilityName][paramSpecial];
-        if (paramDelta is string deltaString)
-        {
-            string index = Regex.Replace(deltaString, "%", "");
-            float delta = (float)paramList[int.Parse(index)];
-            special += delta;
-        }
-        else if (paramDelta is double asD)
-            special += (float)asD;
+        //if (paramDelta is string deltaString)
+        //{
+        //    string index = Regex.Replace(deltaString, "%", "");
+        //    float delta = (float)paramList[int.Parse(index)];
+        //    special += delta;
+        //}
+        //else if (paramDelta is double asD)
+        //    special += (float)asD;
 
-        if (paramRatio is string ratioString)
-        {
-            string index = Regex.Replace(ratioString, "%", "");
-            float ratio = (float)paramList[int.Parse(index)];
-            special *= ratio;
-        }
-        else if (paramRatio is double asD)
-        {
-            if (asD != 0)
-                special *= (float)asD;
-        }
+        //if (paramRatio is string ratioString)
+        //{
+        //    string index = Regex.Replace(ratioString, "%", "");
+        //    float ratio = (float)paramList[int.Parse(index)];
+        //    special *= ratio;
+        //}
+        //else if (paramRatio is double asD)
+        //{
+        //    if (asD != 0)
+        //        special *= (float)asD;
+        //}
 
         abilityManager.AbilitySpecials[abilityName][paramSpecial] = special;
     }

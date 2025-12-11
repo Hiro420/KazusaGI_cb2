@@ -10,16 +10,9 @@ public abstract class BaseAbilityManager
 {
 	protected static Logger logger = new("AbilityManager");
 	protected readonly Entity Owner;
-	// instancedAbilityId -> abilityNameHash
-	protected Dictionary<uint, uint> InstanceToAbilityHashMap =>
-		ConfigAbilityHashMap
-			.Select((ability, index) => new
-			{
-				InstancedId = (uint)(index + 1), // or index if 0-based
-				Hash = GameServer.Ability.Utils.AbilityHash(ability.Value.abilityName)
-			})
-			.ToDictionary(x => x.InstancedId, x => x.Hash);
-	public abstract Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } // <abilityNameHash, configAbility>
+	// instancedAbilityId -> abilityNameHash (filled from network "applied ability" data)
+	protected readonly Dictionary<uint, uint> InstancedAbilityHashMap = new();
+	public abstract SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } // <abilityNameHash, configAbility>
 	public readonly Dictionary<uint, Dictionary<uint, float>> AbilitySpecialOverrideMap = new(); // <abilityNameHash, <abilitySpecialNameHash, value>>
 	public abstract Dictionary<string, Dictionary<string, float>?>? AbilitySpecials { get; }// <abilityName, <abilitySpecial, value>>
 	public abstract HashSet<string> ActiveDynamicAbilities { get; }
@@ -51,6 +44,29 @@ public abstract class BaseAbilityManager
 				}
 			}
 		}
+
+		// Ensure all config abilities used by this manager have their
+		// LocalIdToInvocationMap / ModifierList initialized, mirroring
+		// hk4e's creation of ConfigAbilityImpl & invoke_site_vec.
+		foreach (var kvp in ConfigAbilityHashMap)
+		{
+			var configAbility = kvp.Value;
+			if (configAbility == null)
+				continue;
+
+			// If initialization has not run (maps still null), run it now.
+			if (configAbility.LocalIdToInvocationMap == null || configAbility.ModifierList == null)
+			{
+				try
+				{
+					configAbility.Initialize().GetAwaiter().GetResult();
+				}
+				catch (Exception ex)
+				{
+					logger.LogError($"Failed to initialize ConfigAbility '{configAbility.abilityName}' for hash {kvp.Key}: {ex.Message}");
+				}
+			}
+		}
 	}
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
@@ -62,23 +78,12 @@ public abstract class BaseAbilityManager
 			logger.LogInfo($"Server-sided ability invoke: LocalId={invoke.Head.LocalId}, " +
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}");
 
-			if (!InstanceToAbilityHashMap.ContainsKey(invoke.Head.InstancedAbilityId))
+			// Mirror hk4e's serverCommonInvokeHandler/commonInvokeEntryDispatch:
+			// resolve (ability, modifier) first, then dispatch by localId.
+			if (!TryResolveAbilityForInvoke(invoke, out var ability, out var modifierController))
 			{
-				logger.LogWarning($"Missing instanced ability id: {invoke.Head.InstancedAbilityId}");
-				foreach (var abilityEntry in InstanceToAbilityHashMap)
-				{
-					logger.LogInfo($"Known instanced ability id: {abilityEntry.Key} -> {abilityEntry.Value}");
-				}
 				return;
 			}
-
-			if (!ConfigAbilityHashMap.ContainsKey(InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]))
-			{
-				logger.LogWarning($"Missing ability config for ability id: {InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]}");
-				return;
-			}
-
-			ConfigAbility ability = ConfigAbilityHashMap[InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]];
 
 			if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation? invocation))
 			{
@@ -87,7 +92,7 @@ public abstract class BaseAbilityManager
 			}
 			else
 			{
-				logger.LogWarning($"Missing localId: {invoke.Head.LocalId}, ability: {invoke.Head.InstancedAbilityId}");
+				logger.LogWarning($"Missing localId: {invoke.Head.LocalId}, ability instanced id: {invoke.Head.InstancedAbilityId}");
 				ability.DebugAbility(logger);
 			}
 
@@ -98,15 +103,8 @@ public abstract class BaseAbilityManager
 		switch (invoke.ArgumentType)
 		{
 			case AbilityInvokeArgument.AbilityNone:
-				//TODO
-				ConfigAbility ability = ConfigAbilityHashMap[InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]];
-				if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation? invocation))
-				{
-					Console.WriteLine($"Invoking ability: {ability.abilityName}, localId: {invoke.Head.LocalId}");
-					await invocation.Invoke(ability.abilityName, Owner);
-				}
-				else
-					logger.LogWarning($"Missing localId: {invoke.Head.LocalId}, ability: {invoke.Head.InstancedAbilityId}");
+				// hk4e treats this as a meta marker with no
+				// additional server-side behavior; ignore.
 				break;
 			case AbilityInvokeArgument.AbilityMetaModifierChange:
 				AbilityMetaModifierChange info = Serializer.Deserialize<AbilityMetaModifierChange>(data);
@@ -117,18 +115,50 @@ public abstract class BaseAbilityManager
 				break;
 			case AbilityInvokeArgument.AbilityMetaOverrideParam:
 				AbilityScalarValueEntry asEntri = Serializer.Deserialize<AbilityScalarValueEntry>(data);
-				AbilitySpecialOverrideMap[InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId]][asEntri.Key.Hash] = asEntri.FloatValue;
+				if (!TryResolveAbilityForInvoke(invoke, out var overrideAbility, out _))
+				{
+					logger.LogWarning($"AbilityMetaOverrideParam: failed to resolve ability for instancedAbilityId {invoke.Head.InstancedAbilityId}");
+					break;
+				}
+				uint overrideAbilityHash = GameServer.Ability.Utils.AbilityHash(overrideAbility.abilityName);
+				if (!AbilitySpecialOverrideMap.TryGetValue(overrideAbilityHash, out var specialsMap))
+				{
+					specialsMap = new Dictionary<uint, float>();
+					AbilitySpecialOverrideMap[overrideAbilityHash] = specialsMap;
+				}
+				specialsMap[asEntri.Key.Hash] = asEntri.FloatValue;
 				break;
 			case AbilityInvokeArgument.AbilityMetaReinitOverridemap:
 				AbilityMetaReInitOverrideMap info3 = Serializer.Deserialize<AbilityMetaReInitOverrideMap>(data);
-				ReInitOverrideMap(InstanceToAbilityHashMap[invoke.Head.InstancedAbilityId], info3 as AbilityMetaReInitOverrideMap);
+				if (!TryResolveAbilityForInvoke(invoke, out var reinitAbility, out _))
+				{
+					logger.LogWarning($"AbilityMetaReinitOverridemap: failed to resolve ability for instancedAbilityId {invoke.Head.InstancedAbilityId}");
+					break;
+				}
+				uint reinitAbilityHash = GameServer.Ability.Utils.AbilityHash(reinitAbility.abilityName);
+				ReInitOverrideMap(reinitAbilityHash, info3 as AbilityMetaReInitOverrideMap);
 				break;
 			case AbilityInvokeArgument.AbilityMetaGlobalFloatValue:
 				AbilityScalarValueEntry asEntry = Serializer.Deserialize<AbilityScalarValueEntry>(data);
 				GlobalValueHashMap[asEntry.Key.Hash] = asEntry.FloatValue;
 				break;
 			case AbilityInvokeArgument.AbilityMetaAddOrGetAbilityAndTrigger:
+				// In hk4e this can either fetch an existing applied ability
+				// or create a new one, then trigger it. For caching purposes
+				// we only need to bind the instancedAbilityId from the head
+				// to the ability name/override coming in this payload.
 				AbilityMetaAddOrGetAbilityAndTrigger info4 = Serializer.Deserialize<AbilityMetaAddOrGetAbilityAndTrigger>(data);
+				if (info4 != null)
+				{
+					var applied = new AbilityAppliedAbility
+					{
+						AbilityName = info4.AbilityName ?? new AbilityString(),
+						AbilityOverride = info4.AbilityOverride ?? new AbilityString(),
+						InstancedAbilityId = invoke.Head.InstancedAbilityId
+					};
+
+					AddAbility(applied);
+				}
 				break;
 			case AbilityInvokeArgument.AbilityMetaAddNewAbility:
 				AbilityMetaAddAbility info5 = Serializer.Deserialize<AbilityMetaAddAbility>(data);
@@ -159,6 +189,87 @@ public abstract class BaseAbilityManager
 				logger.LogWarning($"Unhandled AbilityInvokeArgument: {invoke.ArgumentType}");
 				break;
 		}
+	}
+
+	/// <summary>
+	/// Resolves the ConfigAbility (and optionally the modifier controller)
+	/// for a given invoke entry, mirroring hk4e's serverCommonInvokeHandler
+	/// resolution order: prefer modifier-based resolution, then fall back
+	/// to the applied ability via InstancedAbilityHashMap.
+	/// </summary>
+	/// <param name="invoke">Incoming ability invoke entry.</param>
+	/// <param name="ability">Resolved ability config when true is returned.</param>
+	/// <param name="modifierController">Resolved modifier controller, if any.</param>
+	/// <returns>True if an ability config could be resolved; otherwise false.</returns>
+	protected virtual bool TryResolveAbilityForInvoke(
+		AbilityInvokeEntry invoke,
+		out ConfigAbility ability,
+		out AbilityModifierController? modifierController)
+	{
+		ability = null!;
+		modifierController = null;
+
+		// 1) Prefer resolving via modifier id, like hk4e's logic which
+		// first checks the modifier context to find the owning ability.
+		if (invoke.Head.InstancedModifierId != 0 &&
+			InstancedModifierMap.TryGetValue(invoke.Head.InstancedModifierId, out var controller))
+		{
+			modifierController = controller;
+			ability = controller.AbilityConfig;
+			if (ability == null)
+			{
+				logger.LogWarning($"TryResolveAbilityForInvoke: modifier {invoke.Head.InstancedModifierId} has null AbilityConfig.");
+				return false;
+			}
+			return true;
+		}
+
+		// 2) Fall back to instanced ability id mapping.
+		uint instancedAbilityId = invoke.Head.InstancedAbilityId;
+		if (instancedAbilityId == 0)
+		{
+			logger.LogWarning("TryResolveAbilityForInvoke: instancedAbilityId is 0 and no modifier context was found.");
+			return false;
+		}
+
+		if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out uint abilityHash))
+		{
+			logger.LogWarning($"TryResolveAbilityForInvoke: no ability hash for instancedAbilityId {instancedAbilityId}.");
+			return false;
+		}
+
+		// Try to get the config from this manager first.
+		if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out var configAbility) || configAbility == null)
+		{
+			// Fallback: pull from global ConfigAbilityHashMap if available,
+			// similar to how AddAbility and ProcessAddModifier behave.
+			if (MainApp.resourceManager.ConfigAbilityHashMap == null ||
+				!MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(abilityHash, out configAbility) ||
+				configAbility == null)
+			{
+				logger.LogWarning($"TryResolveAbilityForInvoke: config not found for ability hash {abilityHash} (instancedAbilityId={instancedAbilityId}).");
+				return false;
+			}
+
+			// Ensure invoke/mixin/modifier indices are ready, then bind into this manager.
+			try
+			{
+				if (configAbility.LocalIdToInvocationMap == null || configAbility.ModifierList == null)
+				{
+					configAbility.Initialize().GetAwaiter().GetResult();
+				}
+				ConfigAbilityHashMap[abilityHash] = configAbility;
+				logger.LogInfo($"TryResolveAbilityForInvoke: bound global ConfigAbility '{configAbility.abilityName}' to hash {abilityHash} for instancedAbilityId {instancedAbilityId}.");
+			}
+			catch (Exception ex)
+			{
+				logger.LogError($"TryResolveAbilityForInvoke: failed to initialize/bind global ConfigAbility for hash {abilityHash}: {ex.Message}");
+				return false;
+			}
+		}
+
+		ability = configAbility;
+		return true;
 	}
 
 	protected virtual void ProcessModifierAction(AbilityInvokeEntry invoke, AbilityMetaModifierChange? modifierChange)
@@ -218,25 +329,128 @@ public abstract class BaseAbilityManager
 		logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
 			$"ParentAbility={modifierChange.ParentAbilityName?.Hash:X}");
 
+		//logger.LogWarning("Modifier Change Data:");
+		//logger.LogWarning(Newtonsoft.Json.JsonConvert.SerializeObject(modifierChange, Newtonsoft.Json.Formatting.Indented));
+		//logger.LogWarning("Full Invoke Data:");
+		//logger.LogWarning(Newtonsoft.Json.JsonConvert.SerializeObject(invoke, Newtonsoft.Json.Formatting.Indented));
+
 		try
 		{
-			// figure out who the modifier is applied to (you already do this)
+			// figure out who the modifier is applied to
 			uint targetEntityId = modifierChange.ApplyEntityId != 0
 				? modifierChange.ApplyEntityId
 				: Owner._EntityId;
 
 			uint instancedAbilityId = invoke.Head.InstancedAbilityId;
 			uint instancedModifierId = invoke.Head.InstancedModifierId;
-
-			if (!InstanceToAbilityHashMap.TryGetValue(instancedAbilityId, out uint abilityHash))
+			if (instancedModifierId == 0)
 			{
-				logger.LogWarning($"Missing ability hash for instancedAbilityId {instancedAbilityId}");
+				logger.LogWarning($"AbilityMetaModifierChange has invalid instancedModifierId=0 (localId={modifierChange.ModifierLocalId})");
 				return;
+			}
+
+			if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out uint abilityHash))
+			{
+				// Try to infer the ability hash from the modifier's parent
+				// ability name/override and bind it to this instanced id.
+				uint inferredHash = 0;
+				string? parentNameStr = null;
+				string? parentOverrideStr = null;
+
+				if (modifierChange.ParentAbilityOverride != null)
+				{
+					parentOverrideStr = modifierChange.ParentAbilityOverride.Str;
+					if (modifierChange.ParentAbilityOverride.Hash != 0)
+						inferredHash = modifierChange.ParentAbilityOverride.Hash;
+					else if (!string.IsNullOrEmpty(parentOverrideStr))
+						inferredHash = GameServer.Ability.Utils.AbilityHash(parentOverrideStr);
+				}
+
+				if (inferredHash == 0 && modifierChange.ParentAbilityName != null)
+				{
+					parentNameStr = modifierChange.ParentAbilityName.Str;
+					if (modifierChange.ParentAbilityName.Hash != 0)
+						inferredHash = modifierChange.ParentAbilityName.Hash;
+					else if (!string.IsNullOrEmpty(parentNameStr))
+						inferredHash = GameServer.Ability.Utils.AbilityHash(parentNameStr);
+				}
+
+				ConfigAbility? inferredAbility = null;
+				uint inferredAbilityHash = 0;
+
+				if (inferredHash != 0)
+				{
+					// We have a hash from parent ability fields; prefer that.
+					inferredAbilityHash = inferredHash;
+					ConfigAbilityHashMap.TryGetValue(inferredAbilityHash, out inferredAbility);
+				}
+				else
+				{
+					// Parent ability name/override are empty; fall back to
+					// finding an ability whose ModifierList contains this
+					// modifier local id, or, as a last resort, the single
+					// ability in this manager if there is exactly one.
+					foreach (var kv in ConfigAbilityHashMap)
+					{
+						if (kv.Value?.ModifierList != null &&
+							kv.Value.ModifierList.ContainsKey((uint)modifierChange.ModifierLocalId))
+						{
+							inferredAbilityHash = kv.Key;
+							inferredAbility = kv.Value;
+							break;
+						}
+					}
+
+					if (inferredAbility == null && ConfigAbilityHashMap.Count == 1)
+					{
+						var single = ConfigAbilityHashMap.First();
+						inferredAbilityHash = single.Key;
+						inferredAbility = single.Value;
+					}
+				}
+
+				if (inferredAbilityHash == 0)
+				{
+					logger.LogWarning($"Missing ability hash for instancedAbilityId {instancedAbilityId} and could not infer from parent name/override or modifier index.");
+					return;
+				}
+
+				abilityHash = inferredAbilityHash;
+				InstancedAbilityHashMap[instancedAbilityId] = abilityHash;
+
+				// Ensure this manager has a config for the inferred ability hash,
+				// falling back to the global resource map if needed.
+				if (!ConfigAbilityHashMap.ContainsKey(abilityHash))
+				{
+					if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
+						MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(abilityHash, out var globalConfig) &&
+						globalConfig != null)
+					{
+						try
+						{
+							if (globalConfig.LocalIdToInvocationMap == null || globalConfig.ModifierList == null)
+							{
+								globalConfig.Initialize().GetAwaiter().GetResult();
+							}
+							ConfigAbilityHashMap[abilityHash] = globalConfig;
+							logger.LogInfo($"ProcessAddModifier: bound global ConfigAbility '{globalConfig.abilityName}' to hash {abilityHash} for inferred instancedAbilityId {instancedAbilityId}.");
+						}
+						catch (Exception ex)
+						{
+							logger.LogError($"ProcessAddModifier: failed to initialize/bind global ConfigAbility for hash {abilityHash}: {ex.Message}");
+						}
+					}
+					else
+					{
+						logger.LogWarning($"ProcessAddModifier: config not found for inferred ability hash {abilityHash} (parentOverride='{parentOverrideStr}', parentName='{parentNameStr}')");
+					}
+				}
 			}
 
 			if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? ability))
 			{
-				logger.LogWarning($"Missing ability config for ability hash {abilityHash}");
+				var sceneManager = Owner.session.player.Scene.EntityManager;
+				logger.LogWarning($"Missing ability config for ability hash {abilityHash} | entity {targetEntityId} of type {sceneManager.Entities[targetEntityId].GetType().Name}");
 				return;
 			}
 
@@ -251,7 +465,8 @@ public abstract class BaseAbilityManager
 			else
 			{
 				logger.LogWarning($"No modifier config for LocalId={modifierChange.ModifierLocalId} in ability {ability.abilityName}");
-				// you can return here or continue without modifierConfig
+				ability.DebugAbility(logger);
+				return;
 			}
 
 			// create the controller ("AbilityModifierController" like in GC)
@@ -304,7 +519,7 @@ public abstract class BaseAbilityManager
 		{
 			if (entry.ValueType != AbilityScalarType.AbilityScalarTypeFloat)
 			{
-				logger.LogWarning($"Unhandled value type {entry.ValueType} in Config {ConfigAbilityHashMap[abilityNameHash].abilityName}");
+				logger.LogWarning($"Unhandled value type {entry.ValueType} in override map for ability hash {abilityNameHash}");
 				continue;
 			}
 			try
@@ -319,31 +534,96 @@ public abstract class BaseAbilityManager
 		}
 	}
 
+	public void AddAbilityToEntity(Entity entity, ConfigAbility abilityData)
+	{
+		var ability = new AbilityInstance(abilityData, entity, entity.session.player);
+		entity.InstancedAbilities.Add(ability); // This is in order
+	}
+
 	protected virtual void AddAbility(AbilityAppliedAbility ability)
 	{
-		uint hash = ability.AbilityName.Hash;
+		// Resolve the effective ability name/hash, preferring override
+		// strings/hashes, mirroring hk4e's AbilityAppliedAbility usage.
+		uint hash = 0;
+		string? abilityNameStr = null;
+		string? overrideNameStr = null;
+
+		if (ability.AbilityOverride != null)
+		{
+			overrideNameStr = ability.AbilityOverride.Str;
+			if (ability.AbilityOverride.Hash != 0)
+				hash = ability.AbilityOverride.Hash;
+			else if (!string.IsNullOrEmpty(overrideNameStr))
+				hash = GameServer.Ability.Utils.AbilityHash(overrideNameStr);
+		}
+
+		if (hash == 0 && ability.AbilityName != null)
+		{
+			abilityNameStr = ability.AbilityName.Str;
+			if (ability.AbilityName.Hash != 0)
+				hash = ability.AbilityName.Hash;
+			else if (!string.IsNullOrEmpty(abilityNameStr))
+				hash = GameServer.Ability.Utils.AbilityHash(abilityNameStr);
+		}
+
+		if (hash == 0)
+		{
+			logger.LogWarning("AddAbility: unable to resolve ability hash from AbilityAppliedAbility (both override and base empty).");
+			return;
+		}
+
 		uint instancedId = ability.InstancedAbilityId;
-		InstanceToAbilityHashMap[instancedId] = hash;
+		InstancedAbilityHashMap[instancedId] = hash;
+
+		// Ensure this manager has a config entry for the ability hash.
+		// If it's not in the per-entity map yet, fall back to the global
+		// ConfigAbilityHashMap from ResourceManager (mirrors hk4e where
+		// applied abilities reference already-loaded configs).
+		if (!ConfigAbilityHashMap.ContainsKey(hash))
+		{
+			if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
+				MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(hash, out var globalConfig) &&
+				globalConfig != null)
+			{
+				try
+				{
+					// Make sure invoke/mixin/modifier indices are ready for this ability.
+					if (globalConfig.LocalIdToInvocationMap == null || globalConfig.ModifierList == null)
+					{
+						globalConfig.Initialize().GetAwaiter().GetResult();
+					}
+
+					ConfigAbilityHashMap[hash] = globalConfig;
+					logger.LogInfo($"AddAbility: bound global ConfigAbility '{globalConfig.abilityName}' to hash {hash} for instancedId {instancedId}.");
+				}
+				catch (Exception ex)
+				{
+					logger.LogError($"AddAbility: failed to initialize/bind global ConfigAbility for hash {hash}: {ex.Message}");
+				}
+			}
+			else
+			{
+				logger.LogWarning($"AddAbility: config not found for ability hash {hash} (override='{overrideNameStr}', base='{abilityNameStr}')");
+			}
+		}
+
 		if (ability.OverrideMaps.Any())
 		{
+			if (!AbilitySpecialOverrideMap.TryGetValue(hash, out var specials))
+			{
+				specials = new Dictionary<uint, float>();
+				AbilitySpecialOverrideMap[hash] = specials;
+			}
+
 			foreach (var entry in ability.OverrideMaps)
 			{
 				switch (entry.ValueType)
 				{
 					case AbilityScalarType.AbilityScalarTypeFloat:
-						try
-						{
-							AbilitySpecialOverrideMap[hash][entry.Key.Hash] = entry.FloatValue;
-						}
-						catch
-						{
-							//TODO fix missing ability hashes
-							AbilitySpecialOverrideMap[hash] = new();
-							AbilitySpecialOverrideMap[hash][entry.Key.Hash] = entry.FloatValue;
-						}
+						specials[entry.Key.Hash] = entry.FloatValue;
 						break;
 					default:
-						logger.LogWarning($"Unhandled value type {entry.ValueType} in Config {ConfigAbilityHashMap[hash].abilityName}");
+						logger.LogWarning($"Unhandled value type {entry.ValueType} in AddAbility override for ability hash {hash}");
 						break;
 				}
 			}

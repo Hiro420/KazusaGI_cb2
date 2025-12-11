@@ -22,7 +22,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => _gadget.UnlockedTalentParams;
 
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => _gadget.AbilityHashMap;
+	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap => new(_gadget.AbilityHashMap);
 
 	public GadgetAbilityManager(Entity owner) : base(owner)
 	{

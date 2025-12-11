@@ -1,10 +1,8 @@
-﻿using KazusaGI_cb2.GameServer;
-using KazusaGI_cb2.GameServer.Systems.Ability;
-using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource.Json;
+﻿using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Talent;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.GameServer.Ability;
 
 namespace KazusaGI_cb2.GameServer.Systems.Ability;
 
@@ -12,7 +10,7 @@ public class AvatarAbilityManager : BaseAbilityManager
 {
 	private SkillDepot CurDepot => (Owner as AvatarEntity).DbInfo.CurrentSkillDepot;
 	private int CurDepotId => CurDepot.DepotId;
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap => CurDepot.Abilities;
+	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap => new(CurDepot.Abilities);
 
 	public override Dictionary<string, Dictionary<string, float>?>? AbilitySpecials => CurDepot.AbilitySpecials;
 
@@ -23,6 +21,31 @@ public class AvatarAbilityManager : BaseAbilityManager
 
 	public AvatarAbilityManager(AvatarEntity avatar) : base(avatar)
 	{
+		InitAbilities();
+	}
+
+	private void InitAbilities()
+	{
+		// Initialize scene-specific abilities here if needed
+		/*
+			for (var ability :
+				GameData.getConfigGlobalCombat().getDefaultAbilities().getLevelElementAbilities()) {
+			AbilityData data = GameData.getAbilityData(ability);
+			if (data != null)
+				getScene().getWorld().getHost().getAbilityManager().addAbilityToEntity(this, data);
+		}
+		*/
+		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.defaultAvatarAbilities!)
+		{
+			if (!string.IsNullOrWhiteSpace(abilityName))
+			{
+				var abilityData = MainApp.resourceManager.ConfigAbilityMap[abilityName];
+				if (abilityData != null)
+				{
+					ConfigAbilityHashMap[GameServer.Ability.Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
+				}
+			}
+		}
 	}
 
 	public override void Initialize()
@@ -63,7 +86,6 @@ public class AvatarAbilityManager : BaseAbilityManager
 			{
 				config.Apply(this, proudSkill.paramList);
 			}
-
 		}
 		base.Initialize();
 	}

@@ -12,9 +12,9 @@ using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
-public class SceneAbilityManager : BaseAbilityManager
+public class TeamAbilityManager : BaseAbilityManager
 {
-	private SceneEntity _scene => (SceneEntity)Owner;
+	private TeamEntity _scene => (TeamEntity)Owner;
 
 	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } = new();
 
@@ -24,10 +24,10 @@ public class SceneAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => new();
 
-	public SceneAbilityManager(Entity owner) : base(owner)
+	public TeamAbilityManager(Entity owner) : base(owner)
 	{
 		InitAbilities();
-    }
+	}
 
 	private void InitAbilities()
 	{
@@ -40,7 +40,7 @@ public class SceneAbilityManager : BaseAbilityManager
 				getScene().getWorld().getHost().getAbilityManager().addAbilityToEntity(this, data);
 		}
 		*/
-		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.levelElementAbilities!)
+		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.defaultTeamAbilities!)
 		{
 			if (!string.IsNullOrWhiteSpace(abilityName))
 			{

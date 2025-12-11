@@ -17,7 +17,7 @@ namespace KazusaGI_cb2.GameServer.Ability;
 public class MonsterAbilityManager : BaseAbilityManager
 {
 	private readonly MonsterEntity _monster;
-	public override Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } = new();
+	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } = new();
 	private readonly Dictionary<string, Dictionary<string, float>?> _abilitySpecials = new();
 	private readonly HashSet<string> _activeDynamicAbilities = new();
 	private readonly Dictionary<string, HashSet<string>> _unlockedTalentParams = new();

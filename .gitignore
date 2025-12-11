@@ -402,3 +402,6 @@ FodyWeavers.xsd
 
 # Resources
 resources/
+
+# Custom
+hk4e_cb2plus_rel/

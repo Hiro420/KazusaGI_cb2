@@ -123,7 +123,12 @@ public class ConfigAbility : BaseConfigAbility
         if (modifiers != null)
         {
             ModifierList = new();
-            var modifierArray = modifiers.ToArray();
+            // The game appears to index modifiers in a deterministic
+            // order (likely alphabetical by modifier name). To match
+            // the wire "modifier_local_id" values, sort by key.
+            var modifierArray = modifiers
+                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                .ToArray();
             var tasks = new Task[modifierArray.Length];
             ushort modifierIndex = 0;
             for (uint i = 0; i < modifierArray.Length; i++)

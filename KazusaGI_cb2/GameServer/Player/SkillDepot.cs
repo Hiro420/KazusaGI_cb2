@@ -95,10 +95,10 @@ namespace KazusaGI_cb2.GameServer
                 }
             }
 
-            // Add default avatar abilities if available
-            // This would need to be adapted based on your resource structure
-            // For now, we'll skip this part to avoid additional complexity
-            //Console.WriteLine($"Initialized SkillDepot for DepotId: {DepotId} with {Abilities.Count} abilities.");
+			// Add default avatar abilities if available
+			// This would need to be adapted based on your resource structure
+			// For now, we'll skip this part to avoid additional complexity
+			//Console.WriteLine($"Initialized SkillDepot for DepotId: {DepotId} with {Abilities.Count} abilities.");
 		}
 
         public Dictionary<int, int> GetSkillLevelMap()

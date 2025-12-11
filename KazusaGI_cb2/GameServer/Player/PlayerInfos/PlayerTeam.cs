@@ -23,17 +23,11 @@ public class PlayerTeam
     {
         this.Avatars = avatars;
         this.Leader = leader;
-        this.teamEntity = new TeamEntity(session);
-        session.player.Scene.EntityManager.Add(this.teamEntity);
-		//this.entityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
 	}
 
     public PlayerTeam(Session session) 
     {
         this.Avatars = new();
-        this.teamEntity = new TeamEntity(session);
-		session.player.Scene.EntityManager.Add(this.teamEntity);
-		//this.entityId = session.GetEntityId(ProtEntityType.ProtEntityTeam);
 	}
 
     public void RemoveAvatar(Session session, PlayerAvatar avatar)

@@ -191,15 +191,15 @@ public class Player
             .OfType<AvatarEntity>()
             .ToList();
 
-        foreach (var entity in avatarEntities)
-        {
-            Console.WriteLine($"Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
-        }
+        // foreach (var entity in avatarEntities)
+        // {
+        //     Console.WriteLine($"Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
+        // }
 
-        foreach (var entity in session.player!.Scene.EntityManager.Entities.Values)
-        {
-            Console.WriteLine($"[?] Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
-        }
+        // foreach (var entity in session.player!.Scene.EntityManager.Entities.Values)
+        // {
+        //     Console.WriteLine($"[?] Entity ID: {entity._EntityId}, Type: {entity.GetType().Name}");
+        // }
 
         foreach (PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)
         {

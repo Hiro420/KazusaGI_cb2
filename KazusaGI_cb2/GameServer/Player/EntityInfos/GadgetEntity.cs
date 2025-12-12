@@ -114,9 +114,30 @@ namespace KazusaGI_cb2.GameServer
 			return Retcode.RetSucc;
 		}
 
-        protected override void BuildKindSpecific(SceneEntityInfo ret)
+		protected override void BuildKindSpecific(SceneEntityInfo ret)
 		{
 			ret.Name = gadgetExcel.jsonName;
+
+			// Determine born type similarly to hk4e's Gadget::toClient:
+			// 1) Prefer the script-configured born_type if present.
+			// 2) If none, derive from GadgetExcelConfig.type.
+			var bornType = _gadgetLua?.born_type ?? GadgetBornType.GadgetBornNone;
+			if (bornType == GadgetBornType.GadgetBornNone)
+			{
+				var type = gadgetExcel.type;
+				// In hk4e, when born_type_ is 0:
+				//   if (type <= 24) born_type = (type >= 23) ? 1 : 0; // IN_AIR for AirflowField/SpeedupField
+				//   else if (type == 34) born_type = 6;               // GROUND for EnvAnimal
+				if (type <= GadgetType_Excel.SpeedupField)
+				{
+					if (type >= GadgetType_Excel.AirflowField)
+						bornType = GadgetBornType.GadgetBornInAir;
+				}
+				else if (type == GadgetType_Excel.EnvAnimal)
+				{
+					bornType = GadgetBornType.GadgetBornGround;
+				}
+			}
 
 			var info = new SceneGadgetInfo
 			{
@@ -126,7 +147,7 @@ namespace KazusaGI_cb2.GameServer
 				ConfigId = _gadgetLua?.config_id ?? 0,
 				GroupId = _gadgetLua?.group_id ?? 0,
 				GadgetId = _gadgetId,
-				BornType = GadgetBornType.GadgetBornGadget,
+				BornType = bornType,
 				GadgetType = (uint)(_gadgetLua?.type ?? 0)
 			};
 			ret.Gadget = info;

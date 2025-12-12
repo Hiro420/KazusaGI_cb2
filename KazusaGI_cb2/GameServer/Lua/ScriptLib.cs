@@ -19,6 +19,16 @@ public class ScriptLib
     public Session currentSession;
     public ScriptArgs? currentEventArgs;
 
+    private SceneGroupLua? GetCurrentGroup()
+    {
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return null;
+        if (currentGroupId == 0)
+            return null;
+        return player.Scene.GetGroup(currentGroupId);
+    }
+
     public int GetGroupMonsterCount(Session session)
     {
         Log("Called GetGroupMonsterCount");
@@ -27,6 +37,27 @@ public class ScriptLib
                         monster._monsterInfo != null &&
                         monster._monsterInfo.group_id == currentGroupId)
             .Count();
+    }
+
+    public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
+    {
+        Log("Called SetIsAllowUseSkill");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] SetIsAllowUseSkill called with no active player/scene");
+            return -1;
+        }
+
+        bool allow = is_allow_use_skill != 0;
+
+        // hk4e applies this to all players in the scene via Scene::foreachPlayer.
+        // Our Scene currently owns a single Player instance, so we mirror the
+        // behavior by updating the current scene's player.
+        player.SetIsAllowUseSkill(allow);
+
+        return 0;
     }
 
     public int GetGroupMonsterCountByGroupId(Session session, int groupId)
@@ -55,6 +86,107 @@ public class ScriptLib
         {
             currentSession.SendPacket(scenePlaySoundNotify);
         }
+        return 0;
+    }
+
+    public int GetGroupVariableValue(Session session, string var_name)
+    {
+        Log("Called GetGroupVariableValue");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return 0;
+
+        if (currentGroupId == 0)
+            return 0;
+
+        return GetGroupVariableValueByGroup(session, var_name, currentGroupId);
+    }
+
+    public int GetGroupVariableValueByGroup(Session session, string var_name, int group_id)
+    {
+        Log("Called GetGroupVariableValueByGroup");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return 0;
+
+        // Find the target group in the current scene.
+        var scene = player.Scene;
+        var group = scene.GetGroup(group_id);
+        if (group == null)
+            return 0;
+
+        if (!group.variables.TryGetValue(var_name, out var value))
+            return 0;
+
+        // Lua group variables are integer-valued.
+        try
+        {
+            return (int)value;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    public int SetGroupVariableValue(Session session, string var_name, int value)
+    {
+        Log("Called SetGroupVariableValue");
+
+        var group = GetCurrentGroup();
+        if (group == null)
+            return -1;
+
+        int oldValue = 0;
+        group.variables.TryGetValue(var_name, out oldValue);
+        if (oldValue == value)
+            return 0;
+
+        group.variables[var_name] = value;
+
+        // Fire VARIABLE_CHANGE event like hk4e when a variable changes.
+        if (currentEventArgs != null)
+        {
+            var args = new ScriptArgs(currentGroupId, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+            {
+                param1 = oldValue,
+                param2 = value,
+                source = var_name
+            };
+
+            LuaManager.executeTriggersLua(currentSession, group, args);
+        }
+
+        return 0;
+    }
+
+    public int ChangeGroupVariableValue(Session session, string var_name, int delta)
+    {
+        Log("Called ChangeGroupVariableValue");
+
+        var group = GetCurrentGroup();
+        if (group == null)
+            return -1;
+
+        group.variables.TryGetValue(var_name, out var oldValue);
+        int newValue = oldValue + delta;
+
+        group.variables[var_name] = newValue;
+
+        if (currentEventArgs != null)
+        {
+            var args = new ScriptArgs(currentGroupId, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+            {
+                param1 = oldValue,
+                param2 = newValue,
+                source = var_name
+            };
+
+            LuaManager.executeTriggersLua(currentSession, group, args);
+        }
+
         return 0;
     }
 
@@ -119,6 +251,33 @@ public class ScriptLib
             return -1;
         currentSession.player!.Scene.RefreshGroup(group, suite);
         return 0;
+    }
+
+    public int ActiveChallenge(Session session, int source_name, int challenge_id, int param1, int param2, int param3, int param4)
+    {
+        Log("Called ActiveChallenge");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        if (currentGroupId == 0)
+        {
+            currentSession.c.LogWarning("[ScriptLib] ActiveChallenge called with currentGroupId = 0");
+            return -1;
+        }
+
+        var scene = player.Scene;
+        uint groupId = (uint)currentGroupId;
+        var paramList = new uint[4]
+        {
+            (uint)param1,
+            (uint)param2,
+            (uint)param3,
+            (uint)param4
+        };
+
+        return scene.BeginChallenge(groupId, (uint)source_name, (uint)challenge_id, paramList);
     }
 
     public int CreateMonster(Session session, object _config)
@@ -203,6 +362,46 @@ public class ScriptLib
         return 0;
     }
 
+    public int StopChallenge(Session session, int source_name, int is_success)
+    {
+        Log("Called StopChallenge");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        if (currentGroupId == 0)
+        {
+            currentSession.c.LogWarning("[ScriptLib] StopChallenge called with currentGroupId = 0");
+            return -1;
+        }
+
+        bool success = is_success != 0;
+        return player.Scene.StopChallenge((uint)currentGroupId, (uint)source_name, success);
+    }
+
+    public int CauseDungeonFail(Session session)
+    {
+        Log("Called CauseDungeonFail");
+
+        var player = currentSession.player;
+        if (player == null)
+            return -1;
+
+        // Send a basic dungeon settle notify marking failure.
+        // More detailed settle_show / fail_cond can be added later.
+        var notify = new DungeonSettleNotify
+        {
+            DungeonId = player.SceneId,
+            IsSuccess = false,
+            CloseTime = 10
+        };
+
+        currentSession.SendPacket(notify);
+
+        return 0;
+    }
+
     public int CreateGadget(Session session, object _config)
     {
         Log("Called CreateGadget");
@@ -247,8 +446,8 @@ public class ScriptLib
         if (gadgetInfo == null)
             return -1;
 
-        var ent = new GadgetEntity(currentSession, gadgetInfo.gadget_id, gadgetInfo, gadgetInfo.pos, gadgetInfo.rot);
-        scene.EntityManager.Add(ent);
+		var ent = new GadgetEntity(currentSession, gadgetInfo.gadget_id, gadgetInfo, gadgetInfo.pos, gadgetInfo.rot);
+		scene.EntityManager.Add(ent);
 
         if (!scene.alreadySpawnedGadgets.Contains(gadgetInfo))
             scene.alreadySpawnedGadgets.Add(gadgetInfo);

@@ -34,6 +34,10 @@ public class SceneGroupLua
     public List<SceneRegionLua> regions;
     public List<SceneTriggerLua> triggers;
     // variables -> important for later (logic)
+    // In hk4e, group variables are defined in the Lua "variables" table
+    // and stored on the Group object. We mirror that here as a simple
+    // name->int map for runtime logic and ScriptLib access.
+    public Dictionary<string, int> variables = new();
     public SceneGroupLuaInitConfig init_config;
     public List<SceneGroupLuaSuite> suites;
 

@@ -105,6 +105,10 @@ public class ResourceLoader
         JsonConvert.DeserializeObject<List<DungeonExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "DungeonExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
+    private Dictionary<uint, DungeonChallengeConfig> LoadDungeonChallengeConfig() =>
+        JsonConvert.DeserializeObject<List<DungeonChallengeConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "DungeonChallengeConfigData.json"))
+        )!.ToDictionary(data => data.id);
     private Dictionary<uint, ShopGoodsExcelConfig> LoadShopGoodsExcelConfig() =>
         JsonConvert.DeserializeObject<List<ShopGoodsExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ShopGoodsExcelConfigData.json"))
@@ -430,6 +434,25 @@ public class ResourceLoader
             LuaTable initConfig = (LuaTable)sceneGroupLua["init_config"];
             LuaTable suites = (LuaTable)sceneGroupLua["suites"];
             LuaTable triggers_config = (LuaTable)sceneGroupLua["triggers"];
+
+            // Optional group variables table from Lua: variables = { { name=..., value=..., no_refresh=... }, ... }
+            if (sceneGroupLua["variables"] is LuaTable variablesTable)
+            {
+                foreach (LuaTable var in variablesTable.Values.Cast<LuaTable>())
+                {
+                    var nameObj = var["name"];
+                    var valueObj = var["value"];
+                    if (nameObj == null || valueObj == null)
+                        continue;
+
+                    string name = Convert.ToString(nameObj)!;
+                    int value = Convert.ToInt32(valueObj);
+
+                    // Last definition wins if duplicated, which matches hk4e's
+                    // behavior of simply overwriting the variable.
+                    sceneGroupLua_.variables[name] = value;
+                }
+            }
             sceneGroupLua_.monsters = new List<MonsterLua>();
             sceneGroupLua_.triggers = new List<SceneTriggerLua>();
             sceneGroupLua_.npcs = new List<NpcLua>();
@@ -501,7 +524,10 @@ public class ResourceLoader
                     block_id = Convert.ToUInt32(blockId),
                     group_id = groupId,
                     state = gadget["state"] != null ? (GadgetState)Convert.ToUInt32(gadget["state"]) : GadgetState.Default,
-                    type = gadget["type"] != null ? (GadgetType_Lua)Convert.ToUInt32(gadget["type"]) : GadgetType_Lua.GADGET_NONE
+                    type = gadget["type"] != null ? (GadgetType_Lua)Convert.ToUInt32(gadget["type"]) : GadgetType_Lua.GADGET_NONE,
+                    born_type = gadget["born_type"] != null
+                        ? (KazusaGI_cb2.Protocol.GadgetBornType)Convert.ToUInt32(gadget["born_type"])
+                        : KazusaGI_cb2.Protocol.GadgetBornType.GadgetBornNone
                 });
             }
 
@@ -538,7 +564,7 @@ public class ResourceLoader
 
     private Vector3 FixGadgetY(Vector3 pos)
     {
-        pos.Y -= 1.0F; // :skull:
+        //pos.Y -= 1.0F; // :skull:
         return pos;
     }
 
@@ -553,9 +579,9 @@ public class ResourceLoader
         LuaTable _vectorTable = (LuaTable)vectorTable;
         return new Vector3()
         {
-            X = Convert.ToSingle(Convert.ToDouble(_vectorTable["x"])),
-            Y = _vectorTable["y"] != null ? Convert.ToSingle(Convert.ToDouble(_vectorTable["y"])) : 0.0F,
-            Z = Convert.ToSingle(Convert.ToDouble(_vectorTable["z"]))
+            X = Convert.ToSingle(_vectorTable["x"]),
+            Y = _vectorTable["y"] != null ? Convert.ToSingle(_vectorTable["y"]) : 0.0F,
+            Z = Convert.ToSingle(_vectorTable["z"])
         };
     }
 
@@ -583,6 +609,7 @@ public class ResourceLoader
         _resourceManager.ShopGoodsExcel = this.LoadShopGoodsExcelConfig();
         _resourceManager.ShopPlanExcel = this.LoadShopPlanExcelConfig();
         _resourceManager.DungeonExcel = this.LoadDungeonExcelConfig();
+        _resourceManager.DungeonChallengeConfig = this.LoadDungeonChallengeConfig();
         _resourceManager.DailyDungeonExcel = this.LoadDailyDungeonConfig();
         _resourceManager.InvestigationExcel = this.LoadInvestigationConfig();
         _resourceManager.InvestigationTargetExcel = this.LoadInvestigationTargetConfig();

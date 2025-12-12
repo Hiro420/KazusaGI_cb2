@@ -24,4 +24,8 @@ public class GadgetLua
 
     public GadgetState state;
     public GadgetType_Lua type;
+
+    // How this gadget is considered born by the client.
+    // Mirrors proto::GadgetBornType / GadgetBornType in hk4e.
+    public KazusaGI_cb2.Protocol.GadgetBornType born_type;
 }

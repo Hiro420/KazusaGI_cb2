@@ -152,6 +152,11 @@ namespace KazusaGI_cb2.GameServer
 			if (_monsterInfo == null)
 				return;
 
+			// Notify the scene's challenge system about this kill so that
+			// dungeon challenges (e.g., kill count / time between kills)
+			// can update their internal state.
+			session.player!.Scene.OnMonsterDie(_monsterInfo.group_id, _monsterInfo.config_id);
+
 			Lua.LuaManager.executeTriggersLua(
 				session,
 				session.player!.Scene.GetGroup((int)_monsterInfo.group_id)!,

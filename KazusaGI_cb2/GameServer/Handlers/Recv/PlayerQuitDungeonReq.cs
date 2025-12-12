@@ -25,7 +25,8 @@ internal class HandlePlayerQuitDungeonReq
         {
             destPointId = req.PointId != 0 ? req.PointId : session.player!.Overworld_PointId;
         }
-        ConfigScenePoint configScenePoint = MainApp.resourceManager.ScenePoints[3].points[destPointId];
+        session.player.Scene.EndAllChallenges();
+		ConfigScenePoint configScenePoint = MainApp.resourceManager.ScenePoints[3].points[destPointId];
         session.player!.TeleportToPos(session, configScenePoint.tranPos, true);
         session.player!.SetRot(configScenePoint.tranRot);
         session.player.EnterScene(session, 3, EnterType.EnterSelf);

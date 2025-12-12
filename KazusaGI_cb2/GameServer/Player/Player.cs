@@ -37,6 +37,10 @@ public class Player
 	//public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
     public Entity? MpLevelEntity;
 
+    // Mirrors hk4e's PlayerAvatarComp::is_allow_use_skill_
+    // Controls whether the client may use active skills.
+    public bool IsAllowUseSkill { get; private set; } = true;
+
     public Player(Session session, uint uid)
     {
         Name = "KazusaPS";
@@ -55,6 +59,24 @@ public class Player
         AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
         CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
         //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+    }
+
+    public void SetIsAllowUseSkill(bool isAllowUseSkill)
+    {
+        if (IsAllowUseSkill == isAllowUseSkill)
+        {
+            // Same value as before; hk4e only logs in this case.
+            return;
+        }
+
+        IsAllowUseSkill = isAllowUseSkill;
+
+        var notify = new CanUseSkillNotify
+        {
+            IsCanUseSkill = isAllowUseSkill
+        };
+
+        session.SendPacket(notify);
     }
 
     public void InitTeams()
@@ -255,7 +277,7 @@ public class Player
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)
     {
         // mark existing ability managers as not initialized
-        foreach (var entity in session.player.Scene.EntityManager.Entities.Values)
+        foreach (var entity in session.player.Scene.EntityManager.Entities.Values.ToList())
         {
             if (entity is IDamageable damageableEntity)
             {

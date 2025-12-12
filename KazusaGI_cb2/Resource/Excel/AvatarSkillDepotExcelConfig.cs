@@ -101,4 +101,23 @@ public class AvatarSkillDepotExcelConfig
 			inherentProudSkillOpens.Add(group!);
 		}
 	}
+
+	public Dictionary<uint, ConfigAbility>? GetSkills(PlayerAvatar data)
+    {
+		Dictionary<uint, ConfigAbility> Abilities = new();
+
+		if (data.AbilityHashMap.TryGetValue((int)this.id, out Dictionary<uint, ConfigAbility>? hashMap))
+			Abilities = hashMap;
+
+		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData.defaultAbilities.defaultAvatarAbilities)
+		{
+			var container = MainApp.resourceManager.ConfigAbilityMap[abilityName];
+			if (container.Default is ConfigAbility configdefault)
+			{
+				Abilities[(uint)GameServer.Ability.Utils.AbilityHash(configdefault.abilityName)] = configdefault;
+			}
+		}
+
+		return Abilities;
+	}
 }

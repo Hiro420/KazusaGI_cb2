@@ -131,26 +131,15 @@ public class Player
 
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
-        // Ensure MP level entity exists (get-or-create semantics like hk4e)
-        if (this.MpLevelEntity == null)
-        {
-            this.MpLevelEntity = new MpLevelEntity(session);
-            session.player.Scene.EntityManager.Add(MpLevelEntity);
-        }
-
-        // Ensure team entity exists and keep its entity id stable across scene loads
-        if (GetCurrentLineup().teamEntity == null)
-        {
-            GetCurrentLineup().teamEntity = new TeamEntity(session);
-            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
-        }
+		this.MpLevelEntity = new MpLevelEntity(session);
+        session.player.Scene.EntityManager.Add(MpLevelEntity);
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
             TeamEnterInfo = new TeamEnterSceneInfo()
             {
                 TeamAbilityInfo = new(),
-                TeamEntityId = GetCurrentLineup().teamEntity._EntityId
+                TeamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam)// GetCurrentLineup().teamEntity._EntityId
 			},
             MpLevelEntityInfo = new()
             {

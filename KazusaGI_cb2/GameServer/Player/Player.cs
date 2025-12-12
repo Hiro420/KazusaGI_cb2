@@ -1,4 +1,5 @@
-﻿using KazusaGI_cb2.GameServer.PlayerInfos;
+﻿using KazusaGI_cb2.GameServer.Account;
+using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Tower;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
@@ -60,6 +61,101 @@ public class Player
         AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
         CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
         //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
+    }
+
+    public PlayerDataRecord ToPlayerDataRecord()
+    {
+        var record = new PlayerDataRecord
+        {
+            PlayerUid = Uid,
+            SceneId = SceneId,
+            PosX = Pos.X,
+            PosY = Pos.Y,
+            PosZ = Pos.Z,
+            TeamIndex = TeamIndex,
+            Level = Level
+        };
+
+        for (uint i = 1; i <= teamList.Count; i++)
+        {
+            var team = teamList[(int)i - 1];
+            if (team.Avatars.Count == 0)
+                continue;
+
+            var snap = new PlayerTeamSnapshot
+            {
+                Index = i,
+                LeaderAvatarId = team.Leader?.AvatarId ?? team.Avatars[0].AvatarId
+            };
+            foreach (var avatar in team.Avatars)
+            {
+                snap.AvatarIds.Add(avatar.AvatarId);
+            }
+            record.Teams.Add(snap);
+        }
+
+        foreach (var item in itemDict.Values)
+        {
+            record.Items.Add(new PlayerItemSnapshot
+            {
+                ItemId = item.ItemId,
+                Count = item.Count
+            });
+        }
+
+        return record;
+    }
+
+    public void ApplyPlayerDataRecord(PlayerDataRecord record)
+    {
+        SceneId = record.SceneId == 0 ? SceneId : record.SceneId;
+        Level = record.Level == 0 ? Level : record.Level;
+        TeamIndex = record.TeamIndex == 0 ? TeamIndex : record.TeamIndex;
+        Pos = new Vector3(record.PosX, record.PosY, record.PosZ);
+
+        if (record.Teams.Count > 0)
+        {
+            teamList.Clear();
+            for (int i = 0; i < 4; i++)
+            {
+                teamList.Add(new PlayerTeam(session));
+            }
+
+            foreach (var snap in record.Teams)
+            {
+                if (snap.Index == 0 || snap.Index > teamList.Count)
+                    continue;
+
+                var team = teamList[(int)snap.Index - 1];
+                foreach (var avatarId in snap.AvatarIds)
+                {
+                    var avatar = avatarDict.Values.FirstOrDefault(a => a.AvatarId == avatarId);
+                    if (avatar != null)
+                    {
+                        team.Avatars.Add(avatar);
+                    }
+                }
+
+                if (team.Avatars.Count > 0)
+                {
+                    var leader = team.Avatars.FirstOrDefault(a => a.AvatarId == snap.LeaderAvatarId) ?? team.Avatars[0];
+                    team.Leader = leader;
+                }
+            }
+        }
+
+        if (record.Items.Count > 0)
+        {
+            itemDict.Clear();
+            foreach (var itemSnap in record.Items)
+            {
+                var item = new PlayerItem(session, itemSnap.ItemId)
+                {
+                    Count = itemSnap.Count
+                };
+                itemDict[item.Guid] = item;
+            }
+        }
     }
 
     public void SetIsAllowUseSkill(bool isAllowUseSkill)
@@ -273,6 +369,8 @@ public class Player
         {
             this.EnterScene(session, this.SceneId);
         }
+        // Save updated position to persistent storage
+        Account.AccountManager.SavePlayerData(ToPlayerDataRecord());
     }
 
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)

@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Colorful.Console" Version="1.2.15" />
+    <PackageReference Include="MongoDB.Driver" Version="2.27.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NLua" Version="1.7.4" />

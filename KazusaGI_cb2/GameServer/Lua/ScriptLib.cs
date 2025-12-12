@@ -39,6 +39,36 @@ public class ScriptLib
             .Count();
     }
 
+    public int TowerMirrorTeamSetUp(Session session, int tower_team_id)
+    {
+        Log($"Called TowerMirrorTeamSetUp tower_team_id={tower_team_id}");
+
+        var player = currentSession.player;
+        if (player == null)
+            return -1;
+
+        if (player.towerInstance == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] TowerMirrorTeamSetUp called but towerInstance is null");
+            return -1;
+        }
+
+        if (tower_team_id <= 0)
+        {
+            tower_team_id = 1;
+        }
+
+        return player.towerInstance.MirrorTeamSetUp((uint)tower_team_id);
+    }
+
+    public int TowerCountTimeStatus(Session session, int status)
+    {
+        // Tower-specific timer handling. For now we simply accept the
+        // call and log it so tower scripts can run without error.
+        Log($"Called TowerCountTimeStatus status={status}");
+        return 0;
+    }
+
     public int GetRegionEntityCount(Session session, object _table)
     {
         Log("Called GetRegionEntityCount");

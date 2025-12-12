@@ -75,6 +75,11 @@ internal class HandleSceneInitFinishReq
         session.SendPacket(new SceneInitFinishRsp());
         session.player.Scene.isFinishInit = true;
 
+        // Seed scene block/group and region state once init finishes so
+        // region enter events (e.g. for dungeon/tower scenes) can fire
+        // even before the player sends any movement.
+        session.player.Scene.UpdateOnMove();
+
         TeamHandler.SendAvatarEquipChangeNotify(session, session.player.GetCurrentLineup().Leader!);
         TeamHandler.SendAvatarTeamUpdateNotify(session, session.player.TeamIndex, session.player.GetCurrentLineup().Avatars.Select(a => a.Guid).ToList());
     }

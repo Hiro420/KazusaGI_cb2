@@ -93,9 +93,77 @@ public class TowerInstance
         });
     }
 
+    public int MirrorTeamSetUp(uint towerTeamId)
+    {
+        logger.LogInfo($"[TowerInstance] MirrorTeamSetUp towerTeamId={towerTeamId}");
+
+        PlayerTeam? targetTeam = null;
+        if (towerTeamId == 1)
+        {
+            targetTeam = team1;
+        }
+        else if (towerTeamId == 2)
+        {
+            targetTeam = team2 ?? team1;
+        }
+
+        if (targetTeam == null)
+        {
+            logger.LogWarning("[TowerInstance] MirrorTeamSetUp called but target team is null");
+            return -1;
+        }
+
+        int teamIndex = (int)player.TeamIndex - 1;
+        if (teamIndex < 0 || teamIndex >= player.teamList.Count)
+        {
+            teamIndex = 0;
+        }
+
+        // Switch the active lineup to the requested tower team.
+        player.teamList[teamIndex] = targetTeam;
+
+        // Rebuild avatar entities in the current scene to match the new lineup.
+        var scene = player.Scene;
+        var avatarEntities = scene.EntityManager.Entities.Values
+            .OfType<AvatarEntity>()
+            .ToList();
+
+        foreach (var ent in avatarEntities)
+        {
+            ent.ForceKill();
+        }
+
+        foreach (var avatar in targetTeam.Avatars)
+        {
+            var avatarEntity = new AvatarEntity(session, avatar);
+            scene.EntityManager.Add(avatarEntity);
+        }
+
+        // Ensure the team entity exists in the scene for this lineup.
+        if (targetTeam.teamEntity == null)
+        {
+            targetTeam.teamEntity = new TeamEntity(session);
+        }
+        if (!scene.EntityManager.Entities.Values.Contains(targetTeam.teamEntity))
+        {
+            scene.EntityManager.Add(targetTeam.teamEntity);
+        }
+
+        // Notify the client about the updated scene team.
+        player.SendSceneTeamUpdateNotify(session);
+
+        return 0;
+    }
+
     public void EndInstance()
     {
-        player.teamList[(int)player.TeamIndex] = originalTeam;
+        int teamIndex = (int)player.TeamIndex - 1;
+        if (teamIndex < 0 || teamIndex >= player.teamList.Count)
+        {
+            teamIndex = 0;
+        }
+
+        player.teamList[teamIndex] = originalTeam;
         player.towerInstance = null;
     }
 }

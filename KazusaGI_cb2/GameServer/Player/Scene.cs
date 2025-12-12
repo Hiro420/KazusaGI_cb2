@@ -272,6 +272,8 @@ public class Scene
         if (group.regions == null || group.regions.Count == 0 || membership.Regions.Count == 0)
             return;
 
+        uint groupId = GetGroupIdFromGroupInfo(group);
+
         Vector3 pos = player.Pos;
 
         for (int i = 0; i < group.regions.Count; i++)
@@ -280,10 +282,15 @@ public class Scene
             int id = (int)region.config_id;
 
             if (!membership.Regions.Contains((uint)id))
+            {
+                session.c.LogWarning($"[Scene] Region {id} of group {groupId} not in active suite; skipping");
                 continue;
+            }
 
             bool inside = IsInsideRegion(region, pos);
             bool wasInside = _activeRegionIds.Contains(id);
+
+            session.c.LogWarning($"[Scene] Region check: group {groupId}, region {id}, inside={inside}, wasInside={wasInside}, playerPos=({pos.X:F2},{pos.Y:F2},{pos.Z:F2}), center=({region.pos.X:F2},{region.pos.Y:F2},{region.pos.Z:F2}), radius={region.radius:F2}, size=({region.size.X:F2},{region.size.Y:F2},{region.size.Z:F2})");
 
             if (inside)
             {
@@ -322,24 +329,38 @@ public class Scene
     private static bool IsInsideRegion(SceneRegionLua r, in Vector3 p)
     {
         Vector3 c = r.pos;
-        string s = r.shape.ToString().ToLowerInvariant() ?? "sphere";
 
         float dx = p.X - c.X;
         float dy = p.Y - c.Y;
         float dz = p.Z - c.Z;
 
-        switch (s)
+        switch (r.shape)
         {
-            case "sphere":
+            case Resource.Excel.LuaRegionShape.SPHERE:
                 {
                     float rr = r.radius;
                     if (rr <= 0f && r.size != default) rr = 0.5f * r.size.X;
                     rr = rr <= 0f ? 1f : rr;
                     return (dx * dx + dy * dy + dz * dz) <= rr * rr;
                 }
-            //case "cubic":
+            case Resource.Excel.LuaRegionShape.CUBIC:
+                {
+                    // Axis-aligned box using size as full extents.
+                    float hx = r.size.X > 0f ? 0.5f * r.size.X : r.radius;
+                    float hy = r.size.Y > 0f ? 0.5f * r.size.Y : r.radius;
+                    float hz = r.size.Z > 0f ? 0.5f * r.size.Z : r.radius;
+
+                    if (hx <= 0f) hx = 1f;
+                    if (hy <= 0f) hy = hx;
+                    if (hz <= 0f) hz = hx;
+
+                    return MathF.Abs(dx) <= hx &&
+                           MathF.Abs(dy) <= hy &&
+                           MathF.Abs(dz) <= hz;
+                }
             default:
                 {
+                    // Fallback to a spherical check for any other shape.
                     float rr = r.radius;
                     if (rr <= 0f && r.size != default) rr = 0.5f * r.size.X;
                     rr = rr <= 0f ? 1f : rr;
@@ -350,7 +371,10 @@ public class Scene
 
     private void TriggerRegionEvent(SceneGroupLua group, SceneRegionLua region, bool enter)
     {
-        var args = new ScriptArgs((int)GetGroupIdFromGroupInfo(group),
+        uint groupId = GetGroupIdFromGroupInfo(group);
+        session.c.LogWarning($"[Scene] Region {(enter ? "enter" : "leave")} event: group {groupId}, region {region.config_id}");
+
+        var args = new ScriptArgs((int)groupId,
             enter ? (int)TriggerEventType.EVENT_ENTER_REGION : (int)TriggerEventType.EVENT_LEAVE_REGION,
             (int)region.config_id)
         {

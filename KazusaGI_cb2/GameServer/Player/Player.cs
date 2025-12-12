@@ -28,6 +28,7 @@ public class Player
     public uint WorldLevel { get; set; } = 2; // i think thats the most fair until we implement reliquary and more weapons
     public Scene Scene { get; set; }
     public uint Overworld_PointId { get; set; } // for dungeons
+    public HashSet<uint> ActiveDungeonWayPoints { get; } = new();
     public Vector3 Pos { get; private set; }
     public Vector3 Rot { get; private set; } // wont actually be used except for scene tp
     public Gender PlayerGender { get; private set; } = Gender.Female;
@@ -276,15 +277,16 @@ public class Player
 
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)
     {
-        // mark existing ability managers as not initialized
+        // Despawn all entities from the old scene without invoking death logic
+        // so that cleanup does NOT fire EVENT_ANY_MONSTER_DIE or other
+        // OnDied-driven Lua triggers. We just send disappear notifies.
         foreach (var entity in session.player.Scene.EntityManager.Entities.Values.ToList())
         {
-            if (entity is IDamageable damageableEntity)
-            {
-				// remove the entity from the scene
-                entity.ForceKill();
+            if (entity is MonsterEntity || entity is GadgetEntity)
+			{
+				session.player.Scene.EntityManager.Remove(entity._EntityId, Protocol.VisionType.VisionMiss);
 			}
-		}
+        }
         
         uint oldSceneId = session.player!.SceneId;
         session.player!.Scene.isFinishInit = false;

@@ -77,6 +77,18 @@ public class Player
 
 	public PlayerDataRecord ToPlayerDataRecord()
     {
+        // If for some reason teams were never initialized but we have
+        // avatars, create a default team so that the DB always has a
+        // valid teamList representation.
+        if (teamList.Count == 0 && avatarDict.Count > 0)
+        {
+            InitTeams();
+            var firstAvatar = avatarDict.Values.First();
+            teamList[0].Avatars.Add(firstAvatar);
+            teamList[0].Leader = firstAvatar;
+            TeamIndex = 1;
+        }
+
         var record = new PlayerDataRecord
         {
             PlayerUid = Uid,
@@ -188,6 +200,23 @@ public class Player
         Level = record.Level == 0 ? Level : record.Level;
         TeamIndex = record.TeamIndex == 0 ? TeamIndex : record.TeamIndex;
         Pos = new Vector3(record.PosX, record.PosY, record.PosZ);
+
+        // Ensure avatar roster from DB is reflected in avatarDict so
+        // that team snapshots (which only store AvatarIds) can be
+        // rebuilt correctly. This lets the DB model drive which
+        // avatars exist and are used in teams.
+        if (record.Avatars.Count > 0)
+        {
+            foreach (var snap in record.Avatars)
+            {
+                bool exists = avatarDict.Values.Any(a => a.AvatarId == snap.AvatarId);
+                if (!exists)
+                {
+                    var avatar = new PlayerAvatar(session, snap.AvatarId);
+                    avatarDict[avatar.Guid] = avatar;
+                }
+            }
+        }
 
         if (record.Teams.Count > 0)
         {

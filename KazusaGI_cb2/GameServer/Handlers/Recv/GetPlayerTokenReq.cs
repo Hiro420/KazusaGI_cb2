@@ -64,7 +64,7 @@ internal class HandleGetPlayerTokenReq
         };
 
         session.player.ApplyPlayerDataRecord(saved);
-        AccountManager.SavePlayerData(session.player.ToPlayerDataRecord());
+        //AccountManager.SavePlayerData(session.player.ToPlayerDataRecord());
         session.SendPacket(rsp);
         session.key = NewKey(Convert.ToUInt64(req.AccountUid));
     }

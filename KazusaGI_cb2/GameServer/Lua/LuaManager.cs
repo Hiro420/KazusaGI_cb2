@@ -26,6 +26,7 @@ public class LuaManager
                 ScriptLib scriptLib = new(session);
                 scriptLib.currentSession = session;
                 scriptLib.currentGroupId = (int)session.player!.Scene.GetGroupIdFromGroupInfo(group);
+                scriptLib.currentEventArgs = args;
                 groupLua["ScriptLib"] = scriptLib;
                 groupLua["context_"] = session;
                 groupLua["evt_"] = args.toTable();

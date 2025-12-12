@@ -17,6 +17,7 @@ public class ScriptLib
 {
     public int currentGroupId;
     public Session currentSession;
+    public ScriptArgs? currentEventArgs;
 
     public int GetGroupMonsterCount(Session session)
     {
@@ -120,10 +121,288 @@ public class ScriptLib
         return 0;
     }
 
+    public int CreateMonster(Session session, object _config)
+    {
+        Log("Called CreateMonster");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        LuaTable? config = _config as LuaTable;
+        if (config == null)
+            return -1;
+
+        int configId;
+        try
+        {
+            configId = (int)(long)config["config_id"];
+        }
+        catch
+        {
+            return -1;
+        }
+
+        int delayTime = 0;
+        try
+        {
+            var delayObj = config["delay_time"];
+            if (delayObj != null)
+            {
+                delayTime = (int)(long)delayObj;
+            }
+        }
+        catch
+        {
+            // ignore missing/invalid delay_time; spawn immediately
+        }
+
+        if (delayTime > 0)
+        {
+            currentSession.c.LogWarning($"[ScriptLib] CreateMonster delay_time={delayTime} currently ignored (spawning immediately)");
+        }
+
+        int groupId = currentGroupId;
+        try
+        {
+            if (config["group_id"] != null)
+            {
+                groupId = (int)(long)config["group_id"];
+            }
+        }
+        catch
+        {
+            // ignore, fall back to currentGroupId
+        }
+
+        var scene = player.Scene;
+        SceneGroupLua? group = scene.GetGroup(groupId);
+        if (group == null || group.monsters == null)
+            return -1;
+
+        var monsterInfo = group.monsters.FirstOrDefault(m => m.config_id == (uint)configId);
+        if (monsterInfo == null)
+            return -1;
+
+        var ent = new MonsterEntity(currentSession, monsterInfo.monster_id, monsterInfo, monsterInfo.pos, monsterInfo.rot);
+        scene.EntityManager.Add(ent);
+
+        if (!scene.alreadySpawnedMonsters.Contains(monsterInfo))
+            scene.alreadySpawnedMonsters.Add(monsterInfo);
+
+        var appear = new SceneEntityAppearNotify
+        {
+            AppearType = Protocol.VisionType.VisionMeet
+        };
+        appear.EntityLists.Add(ent.ToSceneEntityInfo());
+        currentSession.SendPacket(appear);
+
+        var args = new ScriptArgs(groupId, (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)monsterInfo.config_id);
+        LuaManager.executeTriggersLua(currentSession, group, args);
+
+        return 0;
+    }
+
+    public int CreateGadget(Session session, object _config)
+    {
+        Log("Called CreateGadget");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        LuaTable? config = _config as LuaTable;
+        if (config == null)
+            return -1;
+
+        int configId;
+        try
+        {
+            configId = (int)(long)config["config_id"];
+        }
+        catch
+        {
+            return -1;
+        }
+
+        int groupId = currentGroupId;
+        try
+        {
+            if (config["group_id"] != null)
+            {
+                groupId = (int)(long)config["group_id"];
+            }
+        }
+        catch
+        {
+            // ignore, fall back to currentGroupId
+        }
+
+        var scene = player.Scene;
+        SceneGroupLua? group = scene.GetGroup(groupId);
+        if (group == null || group.gadgets == null)
+            return -1;
+
+        var gadgetInfo = group.gadgets.FirstOrDefault(g => g.config_id == configId);
+        if (gadgetInfo == null)
+            return -1;
+
+        var ent = new GadgetEntity(currentSession, gadgetInfo.gadget_id, gadgetInfo, gadgetInfo.pos, gadgetInfo.rot);
+        scene.EntityManager.Add(ent);
+
+        if (!scene.alreadySpawnedGadgets.Contains(gadgetInfo))
+            scene.alreadySpawnedGadgets.Add(gadgetInfo);
+
+        var appear = new SceneEntityAppearNotify
+        {
+            AppearType = Protocol.VisionType.VisionMeet
+        };
+        appear.EntityLists.Add(ent.ToSceneEntityInfo());
+        currentSession.SendPacket(appear);
+
+        var args = new ScriptArgs(groupId, (int)TriggerEventType.EVENT_GADGET_CREATE, (int)gadgetInfo.config_id);
+        LuaManager.executeTriggersLua(currentSession, group, args);
+
+        return 0;
+    }
+
     public int BeginCameraSceneLook(Session session, object _lookInfo)
     {
         Log("Called BeginCameraSceneLook");
         // todo
+        return 0;
+    }
+
+    public int SetWorktopOptions(Session session, object optionTable)
+    {
+        Log("Called SetWorktopOptions");
+
+        if (currentEventArgs == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] SetWorktopOptions called without current event args");
+            return -1;
+        }
+
+        int groupId = currentEventArgs.group_id;
+        int configId = currentEventArgs.param1;
+
+        return SetWorktopOptionsByGroupId(session, groupId, configId, optionTable);
+    }
+
+    public int SetWorktopOptionsByGroupId(Session session, int group_id, int config_id, object optionTable)
+    {
+        Log("Called SetWorktopOptionsByGroupId");
+
+        if (currentSession.player?.Scene == null)
+            return -1;
+
+        LuaTable? table = optionTable as LuaTable;
+        if (table == null)
+            return -1;
+
+        List<uint> options = new();
+        foreach (var value in table.Values)
+        {
+            try
+            {
+                uint opt = Convert.ToUInt32(value);
+                if (opt != 0 && !options.Contains(opt))
+                    options.Add(opt);
+            }
+            catch
+            {
+                // ignore invalid entries
+            }
+        }
+
+        if (options.Count == 0)
+            return -1;
+
+        var scene = currentSession.player.Scene;
+        var gadgets = scene.EntityManager.Entities.Values
+            .Where(e => e is GadgetEntity g &&
+                        g._gadgetLua != null &&
+                        g._gadgetLua.group_id == group_id &&
+                        g._gadgetLua.config_id == config_id)
+            .Cast<GadgetEntity>()
+            .ToList();
+
+        if (gadgets.Count == 0)
+            return -1;
+
+        foreach (var gadget in gadgets)
+        {
+            gadget.WorktopOptions.Clear();
+            foreach (var opt in options)
+                gadget.WorktopOptions.Add(opt);
+
+            var notify = new WorktopOptionNotify
+            {
+                GadgetEntityId = gadget._EntityId
+            };
+
+            foreach (var opt in gadget.WorktopOptions.OrderBy(o => o))
+                notify.OptionLists.Add(opt);
+
+            currentSession.SendPacket(notify);
+        }
+
+        return 0;
+    }
+
+    public int DelWorktopOption(Session session, int option_id)
+    {
+        Log("Called DelWorktopOption");
+
+        if (currentEventArgs == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] DelWorktopOption called without current event args");
+            return -1;
+        }
+
+        int groupId = currentEventArgs.group_id;
+        int configId = currentEventArgs.param1;
+
+        return DelWorktopOptionByGroupId(session, groupId, configId, option_id);
+    }
+
+    public int DelWorktopOptionByGroupId(Session session, int group_id, int config_id, int option_id)
+    {
+        Log("Called DelWorktopOptionByGroupId");
+
+        if (currentSession.player?.Scene == null)
+            return -1;
+
+        uint opt = (uint)option_id;
+
+        var scene = currentSession.player.Scene;
+        var gadgets = scene.EntityManager.Entities.Values
+            .Where(e => e is GadgetEntity g &&
+                        g._gadgetLua != null &&
+                        g._gadgetLua.group_id == group_id &&
+                        g._gadgetLua.config_id == config_id)
+            .Cast<GadgetEntity>()
+            .ToList();
+
+        if (gadgets.Count == 0)
+            return -1;
+
+        foreach (var gadget in gadgets)
+        {
+            if (gadget.WorktopOptions.Remove(opt))
+            {
+                var notify = new WorktopOptionNotify
+                {
+                    GadgetEntityId = gadget._EntityId
+                };
+
+                foreach (var remaining in gadget.WorktopOptions.OrderBy(o => o))
+                    notify.OptionLists.Add(remaining);
+
+                currentSession.SendPacket(notify);
+            }
+        }
+
         return 0;
     }
 

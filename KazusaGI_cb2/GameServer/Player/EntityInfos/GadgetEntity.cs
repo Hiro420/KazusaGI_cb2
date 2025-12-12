@@ -26,6 +26,8 @@ namespace KazusaGI_cb2.GameServer
 
 		public GadgetState state => _gadgetLua?.state ?? GadgetState.Default;
 
+		public HashSet<uint> WorktopOptions { get; } = new();
+
 		// Ability-related properties for gadgets
 		public Dictionary<uint, ConfigAbility> AbilityHashMap = new();
 		public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();

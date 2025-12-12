@@ -321,6 +321,102 @@ public class Scene
         return null;
     }
 
+    public int AddExtraGroupSuite(uint groupId, uint suiteIndex)
+    {
+        var group = GetGroup((int)groupId);
+        if (group == null)
+        {
+            session.c.LogWarning($"[Scene] AddExtraGroupSuite failed: group {groupId} not found");
+            return -1;
+        }
+
+        if (group.suites == null || group.suites.Count == 0)
+        {
+            session.c.LogWarning($"[Scene] AddExtraGroupSuite failed: group {groupId} has no suites");
+            return -1;
+        }
+
+        if (suiteIndex == 0 || suiteIndex > group.suites.Count)
+        {
+            session.c.LogWarning($"[Scene] AddExtraGroupSuite failed: invalid suiteIndex {suiteIndex} for group {groupId}");
+            return -1;
+        }
+
+        // In hk4e, Group::addExtraGroupSuite adds the contents of the suite
+        // on top of existing ones without despawning. We approximate this by
+        // reusing the same spawning logic as UpdateGroup but restricting the
+        // membership to the target suite only.
+
+        var suite = group.suites[(int)(suiteIndex - 1)];
+        var membership = SuiteMembership.From(suite);
+
+        var appearBatches = new List<SceneEntityAppearNotify>();
+        SceneEntityAppearNotify currentNtf = new() { AppearType = Protocol.VisionType.VisionMeet };
+
+        if (group.monsters != null && membership.Monsters.Count != 0)
+        {
+            for (int i = 0; i < group.monsters.Count; i++)
+            {
+                var m = group.monsters[i];
+                if (!membership.Monsters.Contains(m.config_id))
+                    continue;
+
+                var monsterPos = m.pos;
+                if (IsInRange(monsterPos, player.Pos, defaultRange) && !alreadySpawnedMonsters.Contains(m))
+                {
+                    uint monsterId = m.monster_id;
+                    MonsterExcelConfig monster = resourceManager.MonsterExcel[monsterId];
+                    var ent = new MonsterEntity(session, monsterId, m, monsterPos, m.rot);
+                    EntityManager.Add(ent);
+                    currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
+                    alreadySpawnedMonsters.Add(m);
+                    if (currentNtf.EntityLists.Count >= 10)
+                    {
+                        appearBatches.Add(currentNtf);
+                        currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
+                    }
+
+                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
+                }
+            }
+        }
+
+        if (group.gadgets != null && membership.Gadgets.Count != 0)
+        {
+            for (int i = 0; i < group.gadgets.Count; i++)
+            {
+                var g = group.gadgets[i];
+                if (!membership.Gadgets.Contains(g.config_id))
+                    continue;
+
+                var gadgetPos = g.pos;
+                if (IsInRange(gadgetPos, player.Pos, defaultRange) && !alreadySpawnedGadgets.Contains(g))
+                {
+                    uint gid = g.gadget_id;
+                    var ent = new GadgetEntity(session, gid, g, gadgetPos, g.rot);
+                    EntityManager.Add(ent);
+                    currentNtf.EntityLists.Add(ent.ToSceneEntityInfo());
+                    alreadySpawnedGadgets.Add(g);
+                    if (currentNtf.EntityLists.Count >= 10)
+                    {
+                        appearBatches.Add(currentNtf);
+                        currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
+                    }
+
+                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
+                }
+            }
+        }
+
+        if (currentNtf.EntityLists.Count > 0)
+            appearBatches.Add(currentNtf);
+
+        for (int i = 0; i < appearBatches.Count; i++)
+            session.SendPacket(appearBatches[i]);
+
+        return 0;
+    }
+
     public void UpdateGroup(SceneGroupLua sceneGroupLua, SceneGroupLuaSuite? suite = null)
     {
         SceneGroupLuaSuite baseSuite = suite != null ? suite : GetBaseSuite(sceneGroupLua);

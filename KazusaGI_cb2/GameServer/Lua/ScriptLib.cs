@@ -39,6 +39,22 @@ public class ScriptLib
             .Count();
     }
 
+    public int AddExtraGroupSuite(Session session, int group_id, int suite_index)
+    {
+        Log("Called AddExtraGroupSuite");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] AddExtraGroupSuite called with no active player/scene");
+            return -1;
+        }
+
+        uint gid = (uint)group_id;
+        uint sid = (uint)suite_index;
+        return player.Scene.AddExtraGroupSuite(gid, sid);
+    }
+
     public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
     {
         Log("Called SetIsAllowUseSkill");

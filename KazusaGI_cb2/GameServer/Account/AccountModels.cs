@@ -10,6 +10,9 @@ public class AccountRecord
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
 
+    [BsonElement("name")]
+	public string? Name { get; set; }
+
     [BsonElement("account_uid")]
     public string AccountUid { get; set; } = string.Empty;
 
@@ -40,5 +43,7 @@ public interface IAccountRepository
 {
     AccountRecord? GetByAccountUid(string accountUid);
 
-    AccountRecord GetOrCreate(string accountUid, string accountToken);
+    AccountRecord GetOrCreate(string accountName, string accountToken);
+
+    AccountRecord GetByAccountToken(string accountToken);
 }

@@ -20,8 +20,18 @@ internal class HandleGetPlayerTokenReq
     public static void OnPacket(Session session, Packet packet)
     {
         GetPlayerTokenReq req = packet.GetDecodedBody<GetPlayerTokenReq>();
-        // Use persistent account storage to resolve or create a player UID
-        var account = AccountManager.GetOrCreate(req.AccountUid, req.AccountToken);
+        // Resolve the account by UID coming from the login server.
+        // Do NOT treat the uid as an account name to avoid creating
+        // duplicate accounts like Name="1" / account_uid="2".
+        var account = AccountManager.GetByAccountUid(req.AccountUid);
+
+        // Fallback: if, for some reason, the login server didn't create
+        // the account yet (e.g. direct client to gameserver), create one
+        // using the uid string as the name.
+        if (account == null)
+        {
+            account = AccountManager.GetOrCreate(req.AccountUid, req.AccountToken);
+        }
 
         GetPlayerTokenRsp rsp = new GetPlayerTokenRsp()
         {

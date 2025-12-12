@@ -45,6 +45,7 @@ public class ResourceManager
     public Dictionary<uint, TowerFloorExcelConfig> TowerFloorExcel { get; set; }
     public Dictionary<uint, TowerScheduleExcelConfig> TowerScheduleExcel { get; set; }
     public Dictionary<uint, TowerLevelExcelConfig> TowerLevelExcel { get; set; }
+    public Dictionary<uint, Dictionary<uint, WeaponPromoteExcelConfig>> WeaponPromoteExcel { get; set; }
     public Dictionary<uint, string> GadgetLuaConfig { get; set; }
     public GlobalCombatData GlobalCombatData { get; set; }
     public Dictionary<uint, DungeonChallengeConfig> DungeonChallengeConfig { get; set; }

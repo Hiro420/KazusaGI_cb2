@@ -25,14 +25,17 @@ public static class AccountManager
         }
     }
 
-    public static AccountRecord GetOrCreate(string accountUid, string accountToken)
-        => Repository.GetOrCreate(accountUid, accountToken);
+    public static AccountRecord GetOrCreate(string accountName, string accountToken)
+        => Repository.GetOrCreate(accountName, accountToken);
 
     public static AccountRecord? GetByAccountUid(string accountUid)
         => Repository.GetByAccountUid(accountUid);
 
-    // Expose strongly-typed player data helpers for now via the concrete Mongo implementation. 
-    public static PlayerDataRecord? LoadPlayerData(uint playerUid)
+    public static AccountRecord? GetByAccountToken(string accountToken)
+        => Repository.GetByAccountToken(accountToken);
+
+	// Expose strongly-typed player data helpers for now via the concrete Mongo implementation. 
+	public static PlayerDataRecord? LoadPlayerData(uint playerUid)
     {
         return MongoRepository.LoadPlayerData(playerUid);
     }

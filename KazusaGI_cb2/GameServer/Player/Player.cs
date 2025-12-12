@@ -338,6 +338,44 @@ public class Player
 		}
     }
 
+    public void AddAllWeapons()
+    {
+        foreach (KeyValuePair<uint, WeaponExcelConfig> weaponExcelRow in MainApp.resourceManager.WeaponExcel)
+        {
+            // Skip obviously invalid ids if any
+            if (weaponExcelRow.Key == 0)
+                continue;
+
+            // PlayerWeapon constructor handles adding itself to weaponDict and creating the entity
+            var weapon = new PlayerWeapon(session, weaponExcelRow.Key);
+			session.SendPacket(new ItemAddHintNotify()
+			{
+				Reason = 3, // pick random one cuz doesnt matter, at least for now
+				ItemLists = { new ItemHint() { Count = 1, ItemId = weaponExcelRow.Key } }
+			});
+            session.SendPacket(new StoreItemChangeNotify()
+            {
+                StoreType = StoreType.StorePack,
+                ItemLists = {
+                    new Item()
+                    {
+                        Guid = weapon.Guid,
+						ItemId = weaponExcelRow.Key,
+                        Equip = new Equip()
+                        {
+                            Weapon = new Weapon()
+                            {
+                                Exp = weapon.Exp,
+								Level = weapon.Level,
+                                PromoteLevel = weapon.PromoteLevel
+							}
+						}
+                    }
+                }
+            });
+		}
+    }
+
     public void AddAllMaterials(bool isSilent = false)
     {
         foreach(KeyValuePair<uint, MaterialExcelConfig> materialExcelRow in MainApp.resourceManager.MaterialExcel)

@@ -174,7 +174,16 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "WeaponExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
 
-    private GlobalCombatData LoadGlobalCombatData() =>
+    private Dictionary<uint, Dictionary<uint, WeaponPromoteExcelConfig>> LoadWeaponPromoteExcelConfig() =>
+        JsonConvert.DeserializeObject<List<WeaponPromoteExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "WeaponPromoteExcelConfigData.json"))
+        )!.GroupBy(data => data.weaponPromoteId)
+        .ToDictionary(
+            group => group.Key,
+            group => group.ToDictionary(data => data.promoteLevel)
+        );
+
+	private GlobalCombatData LoadGlobalCombatData() =>
         JsonConvert.DeserializeObject<GlobalCombatData>(
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
         )!;
@@ -647,7 +656,8 @@ public class ResourceLoader
         _resourceManager.TowerFloorExcel = this.LoadTowerFloorExcelConfig();
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
-        _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
+        _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
+		_resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
 
         _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();

@@ -17,15 +17,14 @@ public class GiveAll
 				return;
 			}
 
-            // avatars, materials
-            // if materials, check for isSilent
-
             if (args.Length == 0) {
-                logger.LogError("Usage: giveall <avatars|materials>");
+                logger.LogError("Usage: giveall <avatars|materials|weapons>");
                 return;
 			}
 
-            switch (args[0].ToLower())
+			string target = args[0].ToLower();
+
+            switch (target)
             {
                 case "avatars":
 					session.player.AddAllAvatars();
@@ -36,13 +35,16 @@ public class GiveAll
 					else
 						session.player.AddAllMaterials();
 					break;
+                case "weapons":
+					session.player.AddAllWeapons();
+					break;
                 default:
-                    logger.LogError("Unknown argument. Usage: giveall <avatars|materials>");
+                    logger.LogError("Unknown argument. Usage: giveall <avatars|materials|weapons>");
                     break;
 			}
 
             session.player.SavePersistent();
-            logger.LogSuccess($"Gave all avatars to player {session.player.Uid}");
+            logger.LogSuccess($"Gave all {target} to player {session.player.Uid}");
         }
     }
 }

@@ -28,14 +28,24 @@ public class MongoAccountRepository : IAccountRepository
         return _accounts.Find(a => a.AccountUid == accountUid).FirstOrDefault();
     }
 
-    public AccountRecord GetOrCreate(string accountUid, string accountToken)
+    public AccountRecord? GetByAccountName(string accountName)
     {
-        if (string.IsNullOrWhiteSpace(accountUid))
+        return _accounts.Find(a => a.Name == accountName).FirstOrDefault();
+	}
+
+    public AccountRecord? GetByAccountToken(string accountToken)
+    {
+        return _accounts.Find(a => a.AccountToken == accountToken).FirstOrDefault();
+	}
+
+	public AccountRecord GetOrCreate(string accountName, string accountToken)
+    {
+        if (string.IsNullOrWhiteSpace(accountName))
         {
-            throw new ArgumentException("accountUid must not be empty", nameof(accountUid));
+            throw new ArgumentException("accountName must not be empty", nameof(accountName));
         }
 
-        var existing = GetByAccountUid(accountUid);
+        var existing = GetByAccountName(accountName);
         if (existing != null)
         {
             var update = Builders<AccountRecord>.Update
@@ -50,12 +60,14 @@ public class MongoAccountRepository : IAccountRepository
         }
 
         uint playerUid = (uint)AllocateNextPlayerUid();
+        string accountUid = AllocateNextAccountUid();
 
         var now = DateTime.UtcNow;
         var record = new AccountRecord
         {
-            AccountUid = accountUid,
-            AccountToken = accountToken,
+			AccountUid = accountUid,
+            Name = accountName,
+			AccountToken = accountToken,
             PlayerUid = playerUid,
             CreatedAt = now,
             LastLoginAt = now
@@ -98,6 +110,41 @@ public class MongoAccountRepository : IAccountRepository
         }
 
         return counter.Value;
+    }
+
+    private string AllocateNextAccountUid()
+    {
+        var filter = Builders<CounterRecord>.Filter.Eq(c => c.Id, "account_uid");
+        var update = Builders<CounterRecord>.Update.Inc(c => c.Value, 1);
+
+        var options = new FindOneAndUpdateOptions<CounterRecord>
+        {
+            IsUpsert = true,
+            ReturnDocument = ReturnDocument.After
+        };
+
+        var counter = _counters.FindOneAndUpdate(filter, update, options);
+
+        // If this is the first time, initialize starting UID at 1
+        if (counter == null)
+        {
+            var seed = new CounterRecord { Id = "account_uid", Value = 1 };
+            _counters.InsertOne(seed);
+            return seed.Value.ToString();
+        }
+
+        // Ensure a reasonable lower bound
+        if (counter.Value < 1)
+        {
+            var correction = Builders<CounterRecord>.Update.Set(c => c.Value, 1);
+            counter = _counters.FindOneAndUpdate(filter, correction, new FindOneAndUpdateOptions<CounterRecord>
+            {
+                IsUpsert = true,
+                ReturnDocument = ReturnDocument.After
+            });
+        }
+
+        return counter.Value.ToString();
     }
 
     #region Player data helpers

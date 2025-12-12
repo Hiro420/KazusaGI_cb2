@@ -5,6 +5,7 @@ using KazusaGI_cb2.WebServer.Handlers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
+using static KazusaGI_cb2.Protocol.DebugNotify;
 
 namespace KazusaGI_cb2.WebServer;
 
@@ -75,8 +76,8 @@ public class HttpHandler
 
         // Resolve or create account in database based on provided account identifier.
         // We deliberately skip password verification here as requested.
-        string accountUid = apiLoginReq.account;
-        if (string.IsNullOrWhiteSpace(accountUid))
+        string accountName = apiLoginReq.account;
+        if (string.IsNullOrWhiteSpace(accountName))
         {
             // Minimal error handling: client must provide some account identifier
             var errorRsp = new
@@ -90,8 +91,8 @@ public class HttpHandler
 
         // Generate a simple token for this login and persist it with the account.
         // Later, the game server will use this token in GetPlayerTokenReq.
-        string token = $"{accountUid}_token"; // dummy token generation for now
-		AccountRecord account = AccountManager.GetOrCreate(accountUid, token);
+        string token = $"{accountName}_token"; // dummy token generation for now
+		AccountRecord account = AccountManager.GetOrCreate(accountName, token);
 
         // Build response payload following the original ACCOUNT_INFO shape,
         // but populated from the database-backed account.
@@ -104,7 +105,7 @@ public class HttpHandler
                 account = new
                 {
                     uid = account.AccountUid,
-                    name = account.AccountUid,
+                    name = account.Name,
                     email = "",
                     mobile = "",
                     is_email_verify = 1,
@@ -167,7 +168,7 @@ public class HttpHandler
 				account = new
 				{
 					uid = account.AccountUid,
-					name = account.AccountUid,
+					name = account.Name,
 					email = "",
 					mobile = "",
 					is_email_verify = 1,
@@ -286,21 +287,42 @@ public class HttpHandler
     [HttpEndpoint("/combo/granter/login/login", "POST")]
     public HttpResponse ComboGranterLoginLogin(HttpListenerRequest request)
     {
-        string rsp = """
+        ComboGranterLoginLoginReq loginReq;
+        using (var reader = new StreamReader(request.InputStream))
         {
-           "retcode":0,
-           "message":"OK",
-           "data":{
-              "combo_id":69420,
-              "open_id":69420,
-              "combo_token":"kazusaaa",
-              "data":"{\"guest\":true}",
-              "heartbeat":false,
-              "account_type":1
-           }
-        }
-        """;
-        return new JsonResponse(rsp);
+            var body = reader.ReadToEnd();
+            loginReq = JsonConvert.DeserializeObject<ComboGranterLoginLoginReq>(body)!;
+		}
+        var dataInfo = loginReq.GetData();
+		AccountRecord? account = AccountManager.GetByAccountToken(dataInfo.token);
+		if (account == null)
+		{
+			// Minimal error handling: account not found
+			var errorRsp = new
+			{
+				retcode = -1,
+				message = "Account not found",
+				data = (object?)null
+			};
+			return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
+		}
+        var rspObj = new
+        {
+            retcode = 0,
+            message = "OK",
+            data = new
+            {
+                combo_id = account.AccountUid,
+                open_id = account.AccountUid,
+                combo_token = account.AccountToken,
+                data = "{\"guest\":true}",
+                heartbeat = false,
+                account_type = 1
+            }
+        };
+
+        string rsp = JsonConvert.SerializeObject(rspObj);
+		return new JsonResponse(rsp);
     }
 
     [HttpEndpoint("/combo/granter/api/getConfig", "GET")]

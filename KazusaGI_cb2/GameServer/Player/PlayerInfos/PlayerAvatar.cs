@@ -81,7 +81,7 @@ public class PlayerAvatar
         if (initialWeapon != 0)
         {
             PlayerWeapon weapon = new(session, initialWeapon);
-            weapon.EquipOnAvatar(this);
+            weapon.EquipOnAvatar(this, false);
         }
         this.SkillLevels.Add(this.UltSkillId, 1); // todo: get from resources
         foreach (uint skillId in avatarSkillDepotExcel.skills)

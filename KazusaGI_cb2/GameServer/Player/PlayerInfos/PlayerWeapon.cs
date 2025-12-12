@@ -9,6 +9,7 @@ namespace KazusaGI_cb2.GameServer.PlayerInfos;
 
 public class PlayerWeapon
 {
+    private Session Session { get; set; }
     private WeaponExcelConfig weaponExcel;
 	private static ResourceManager resourceManager = MainApp.resourceManager;
     public ulong Guid { get; set; } // critical
@@ -24,28 +25,51 @@ public class PlayerWeapon
 
     public PlayerWeapon(Session session, uint WeaponId)
     {
+        this.Session = session;
         WeaponEntity weaponEntity = new(session, WeaponId);
         weaponExcel = resourceManager.WeaponExcel[WeaponId];
-        this.Guid = session.GetGuid();
+        (uint maxPromoteLevel, uint maxWeaponLevel) = GetMaxWeaponPromote(weaponExcel);
+		this.Guid = session.GetGuid();
         this.WeaponId = WeaponId;
-        this.Level = 1;
+        this.Level = maxWeaponLevel;
         this.Exp = 0;
-        this.PromoteLevel = 1;
+        this.PromoteLevel = maxPromoteLevel;
         this.GadgetId = weaponExcel.gadgetId;
         this.WeaponEntityId = weaponEntity._EntityId;
         session.player!.weaponDict.Add(this.Guid, this);
         session.player.Scene.EntityManager.Add(weaponEntity);
     }
 
-    public void EquipOnAvatar(PlayerAvatar avatar)
+    public void EquipOnAvatar(PlayerAvatar avatar, bool broadcastPacket)
     {
         avatar.EquipGuid = this.Guid;
         this.EquipGuid = avatar.Guid;
+        if (broadcastPacket)
+        {
+            AvatarEquipChangeNotify ntf = new AvatarEquipChangeNotify()
+            {
+                AvatarGuid = avatar.Guid,
+                Weapon = this.ToSceneWeaponInfo(Session),
+                EquipGuid = this.Guid,
+                EquipType = (uint)EquipType.EQUIP_WEAPON,
+                ItemId = this.WeaponId
+			};
+            Session!.SendPacket(ntf);
+		}
+	}
 
-        // todo: send packet from here (maybe)
-    }
+	// returns (maxPromoteLevel, maxWeaponLevel)
+	public (uint, uint) GetMaxWeaponPromote(WeaponExcelConfig weaponExcel)
+    {
+        uint promoteId = (uint)weaponExcel.weaponPromoteId;
+        Dictionary<uint, WeaponPromoteExcelConfig>? relevantPromotes = resourceManager.WeaponPromoteExcel.TryGetValue(promoteId, out var configDict) ? configDict : null;
+        if (relevantPromotes == null || relevantPromotes.Count == 0)
+            return (1, 1);
+		WeaponPromoteExcelConfig highestPromote = relevantPromotes.Values.OrderByDescending(wp => wp.promoteLevel).First();
+		return (highestPromote.promoteLevel, highestPromote.unlockMaxLevel);
+	}
 
-    public SceneWeaponInfo ToSceneWeaponInfo(Session session)
+	public SceneWeaponInfo ToSceneWeaponInfo(Session session)
     {
         SceneWeaponInfo info = new SceneWeaponInfo()
         {

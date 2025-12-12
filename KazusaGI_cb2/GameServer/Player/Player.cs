@@ -63,6 +63,11 @@ public class Player
         //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
     }
 
+    public void SavePersistent()
+    {
+        AccountManager.SavePlayerData(ToPlayerDataRecord());
+    }
+
     public PlayerDataRecord ToPlayerDataRecord()
     {
         var record = new PlayerDataRecord
@@ -100,6 +105,56 @@ public class Player
             {
                 ItemId = item.ItemId,
                 Count = item.Count
+            });
+        }
+
+        // Serialize detailed avatar state
+        foreach (var avatar in avatarDict.Values)
+        {
+            var snap = new PlayerAvatarSnapshot
+            {
+                Guid = avatar.Guid,
+                AvatarId = avatar.AvatarId,
+                Level = avatar.Level,
+                Exp = avatar.Exp,
+                Hp = avatar.Hp,
+                MaxHp = avatar.MaxHp,
+                Def = avatar.Def,
+                Atk = avatar.Atk,
+                CritRate = avatar.CritRate,
+                CritDmg = avatar.CritDmg,
+                EM = avatar.EM,
+                PromoteLevel = avatar.PromoteLevel,
+                BreakLevel = avatar.BreakLevel,
+                CurElemEnergy = avatar.CurElemEnergy,
+                SkillDepotId = avatar.SkillDepotId,
+                UltSkillId = avatar.UltSkillId,
+                EquipGuid = avatar.EquipGuid
+            };
+
+            foreach (var kv in avatar.SkillLevels)
+            {
+                snap.SkillLevels[kv.Key] = kv.Value;
+            }
+
+            snap.UnlockedTalents.AddRange(avatar.UnlockedTalents);
+            snap.ProudSkills.AddRange(avatar.ProudSkills);
+
+            record.Avatars.Add(snap);
+        }
+
+        // Serialize weapon state
+        foreach (var weapon in weaponDict.Values)
+        {
+            record.Weapons.Add(new PlayerWeaponSnapshot
+            {
+                Guid = weapon.Guid,
+                WeaponId = weapon.WeaponId,
+                Level = weapon.Level,
+                Exp = weapon.Exp,
+                PromoteLevel = weapon.PromoteLevel,
+                GadgetId = weapon.GadgetId,
+                EquipGuid = weapon.EquipGuid
             });
         }
 
@@ -154,6 +209,68 @@ public class Player
                     Count = itemSnap.Count
                 };
                 itemDict[item.Guid] = item;
+            }
+        }
+
+        // Restore detailed avatar state
+        if (record.Avatars.Count > 0)
+        {
+            foreach (var a in record.Avatars)
+            {
+                var avatar = avatarDict.Values.FirstOrDefault(x => x.AvatarId == a.AvatarId);
+                if (avatar == null)
+                    continue;
+
+                avatar.Level = a.Level;
+                avatar.Exp = a.Exp;
+                avatar.Hp = a.Hp;
+                avatar.MaxHp = a.MaxHp;
+                avatar.Def = a.Def;
+                avatar.Atk = a.Atk;
+                avatar.CritRate = a.CritRate;
+                avatar.CritDmg = a.CritDmg;
+                avatar.EM = a.EM;
+                avatar.PromoteLevel = a.PromoteLevel;
+                avatar.BreakLevel = a.BreakLevel;
+                avatar.CurElemEnergy = a.CurElemEnergy;
+                avatar.SkillDepotId = a.SkillDepotId;
+                avatar.UltSkillId = a.UltSkillId;
+                avatar.EquipGuid = a.EquipGuid;
+
+                avatar.SkillLevels.Clear();
+                foreach (var kv in a.SkillLevels)
+                {
+                    avatar.SkillLevels[kv.Key] = kv.Value;
+                }
+
+                avatar.UnlockedTalents = new HashSet<uint>(a.UnlockedTalents);
+                avatar.ProudSkills = new HashSet<uint>(a.ProudSkills);
+            }
+        }
+
+        // Restore weapon state and re-bind equips
+        if (record.Weapons.Count > 0)
+        {
+            foreach (var w in record.Weapons)
+            {
+                var weapon = weaponDict.Values.FirstOrDefault(x => x.WeaponId == w.WeaponId);
+                if (weapon == null)
+                    continue;
+
+                weapon.Level = w.Level;
+                weapon.Exp = w.Exp;
+                weapon.PromoteLevel = w.PromoteLevel;
+                weapon.GadgetId = w.GadgetId;
+                weapon.EquipGuid = w.EquipGuid;
+
+                if (w.EquipGuid.HasValue)
+                {
+                    var avatar = avatarDict.Values.FirstOrDefault(x => x.Guid == w.EquipGuid.Value);
+                    if (avatar != null)
+                    {
+                        avatar.EquipGuid = weapon.Guid;
+                    }
+                }
             }
         }
     }
@@ -369,8 +486,8 @@ public class Player
         {
             this.EnterScene(session, this.SceneId);
         }
-        // Save updated position to persistent storage
-        Account.AccountManager.SavePlayerData(ToPlayerDataRecord());
+        // Save updated position and state to persistent storage
+        SavePersistent();
     }
 
     public void EnterScene(Session session, uint sceneId, EnterType enterType = EnterType.EnterSelf)

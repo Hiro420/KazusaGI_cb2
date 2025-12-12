@@ -42,6 +42,9 @@ public class PlayerTeam
         {
             this.Leader = this.Avatars[0];
         }
+
+        // Persist team change
+        session.player?.SavePersistent();
     }
 
     public void AddAvatar(Session session, PlayerAvatar avatar)
@@ -52,5 +55,8 @@ public class PlayerTeam
             return;
         }
         this.Avatars.Add(avatar);
+
+        // Persist team change
+        session.player?.SavePersistent();
     }
 }

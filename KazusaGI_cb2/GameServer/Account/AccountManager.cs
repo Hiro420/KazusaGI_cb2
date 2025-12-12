@@ -31,9 +31,7 @@ public static class AccountManager
     public static AccountRecord? GetByAccountUid(string accountUid)
         => Repository.GetByAccountUid(accountUid);
 
-    // Expose strongly-typed player data helpers for now via the concrete
-    // Mongo implementation. This keeps things simple while you only have
-    // one backing implementation.
+    // Expose strongly-typed player data helpers for now via the concrete Mongo implementation. 
     public static PlayerDataRecord? LoadPlayerData(uint playerUid)
     {
         return MongoRepository.LoadPlayerData(playerUid);

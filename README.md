@@ -4,6 +4,7 @@
 ## Please note: the project is still WIP and is in its very early stages, and many features might not work as intended. Same with the code quality, it will go through many rewrites and refactoring in the future, so please don't judge :\)
 
 # Usage
+- Download [MongoDB 4.0+](https://www.mongodb.com/try/download/community)
 - Compile via Visual Studio 2022
 - Download `BinOutput`, `Lua` and `ExcelBinOutput` from [the resources repo](https://github.com/Hiro420/KazusaGI_Data) and place them in `resources` folder, next to the executable
 - Download [0.7.1](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.1.zip) or [0.7.0](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.0.zip) version of a certain anime game 
@@ -86,5 +87,3 @@ class Handlers{
 - NOT load quest-related lua groups
 - add all weapons + weapon switching
 - add relics
-
-- save data to db (wont happen anytime soon, unless someone wants to PR its implementation)

@@ -104,5 +104,8 @@ internal class HandleSetUpAvatarTeamReq
         TeamHandler.SendAvatarEquipChangeNotify(session, newLeaderAvatar);
 
         session.SendPacket(rsp);
+
+        // Persist updated team composition and leader selection
+        session.player!.SavePersistent();
     }
 }

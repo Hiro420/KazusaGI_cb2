@@ -78,7 +78,7 @@ public class MongoAccountRepository : IAccountRepository
 
         var counter = _counters.FindOneAndUpdate(filter, update, options);
 
-        // If this is the first time, initialize starting UID around 100000000
+        // If this is the first time, initialize starting UID at 1
         if (counter == null)
         {
             var seed = new CounterRecord { Id = "player_uid", Value = 1 };

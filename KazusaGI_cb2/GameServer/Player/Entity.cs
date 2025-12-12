@@ -20,6 +20,13 @@ namespace KazusaGI_cb2.GameServer
 		public List<AbilityInstance> InstancedAbilities { get; } = new();
 		public Dictionary<uint, AbilityModifierController> InstancedModifiers { get; } = new();
 
+		// Simple shield bar state as reported by ShieldBarMixin.
+		// This mirrors the client-side shield bar UI but does not yet
+		// participate in damage calculation or GlobalMainShield logic.
+		public float ShieldBarCurrent { get; private set; }
+		public float ShieldBarMax { get; private set; }
+		public uint ShieldBarElementType { get; private set; }
+
 		public BaseAbilityManager? abilityManager = null;
 		public uint _EntityId { get; protected set; }
 		public Vector3 Position { get; set; }
@@ -35,6 +42,13 @@ namespace KazusaGI_cb2.GameServer
 			Rotation = rotation ?? session.player!.Rot;
 			EntityType = entityType;
 			_EntityId = entityId ?? session.GetEntityId(entityType);
+		}
+
+		public void UpdateShieldBar(uint elementType, float shield, float maxShield)
+		{
+			ShieldBarElementType = elementType;
+			ShieldBarCurrent = shield;
+			ShieldBarMax = maxShield;
 		}
 
 		protected virtual uint? GetLevel() => null;

@@ -14,20 +14,24 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 		{
 			await Task.Yield();
 
-			int chance = Convert.ToInt32(this.chance);
+			float chance = Convert.ToSingle(this.chance);
 			Random rand = new Random();
 
 			// chance is between 0 and 1
-			if (rand.NextDouble() <= chance)
+			float roll = (float)rand.NextDouble();
+			if (roll <= chance)
 			{
+				// Console.WriteLine($"Randomed action succeeded (chance: {chance} / {roll})");
 				// Success
 				foreach (var action in successActions)
 				{
+					// Console.WriteLine($"Invoking success action: {action.GetType().Name}");
 					await action.Invoke(abilityName, srcEntity, targetEntity);
 				}
 			}
 			else
 			{
+				// Console.WriteLine($"Randomed action failed (chance: {chance} / {roll})");
 				// Fail
 				foreach (var action in failActions)
 				{

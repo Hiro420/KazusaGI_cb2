@@ -2,6 +2,7 @@
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
 using ProtoBuf;
 
 namespace KazusaGI_cb2.GameServer.Systems.Ability;
@@ -79,21 +80,42 @@ public abstract class BaseAbilityManager
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}");
 
 			// Mirror hk4e's serverCommonInvokeHandler/commonInvokeEntryDispatch:
-			// resolve (ability, modifier) first, then dispatch by localId as
-			// an index into the ability's invoke-site list.
+			// resolve (ability, modifier) first, then dispatch by LocalId.
+			//
+			// Primary path: use the bit-packed LocalIdToInvocationMap that
+			// is built by LocalIdGenerator / ConfigAbility. This matches
+			// hk4e where the client sends packed ids.
+			//
+			// Fallback: for older/partial configs where only InvokeSiteList
+			// was relied on, treat LocalId as a simple index when in range.
 			if (!TryResolveAbilityForInvoke(invoke, out var ability, out var modifierController))
 			{
 				return;
 			}
 			int localId = invoke.Head.LocalId;
-			if (ability.InvokeSiteList == null || localId < 0 || localId >= ability.InvokeSiteList.Count)
+			IInvocation? invocation = null;
+			bool resolved = false;
+			// 1) Try packed-id lookup first.
+			if (ability.LocalIdToInvocationMap != null &&
+				ability.LocalIdToInvocationMap.TryGetValue((uint)localId, out var mapped))
+			{
+				invocation = mapped;
+				resolved = true;
+			}
+			// 2) Fallback: interpret LocalId as a simple index.
+			else if (ability.InvokeSiteList != null && localId >= 0 && localId < ability.InvokeSiteList.Count)
+			{
+				invocation = ability.InvokeSiteList[localId];
+				resolved = true;
+				logger.LogInfo($"HandleAbilityInvokeAsync: falling back to InvokeSiteList index for localId={localId} on ability {ability.abilityName}");
+			}
+			if (!resolved || invocation == null)
 			{
 				logger.LogWarning($"Invalid invoke-site localId={localId} for ability {ability.abilityName} (instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.InvokeSiteList?.Count ?? 0})");
 				ability.DebugAbility(logger);
 				return;
 			}
 
-			IInvocation invocation = ability.InvokeSiteList[localId];
 			logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {localId} | {invocation.GetType().Name}");
 			await invocation.Invoke(ability.abilityName, Owner);
 
@@ -193,9 +215,61 @@ public abstract class BaseAbilityManager
 			case AbilityInvokeArgument.AbilityMixinWindSeedSpawner:
 				AbilityMixinWindSeedSpawner info12 = Serializer.Deserialize<AbilityMixinWindSeedSpawner>(data);
 				break;
+			case AbilityInvokeArgument.AbilityMixinShieldBar:
+				await HandleMixinInvokeAsync<ShieldBarMixin>(invoke);
+				break;
 			default:
 				logger.LogWarning($"Unhandled AbilityInvokeArgument: {invoke.ArgumentType}");
 				break;
+		}
+	}
+
+	protected virtual async Task HandleMixinInvokeAsync<TMixin>(AbilityInvokeEntry invoke)
+		where TMixin : BaseAbilityMixin
+	{
+		if (!TryResolveAbilityForInvoke(invoke, out ConfigAbility ability, out AbilityModifierController? _))
+		{
+			logger.LogWarning($"HandleMixinInvokeAsync<{typeof(TMixin).Name}>: failed to resolve ability for instancedAbilityId {invoke.Head.InstancedAbilityId}");
+			return;
+		}
+
+		BaseAbilityMixin? mixin = null;
+		if (ability.abilityMixins != null)
+		{
+			foreach (var m in ability.abilityMixins)
+			{
+				if (m is TMixin)
+				{
+					mixin = m;
+					break;
+				}
+			}
+		}
+
+		if (mixin == null)
+		{
+			logger.LogWarning($"HandleMixinInvokeAsync<{typeof(TMixin).Name}>: no mixin instance found on ability {ability.abilityName}");
+			return;
+		}
+
+		var handler = AbilityMixinHandlerRegistry.GetHandlerForMixin(mixin);
+		if (handler == null)
+		{
+			logger.LogWarning($"HandleMixinInvokeAsync<{typeof(TMixin).Name}>: no handler registered");
+			return;
+		}
+
+		try
+		{
+			bool ok = await handler.ExecuteAsync(ability, mixin, invoke.AbilityData ?? Array.Empty<byte>(), Owner, null);
+			if (!ok)
+			{
+				logger.LogWarning($"HandleMixinInvokeAsync<{typeof(TMixin).Name}>: handler returned false");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.LogError($"HandleMixinInvokeAsync<{typeof(TMixin).Name}> failed: {ex.Message}");
 		}
 	}
 

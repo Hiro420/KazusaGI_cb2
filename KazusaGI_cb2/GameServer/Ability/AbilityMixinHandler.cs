@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using KazusaGI_cb2.GameServer;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 
@@ -38,5 +42,69 @@ public class AbilityMixinAttribute : Attribute
     public AbilityMixinAttribute(Type mixinType)
     {
         MixinType = mixinType;
+    }
+}
+
+/// <summary>
+/// Registry that discovers and caches ability mixin handlers by their
+/// associated config mixin type via the <see cref="AbilityMixinAttribute"/>.
+/// </summary>
+public static class AbilityMixinHandlerRegistry
+{
+    private static readonly Dictionary<Type, AbilityMixinHandler> Handlers;
+
+    static AbilityMixinHandlerRegistry()
+    {
+        Handlers = new Dictionary<Type, AbilityMixinHandler>();
+
+        try
+        {
+            Type handlerBaseType = typeof(AbilityMixinHandler);
+            Type attributeType = typeof(AbilityMixinAttribute);
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
+                }
+
+                foreach (var type in types)
+                {
+                    if (type == null || type.IsAbstract || !handlerBaseType.IsAssignableFrom(type))
+                        continue;
+
+                    var attr = type.GetCustomAttribute<AbilityMixinAttribute>();
+                    if (attr?.MixinType == null)
+                        continue;
+
+                    if (Handlers.ContainsKey(attr.MixinType))
+                        continue;
+
+                    if (Activator.CreateInstance(type) is AbilityMixinHandler handler)
+                    {
+                        Handlers[attr.MixinType] = handler;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // If reflection fails for any reason, leave the registry empty.
+        }
+    }
+
+    public static AbilityMixinHandler? GetHandlerForMixin(BaseAbilityMixin mixin)
+    {
+        if (mixin == null)
+            return null;
+
+        Handlers.TryGetValue(mixin.GetType(), out var handler);
+        return handler;
     }
 }

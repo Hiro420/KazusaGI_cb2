@@ -89,23 +89,16 @@ internal class HandleGadgetInteractReq
         // Approximate hk4e behavior for the most common cases.
         switch (interactType)
         {
-            case InteractType.InteractOpenChest:
-                // Open chest gadgets by switching state; this sends GadgetStateNotify
-                // and fires EVENT_GADGET_STATE_CHANGE Lua triggers.
-                if (gadget.state == Resource.GadgetState.ChestLocked || gadget.state == Resource.GadgetState.Default)
+			case InteractType.InteractOpenChest:
                 {
-                    gadget.ChangeState(Resource.GadgetState.ChestOpened);
-                }
-				// start timer for 2 seconds, then despawn the chest gadget
-                var timer = new System.Timers.Timer(2000);
-                timer.Elapsed += (sender, e) =>
-                {
-                    timer.Stop();
-                    gadget.ForceKill();
-                };
-				break;
+                    if (gadget.state == Resource.GadgetState.ChestLocked || gadget.state == Resource.GadgetState.Default)
+                        gadget.ChangeState(Resource.GadgetState.ChestOpened);
 
-            case InteractType.InteractGather:
+	                gadget.ForceKill();
+                    break;
+                }
+
+			case InteractType.InteractGather:
                 // Gather points / gather objects: despawn the gadget and fire EVENT_GATHER
                 // so Lua group scripts can react (e.g. KillEntityByConfigId, refresh, etc.).
                 if (gadget._gadgetLua != null && session.player?.Scene != null)

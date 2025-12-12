@@ -25,10 +25,20 @@ public class ConfigAbility : BaseConfigAbility
     [JsonIgnore] public ConcurrentDictionary<uint, IInvocation> LocalIdToInvocationMap;
     [JsonIgnore] public SortedList<uint, AbilityModifier> ModifierList;
 
+    // Sequential invoke-site list mirroring hk4e's ConfigAbilityImpl::invoke_site_vec.
+    // Head.LocalId from the client is treated as an index into this list.
+    [JsonIgnore] public List<IInvocation> InvokeSiteList = new();
+
     internal async Task Initialize()
     {
-        // DO NOT CHANGE THE ORDER
+        // DO NOT CHANGE THE ORDER OF HOW WE BUILD LOCAL IDS.
+        // LocalIdToInvocationMap is still populated for debugging and
+        // for modifier-related lookups, but the primary dispatch now
+        // uses InvokeSiteList with sequential indices to match hk4e's
+        // invoke_site_vec behavior.
+
         LocalIdToInvocationMap = new();
+        InvokeSiteList = new();
 
         var tasks = new Task[]
         {
@@ -82,25 +92,25 @@ public class ConfigAbility : BaseConfigAbility
         await Task.Yield();
         ushort configIndex = 0;
         LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.ACTION);
-        idGenerator.InitializeActionLocalIds(onAdded, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onAdded, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onRemoved, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onRemoved, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAbilityStart, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onAbilityStart, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onKill, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onKill, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onFieldEnter, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onFieldEnter, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onExit, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onExit, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAttach, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onAttach, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onDetach, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onDetach, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAvatarIn, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onAvatarIn, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAvatarOut, LocalIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(onAvatarOut, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
     }
 
@@ -112,7 +122,7 @@ public class ConfigAbility : BaseConfigAbility
             for (uint i = 0; i < abilityMixins.Length; i++)
             {
                 idGenerator.ConfigIndex = 0;
-                await abilityMixins[i].Initialize(idGenerator, LocalIdToInvocationMap);
+                await abilityMixins[i].Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
                 idGenerator.MixinIndex++;
             }
         }
@@ -135,7 +145,7 @@ public class ConfigAbility : BaseConfigAbility
             {
                 LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.NONE) { ModifierIndex = modifierIndex };
                 ModifierList[i] = modifierArray[i].Value;
-                tasks[i] = modifierArray[i].Value.Initialize(idGenerator, LocalIdToInvocationMap);
+                tasks[i] = modifierArray[i].Value.Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
                 modifierIndex++;
             }
 

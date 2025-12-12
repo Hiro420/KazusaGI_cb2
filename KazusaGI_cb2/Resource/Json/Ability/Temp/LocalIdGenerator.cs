@@ -16,7 +16,10 @@ public class LocalIdGenerator
         Type = type;
     }
 
-    public void InitializeActionLocalIds(BaseAction[]? actions, IDictionary<uint, IInvocation> localIdToInvocationMap)
+    public void InitializeActionLocalIds(
+        BaseAction[]? actions,
+        IDictionary<uint, IInvocation> localIdToInvocationMap,
+        IList<IInvocation> invokeSiteList)
     {
         if (actions == null) return;
         ActionIndex = 0;
@@ -24,8 +27,14 @@ public class LocalIdGenerator
         {
             ActionIndex++;
             uint id = GetLocalId();
-            //Console.WriteLine($"Generated Local ID: {id} for Action: {actions[i].GetType()}");
+
+            // Keep the old bit-packed id mapping for debugging and
+            // modifier-related lookups.
             localIdToInvocationMap.Add(id, actions[i]);
+
+            // Also append to the sequential invoke-site list so that
+            // head.LocalId can be used as an index into this list.
+            invokeSiteList.Add(actions[i]);
         }
         ActionIndex = 0;
     }

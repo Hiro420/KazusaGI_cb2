@@ -35,31 +35,34 @@ public class AbilityModifier
     [JsonIgnore]
     public LocalIdGenerator? generator = null!;
 
-    internal async Task Initialize(LocalIdGenerator idGenerator, IDictionary<uint, IInvocation> localIdToInvocationMap)
+    internal async Task Initialize(
+        LocalIdGenerator idGenerator,
+        IDictionary<uint, IInvocation> localIdToInvocationMap,
+        IList<IInvocation> invokeSiteList)
     {
         generator = idGenerator;
         ushort configIndex = 0;
         // DO NOT CHANGE THE ORDER
         var tasks = new Task[]
             {
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAdded, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onRemoved, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHit, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAttackLanded, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHittingOther, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onThinkInterval, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onKill, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onCrash, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarIn, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarOut, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onReconnect, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onChangeAuthority, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleIn, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleOut, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneEnter, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneExit, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHeal, localIdToInvocationMap),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHealed, localIdToInvocationMap),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAdded, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onRemoved, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHit, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAttackLanded, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHittingOther, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onThinkInterval, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onKill, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onCrash, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarIn, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarOut, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onReconnect, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onChangeAuthority, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleIn, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleOut, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneEnter, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneExit, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHeal, localIdToInvocationMap, invokeSiteList),
+                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHealed, localIdToInvocationMap, invokeSiteList),
 
             };
         await Task.WhenAll(tasks);
@@ -71,14 +74,19 @@ public class AbilityModifier
         for (uint i = 0; i < modifierMixins.Length; i++)
         {
             idGenerator = new(ConfigAbilitySubContainerType.MODIFIER_MIXIN) { ConfigIndex = 0, MixinIndex = mixinIndex++ };
-            tasks2.Add(modifierMixins[i].Initialize(idGenerator, localIdToInvocationMap));
+            tasks2.Add(modifierMixins[i].Initialize(idGenerator, localIdToInvocationMap, invokeSiteList));
         }
     }
-    private async Task InitializeActionSubCategory(uint modifierIndex, ushort configIndex, BaseAction[]? actions, IDictionary<uint, IInvocation> localIdToInvocationMap)
+    private async Task InitializeActionSubCategory(
+        uint modifierIndex,
+        ushort configIndex,
+        BaseAction[]? actions,
+        IDictionary<uint, IInvocation> localIdToInvocationMap,
+        IList<IInvocation> invokeSiteList)
     {
         if (actions == null) return;
         await Task.Yield();
         LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.MODIFIER_ACTION) { ConfigIndex = configIndex, ModifierIndex = modifierIndex };
-        idGenerator.InitializeActionLocalIds(actions, localIdToInvocationMap);
+        idGenerator.InitializeActionLocalIds(actions, localIdToInvocationMap, invokeSiteList);
     }
 }

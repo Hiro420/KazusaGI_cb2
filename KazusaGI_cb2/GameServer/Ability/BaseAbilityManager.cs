@@ -79,22 +79,23 @@ public abstract class BaseAbilityManager
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}");
 
 			// Mirror hk4e's serverCommonInvokeHandler/commonInvokeEntryDispatch:
-			// resolve (ability, modifier) first, then dispatch by localId.
+			// resolve (ability, modifier) first, then dispatch by localId as
+			// an index into the ability's invoke-site list.
 			if (!TryResolveAbilityForInvoke(invoke, out var ability, out var modifierController))
 			{
 				return;
 			}
-
-			if (ability.LocalIdToInvocationMap.TryGetValue((uint)invoke.Head.LocalId, out IInvocation? invocation))
+			int localId = invoke.Head.LocalId;
+			if (ability.InvokeSiteList == null || localId < 0 || localId >= ability.InvokeSiteList.Count)
 			{
-				logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {invoke.Head.LocalId} | {invocation.GetType().Name}");
-				await invocation.Invoke(ability.abilityName, Owner);
-			}
-			else
-			{
-				logger.LogWarning($"Missing localId: {invoke.Head.LocalId}, ability instanced id: {invoke.Head.InstancedAbilityId}");
+				logger.LogWarning($"Invalid invoke-site localId={localId} for ability {ability.abilityName} (instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.InvokeSiteList?.Count ?? 0})");
 				ability.DebugAbility(logger);
+				return;
 			}
+
+			IInvocation invocation = ability.InvokeSiteList[localId];
+			logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {localId} | {invocation.GetType().Name}");
+			await invocation.Invoke(ability.abilityName, Owner);
 
 			return;
 		}
@@ -327,6 +328,7 @@ public abstract class BaseAbilityManager
 	protected virtual void ProcessAddModifier(AbilityInvokeEntry invoke, AbilityMetaModifierChange modifierChange)
 	{
 		logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
+			$"ConfigLocalId={invoke.Head.ModifierConfigLocalId}, " +
 			$"ParentAbility={modifierChange.ParentAbilityName?.Hash:X}");
 
 		//logger.LogWarning("Modifier Change Data:");
@@ -351,161 +353,86 @@ public abstract class BaseAbilityManager
 
 			if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out uint abilityHash))
 			{
-				// Try to infer the ability hash from the modifier's parent
-				// ability name/override and bind it to this instanced id.
-				uint inferredHash = 0;
-				string? parentNameStr = null;
-				string? parentOverrideStr = null;
+				// hk4e: when instancedAbilityId is not cached, find the first
+				// ability in this manager that has a modifier with the given
+				// config local id and bind it.
+				uint configLocalId = (uint)invoke.Head.ModifierConfigLocalId;
+				ConfigAbility? matchedAbility = null;
+				uint matchedHash = 0;
 
-				if (modifierChange.ParentAbilityOverride != null)
+				foreach (var kv in ConfigAbilityHashMap)
 				{
-					parentOverrideStr = modifierChange.ParentAbilityOverride.Str;
-					if (modifierChange.ParentAbilityOverride.Hash != 0)
-						inferredHash = modifierChange.ParentAbilityOverride.Hash;
-					else if (!string.IsNullOrEmpty(parentOverrideStr))
-						inferredHash = GameServer.Ability.Utils.AbilityHash(parentOverrideStr);
-				}
-
-				if (inferredHash == 0 && modifierChange.ParentAbilityName != null)
-				{
-					parentNameStr = modifierChange.ParentAbilityName.Str;
-					if (modifierChange.ParentAbilityName.Hash != 0)
-						inferredHash = modifierChange.ParentAbilityName.Hash;
-					else if (!string.IsNullOrEmpty(parentNameStr))
-						inferredHash = GameServer.Ability.Utils.AbilityHash(parentNameStr);
-				}
-
-				ConfigAbility? inferredAbility = null;
-				uint inferredAbilityHash = 0;
-
-				if (inferredHash != 0)
-				{
-					// We have a hash from parent ability fields; prefer that.
-					inferredAbilityHash = inferredHash;
-					ConfigAbilityHashMap.TryGetValue(inferredAbilityHash, out inferredAbility);
-				}
-				else
-				{
-					// Parent ability name/override are empty; fall back to
-					// finding an ability whose ModifierList contains this
-					// modifier local id, or, as a last resort, the single
-					// ability in this manager if there is exactly one.
-					foreach (var kv in ConfigAbilityHashMap)
+					if (kv.Value?.ModifierList != null &&
+						kv.Value.ModifierList.ContainsKey(configLocalId))
 					{
-						if (kv.Value?.ModifierList != null &&
-							kv.Value.ModifierList.ContainsKey((uint)modifierChange.ModifierLocalId))
-						{
-							inferredAbilityHash = kv.Key;
-							inferredAbility = kv.Value;
-							break;
-						}
-					}
-
-					if (inferredAbility == null && ConfigAbilityHashMap.Count == 1)
-					{
-						var single = ConfigAbilityHashMap.First();
-						inferredAbilityHash = single.Key;
-						inferredAbility = single.Value;
+						matchedHash = kv.Key;
+						matchedAbility = kv.Value;
+						break;
 					}
 				}
 
-				if (inferredAbilityHash == 0)
+				if (matchedHash == 0)
 				{
-					logger.LogWarning($"Missing ability hash for instancedAbilityId {instancedAbilityId} and could not infer from parent name/override or modifier index.");
+					logger.LogWarning($"No ability found with ModifierConfigLocalId={configLocalId} for instancedAbilityId {instancedAbilityId}");
 					return;
 				}
 
-				abilityHash = inferredAbilityHash;
+				abilityHash = matchedHash;
 				InstancedAbilityHashMap[instancedAbilityId] = abilityHash;
-
-				// Ensure this manager has a config for the inferred ability hash,
-				// falling back to the global resource map if needed.
-				if (!ConfigAbilityHashMap.ContainsKey(abilityHash))
+				if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? ability))
 				{
-					if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
-						MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(abilityHash, out var globalConfig) &&
-						globalConfig != null)
-					{
-						try
-						{
-							if (globalConfig.LocalIdToInvocationMap == null || globalConfig.ModifierList == null)
-							{
-								globalConfig.Initialize().GetAwaiter().GetResult();
-							}
-							ConfigAbilityHashMap[abilityHash] = globalConfig;
-							logger.LogInfo($"ProcessAddModifier: bound global ConfigAbility '{globalConfig.abilityName}' to hash {abilityHash} for inferred instancedAbilityId {instancedAbilityId}.");
-						}
-						catch (Exception ex)
-						{
-							logger.LogError($"ProcessAddModifier: failed to initialize/bind global ConfigAbility for hash {abilityHash}: {ex.Message}");
-						}
-					}
-					else
-					{
-						logger.LogWarning($"ProcessAddModifier: config not found for inferred ability hash {abilityHash} (parentOverride='{parentOverrideStr}', parentName='{parentNameStr}')");
-					}
+					var sceneManager = Owner.session.player.Scene.EntityManager;
+					logger.LogWarning($"Missing ability config for ability hash {abilityHash} | entity {targetEntityId} of type {sceneManager.Entities[targetEntityId].GetType().Name}");
+					return;
 				}
+
+				// hk4e: modifier config is addressed by modifier_config_local_id
+				AbilityModifier? modifierConfig = null!;
+				if (ability.ModifierList == null ||
+					!ability.ModifierList.TryGetValue(configLocalId, out modifierConfig))
+				{
+					logger.LogWarning($"No modifier config for configLocalId={configLocalId} in ability {ability.abilityName}");
+					return;
+				}
+
+				// create the controller ("AbilityModifierController" like in GC)
+				var controller = new AbilityModifierController(
+					instancedAbilityId,
+					instancedModifierId,
+					ability,
+					modifierConfig,
+					modifierChange);
+
+				// add to InstancedModifierMap at index = instancedModifierId (12)
+				if (InstancedModifierMap.ContainsKey(instancedModifierId))
+				{
+					logger.LogWarning(
+						$"InstancedModifierId {instancedModifierId} already exists on add. " +
+						$"Game should have sent REMOVE before ADD – check your logic.");
+					// decide whether to overwrite or bail; GC usually treats this as an error
+					InstancedModifierMap[instancedModifierId] = controller;
+				}
+				else
+				{
+					InstancedModifierMap.Add(instancedModifierId, controller);
+				}
+
+				var modifierInfo = new ActiveModifierInfo(
+					modifierChange.ModifierLocalId,
+					targetEntityId,
+					modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId,
+					abilityHash)
+				{
+					Properties = modifierChange.Properties.ToList(),
+					InstancedModifierId = instancedModifierId
+				};
+
+				ActiveModifiers[modifierChange.ModifierLocalId] = modifierInfo;
+
+				logger.LogInfo($"Successfully applied and tracked modifier: " +
+					$"ModifierLocalId={modifierChange.ModifierLocalId}, InstancedModifierId={instancedModifierId}, " +
+					$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
 			}
-
-			if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? ability))
-			{
-				var sceneManager = Owner.session.player.Scene.EntityManager;
-				logger.LogWarning($"Missing ability config for ability hash {abilityHash} | entity {targetEntityId} of type {sceneManager.Entities[targetEntityId].GetType().Name}");
-				return;
-			}
-
-			// get the modifier config for this ability, by local id  (0 in your example)
-			// !!! adapt this line to how you actually store modifiers in ConfigAbility
-			AbilityModifier? modifierConfig = null!;
-			if (ability.ModifierList != null &&
-				ability.ModifierList.TryGetValue((uint)modifierChange.ModifierLocalId, out var cfg))
-			{
-				modifierConfig = cfg;
-			}
-			else
-			{
-				logger.LogWarning($"No modifier config for LocalId={modifierChange.ModifierLocalId} in ability {ability.abilityName}");
-				ability.DebugAbility(logger);
-				return;
-			}
-
-			// create the controller ("AbilityModifierController" like in GC)
-			var controller = new AbilityModifierController(
-				instancedAbilityId,
-				instancedModifierId,
-				ability,
-				modifierConfig,
-				modifierChange);
-
-			// add to InstancedModifierMap at index = instancedModifierId (12)
-			if (InstancedModifierMap.ContainsKey(instancedModifierId))
-			{
-				logger.LogWarning(
-					$"InstancedModifierId {instancedModifierId} already exists on add. " +
-					$"Game should have sent REMOVE before ADD – check your logic.");
-				// decide whether to overwrite or bail; GC usually treats this as an error
-				InstancedModifierMap[instancedModifierId] = controller;
-			}
-			else
-			{
-				InstancedModifierMap.Add(instancedModifierId, controller);
-			}
-
-			var modifierInfo = new ActiveModifierInfo(
-				modifierChange.ModifierLocalId,
-				targetEntityId,
-				modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId,
-				abilityHash)
-			{
-				Properties = modifierChange.Properties.ToList(),
-				InstancedModifierId = instancedModifierId
-			};
-
-			ActiveModifiers[modifierChange.ModifierLocalId] = modifierInfo;
-
-			logger.LogInfo($"Successfully applied and tracked modifier: " +
-				$"ModifierLocalId={modifierChange.ModifierLocalId}, InstancedModifierId={instancedModifierId}, " +
-				$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
 		}
 		catch (Exception ex)
 		{

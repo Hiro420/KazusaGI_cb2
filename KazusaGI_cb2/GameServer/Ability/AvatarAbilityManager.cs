@@ -27,14 +27,6 @@ public class AvatarAbilityManager : BaseAbilityManager
 	private void InitAbilities()
 	{
 		// Initialize scene-specific abilities here if needed
-		/*
-			for (var ability :
-				GameData.getConfigGlobalCombat().getDefaultAbilities().getLevelElementAbilities()) {
-			AbilityData data = GameData.getAbilityData(ability);
-			if (data != null)
-				getScene().getWorld().getHost().getAbilityManager().addAbilityToEntity(this, data);
-		}
-		*/
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.defaultAvatarAbilities!)
 		{
 			if (!string.IsNullOrWhiteSpace(abilityName))
@@ -43,6 +35,7 @@ public class AvatarAbilityManager : BaseAbilityManager
 				if (abilityData != null)
 				{
 					ConfigAbilityHashMap[GameServer.Ability.Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
+					AddAbilityToEntity(Owner, (ConfigAbility)abilityData.Default!);
 				}
 			}
 		}

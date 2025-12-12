@@ -29,7 +29,8 @@ internal class HandleGetPlayerTokenReq
             SecretKeySeed = Convert.ToUInt64(req.AccountUid)
         };
         session.player = new Player(session, 69);
-        session.player.InitTeams();
+		session.player.MpLevelEntity = new MpLevelEntity(session);
+		session.player.InitTeams();
         session.player.AddAllAvatars(session);
         session.player.AddAllMaterials(session, true);
         session.SendPacket(rsp);

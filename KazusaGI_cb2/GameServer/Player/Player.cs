@@ -131,19 +131,21 @@ public class Player
 
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
-        // Ensure MP level entity exists (get-or-create semantics like hk4e)
-        if (this.MpLevelEntity == null)
-        {
-            this.MpLevelEntity = new MpLevelEntity(session);
-            session.player.Scene.EntityManager.Add(MpLevelEntity);
-        }
-
         // Ensure team entity exists and keep its entity id stable across scene loads
         if (GetCurrentLineup().teamEntity == null)
         {
             GetCurrentLineup().teamEntity = new TeamEntity(session);
             session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
         }
+
+        // MP level entity must be a single static entity per player
+        if (this.MpLevelEntity == null)
+        {
+            // This should never happen if EnterScene is used correctly
+            session.c.LogError("MpLevelEntity is null in SendPlayerEnterSceneInfoNotify. This indicates an initialization bug.");
+            return;
+        }
+
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
@@ -315,8 +317,12 @@ public class Player
             GetCurrentLineup().teamEntity = new TeamEntity(session);
         Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
 
-        // 3) MP level entity
-        MpLevelEntity = new MpLevelEntity(session);
+        // 3) MP level entity: reuse the single static instance and keep its entity id stable
+        if (MpLevelEntity == null)
+        {
+            MpLevelEntity = new MpLevelEntity(session);
+        }
+        MpLevelEntity.Position = newPos;
         Scene.EntityManager.Add(MpLevelEntity);
 
         PlayerEnterSceneNotify enterSceneNotify = new()

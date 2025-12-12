@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.Options;
 using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer.Account;
@@ -122,6 +123,7 @@ public class PlayerAvatarSnapshot
     public ulong EquipGuid { get; set; }
 
     [BsonElement("skill_levels")]
+    [BsonDictionaryOptions(DictionaryRepresentation.ArrayOfDocuments)]
     public Dictionary<uint, uint> SkillLevels { get; set; } = new();
 
     [BsonElement("unlocked_talents")]

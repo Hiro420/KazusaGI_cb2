@@ -69,7 +69,13 @@ public class Player
         AccountManager.SavePlayerData(ToPlayerDataRecord());
     }
 
-    public PlayerDataRecord ToPlayerDataRecord()
+    public bool IsInCurrentTeam(ulong avatarGuid)
+    {
+        var currentTeam = GetCurrentLineup();
+        return currentTeam.Avatars.Any(a => a.Guid == avatarGuid);
+	}
+
+	public PlayerDataRecord ToPlayerDataRecord()
     {
         var record = new PlayerDataRecord
         {
@@ -142,6 +148,20 @@ public class Player
             snap.ProudSkills.AddRange(avatar.ProudSkills);
 
             record.Avatars.Add(snap);
+        }
+
+        // Ensure weapon ↔ avatar linkage is consistent before serializing weapons.
+        // For every avatar that has an equipped weapon guid, guarantee that the
+        // corresponding PlayerWeapon has its EquipGuid set to the avatar guid.
+        foreach (var avatar in avatarDict.Values)
+        {
+            if (avatar.EquipGuid != 0 && weaponDict.TryGetValue(avatar.EquipGuid, out var weapon))
+            {
+                if (!weapon.EquipGuid.HasValue)
+                {
+                    weapon.EquipGuid = avatar.Guid;
+                }
+            }
         }
 
         // Serialize weapon state
@@ -254,9 +274,16 @@ public class Player
         {
             foreach (var w in record.Weapons)
             {
+                // Try to find an existing weapon instance for this weaponId.
                 var weapon = weaponDict.Values.FirstOrDefault(x => x.WeaponId == w.WeaponId);
+
+                // If not present (e.g. weapons granted via commands and
+                // saved previously), instantiate a new PlayerWeapon so it
+                // appears in inventory and can be equipped again.
                 if (weapon == null)
-                    continue;
+                {
+                    weapon = new PlayerWeapon(session, w.WeaponId);
+                }
 
                 weapon.Level = w.Level;
                 weapon.Exp = w.Exp;
@@ -334,7 +361,42 @@ public class Player
                 Avatar = playerAvatar.ToAvatarInfo(),
                 IsInTeam = false
             };
-            session.SendPacket(addNotify);
+
+            // Ensure the avatar's initial weapon (if any) is also present
+            // in the inventory store, so it shows up in the bag UI.
+            if (playerAvatar.EquipGuid != 0 && session.player!.weaponDict.TryGetValue(playerAvatar.EquipGuid, out var weapon))
+            {
+                // Hint notify for the weapon item
+                //session.SendPacket(new ItemAddHintNotify()
+                //{
+                //    Reason = 3,
+                //    ItemLists = { new ItemHint() { Count = 1, ItemId = weapon.WeaponId } }
+                //});
+
+                // Store update for the weapon equip entry
+                session.SendPacket(new StoreItemChangeNotify()
+                {
+                    StoreType = StoreType.StorePack,
+                    ItemLists =
+                    {
+                        new Item()
+                        {
+                            Guid = weapon.Guid,
+                            ItemId = weapon.WeaponId,
+                            Equip = new Equip()
+                            {
+                                Weapon = new Weapon()
+                                {
+                                    Exp = weapon.Exp,
+                                    Level = weapon.Level,
+                                    PromoteLevel = weapon.PromoteLevel
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+			session.SendPacket(addNotify);
 		}
     }
 

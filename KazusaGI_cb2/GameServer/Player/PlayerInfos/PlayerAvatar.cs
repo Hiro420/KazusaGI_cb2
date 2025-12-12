@@ -50,7 +50,6 @@ public class PlayerAvatar
 	public readonly SortedList<int, Dictionary<uint, ConfigAbility>?> AbilityHashMap = new();
 	public readonly SortedList<int, ConfigAbilityContainer[]> AbilityConfigMap = new(); // depotId
 	public readonly SortedList<int, Dictionary<string, BaseConfigTalent[]>> ConfigTalentMap = new(); // <depotId, file name>
-    public AvatarAbilityManager abilityManager { get; private set; }
     public SkillDepot CurrentSkillDepot { get; private set; }
 
 	public PlayerAvatar(Session session, uint AvatarId)
@@ -81,7 +80,7 @@ public class PlayerAvatar
         if (initialWeapon != 0)
         {
             PlayerWeapon weapon = new(session, initialWeapon);
-            weapon.EquipOnAvatar(this, false);
+			weapon.EquipOnAvatar(this, false);
         }
         this.SkillLevels.Add(this.UltSkillId, 1); // todo: get from resources
         foreach (uint skillId in avatarSkillDepotExcel.skills)
@@ -154,7 +153,8 @@ public class PlayerAvatar
 
 		// Initialize skill depot
 		CurrentSkillDepot = new SkillDepot(this, (int)this.SkillDepotId);
-		
+
+
 		ReCalculateFightProps();
 	}
 
@@ -408,7 +408,17 @@ public class PlayerAvatar
         }
     }
 
-    public void AddAllFightProps(Dictionary<uint, float> keyValuePairs)
+    public void BroadcastPropUpdate()
+    {
+        var propUpdateNotify = new AvatarFightPropUpdateNotify()
+        {
+            AvatarGuid = this.Guid
+        };
+        AddAllFightProps(propUpdateNotify.FightPropMaps);
+        Session.SendPacket(propUpdateNotify);
+	}
+
+	public void AddAllFightProps(Dictionary<uint, float> keyValuePairs)
     {
         AvatarExcelConfig avatarExcel = MainApp.resourceManager.AvatarExcel[this.AvatarId];
         AddFightPropMap(FightProp.FIGHT_PROP_MAX_HP, this.MaxHp, keyValuePairs);

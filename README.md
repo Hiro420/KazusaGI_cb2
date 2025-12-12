@@ -85,5 +85,4 @@ class Handlers{
 - improve ScriptLib (complex stuff like challenges)
 - tower (Spiral Abyss)
 - NOT load quest-related lua groups
-- add all weapons + weapon switching
 - add relics

@@ -16,8 +16,11 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 
 			int chance = Convert.ToInt32(this.chance);
 			Random rand = new Random();
-			if (rand.Next(0, 10) < chance*10)
+
+			// chance is between 0 and 1
+			if (rand.NextDouble() <= chance)
 			{
+				// Success
 				foreach (var action in successActions)
 				{
 					await action.Invoke(abilityName, srcEntity, targetEntity);
@@ -25,6 +28,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 			}
 			else
 			{
+				// Fail
 				foreach (var action in failActions)
 				{
 					await action.Invoke(abilityName, srcEntity, targetEntity);

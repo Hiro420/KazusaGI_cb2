@@ -9,5 +9,5 @@ namespace KazusaGI_cb2.Resource.Json.Avatar;
 
 public class ConfigCombat
 {
-	[JsonProperty] ConfigCombatProperty property;
+	[JsonProperty] public ConfigCombatProperty property;
 }

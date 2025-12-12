@@ -143,6 +143,13 @@ public abstract class BaseAbilityManager
 				AbilityScalarValueEntry asEntry = Serializer.Deserialize<AbilityScalarValueEntry>(data);
 				GlobalValueHashMap[asEntry.Key.Hash] = asEntry.FloatValue;
 				break;
+			case AbilityInvokeArgument.AbilityMetaSetKilledSetate:
+				AbilityMetaSetKilledState abilityMetaSetKilledState = Serializer.Deserialize<AbilityMetaSetKilledState>(data);
+				if (abilityMetaSetKilledState.Killed)
+				{
+					Owner.ForceKill();
+				}
+				break;
 			case AbilityInvokeArgument.AbilityMetaAddOrGetAbilityAndTrigger:
 				// In hk4e this can either fetch an existing applied ability
 				// or create a new one, then trigger it. For caching purposes

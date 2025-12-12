@@ -17,13 +17,15 @@ namespace KazusaGI_cb2.GameServer
 		public GadgetLua? _gadgetLua;
 		public uint _gadgetId;
 		public GadgetExcelConfig gadgetExcel;
+		public ConfigGadget? configGadget;
 		public uint level;
+		public bool isLockHP => configGadget?.combat?.property?.isLockHP ?? false;
 
 		public float Hp { get; private set; } = 1f;
 		public float MaxHp { get; private set; } = 1f;
 
 		public GadgetState state => _gadgetLua?.state ?? GadgetState.Default;
-		
+
 		// Ability-related properties for gadgets
 		public Dictionary<uint, ConfigAbility> AbilityHashMap = new();
 		public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();
@@ -37,6 +39,24 @@ namespace KazusaGI_cb2.GameServer
 			_gadgetLua = gadgetInfo;
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
+
+			if (
+				!MainApp.resourceManager.ConfigGadgetMap.TryGetValue(gadgetExcel.jsonName, out configGadget) || configGadget == null)
+			{
+				// should not happen
+				if (!string.IsNullOrEmpty(gadgetExcel.jsonName))
+					session.c.LogWarning($"{gadgetExcel.jsonName} does not exist in binoutput");
+			}
+			else
+			{
+				var combatdata = configGadget.combat;
+				if (combatdata != null && combatdata.property != null)
+				{
+					MaxHp = combatdata.property.HP;
+					Hp = MaxHp;
+				}
+			}
+
 			abilityManager = new GadgetAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
@@ -112,20 +132,21 @@ namespace KazusaGI_cb2.GameServer
 
 		public void ApplyDamage(float amount, AttackResult attack)
 		{
-            // TODO: Handle by abilities
-            //Hp = MathF.Max(0f, Hp - amount);
+			if (isLockHP)
+				return;
 
-            //var upd = new EntityFightPropUpdateNotify { EntityId = _EntityId };
-            //upd.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
-            //session.SendPacket(upd);
+			// TODO: Handle by abilities
+			Hp = MathF.Max(0f, Hp - amount);
 
-            //if (Hp <= 0f)
-            //{
-            //	session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
-            //	session.SendPacket(new SceneEntityDisappearNotify { EntityLists = { _EntityId }, DisappearType = VisionType.VisionDie });
-            //	session.entityMap.Remove(_EntityId);
-            //}
-        }
+			var upd = new EntityFightPropUpdateNotify { EntityId = _EntityId };
+			upd.FightPropMaps[(uint)FightPropType.FIGHT_PROP_CUR_HP] = Hp;
+			session.SendPacket(upd);
+
+			if (Hp <= 0f)
+			{
+				this.OnDied(Protocol.VisionType.VisionDie);
+			}
+		}
 
         public void ChangeState(GadgetState newState)
 		{
@@ -153,21 +174,10 @@ namespace KazusaGI_cb2.GameServer
 		/// </summary>
 		public void InitAbilityStuff()
 		{
-			if (gadgetExcel == null || string.IsNullOrEmpty(gadgetExcel.jsonName))
-			{
-				return; // should not happen
-			}
-			if (
-				!MainApp.resourceManager.ConfigGadgetMap.TryGetValue(gadgetExcel.jsonName, out ConfigGadget? gconfig) || gconfig == null)
-			{ 
-				// should not happen
-				session.c.LogWarning($"{gadgetExcel.jsonName} does not exist in binoutput");
-				return;
-			}
-			if (gconfig.abilities == null)
+			if (configGadget?.abilities == null)
 				// no abilities
 				return;
-			foreach (TargetAbility targetAbility in gconfig.abilities)
+			foreach (TargetAbility targetAbility in configGadget.abilities)
 			{
 				if (!MainApp.resourceManager.ConfigAbilityMap.TryGetValue(targetAbility.abilityName, out ConfigAbilityContainer? container))
 				{

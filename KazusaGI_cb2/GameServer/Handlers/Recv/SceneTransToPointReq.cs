@@ -27,5 +27,7 @@ internal class HandleSceneTransToPointReq
             SceneId = req.SceneId
         };
         session.SendPacket(rsp);
-    }
+
+		session.player!.SavePersistent();
+	}
 }

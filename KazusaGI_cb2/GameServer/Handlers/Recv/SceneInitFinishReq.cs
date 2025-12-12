@@ -82,5 +82,7 @@ internal class HandleSceneInitFinishReq
 
         TeamHandler.SendAvatarEquipChangeNotify(session, session.player.GetCurrentLineup().Leader!);
         TeamHandler.SendAvatarTeamUpdateNotify(session, session.player.TeamIndex, session.player.GetCurrentLineup().Avatars.Select(a => a.Guid).ToList());
-    }
+
+		session.player!.SavePersistent();
+	}
 }

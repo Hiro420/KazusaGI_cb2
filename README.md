@@ -80,8 +80,8 @@ class Handlers{
 - Press `Save Script`, a sound indicating success should be heard.
 
 ### Personal TODO List
-- fix traveler unable to perform normal attacks when first spawning
-- improve ScriptLib (e.g. CreateGadget)
+- fix all abilities to be tracked properly
+- improve ScriptLib (complex stuff like challenges)
 - tower (Spiral Abyss)
 - NOT load quest-related lua groups
 - add all weapons + weapon switching

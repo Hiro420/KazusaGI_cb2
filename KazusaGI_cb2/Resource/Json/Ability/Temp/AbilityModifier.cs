@@ -41,40 +41,48 @@ public class AbilityModifier
         IList<IInvocation> invokeSiteList)
     {
         generator = idGenerator;
+
+        // DO NOT CHANGE THE ORDER. This mirrors
+        // ConfigAbilityImpl::iterateModifierSubActions in hk4e.
         ushort configIndex = 0;
-        // DO NOT CHANGE THE ORDER
-        var tasks = new Task[]
-            {
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAdded, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onRemoved, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHit, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAttackLanded, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHittingOther, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onThinkInterval, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onKill, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onCrash, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarIn, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarOut, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onReconnect, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onChangeAuthority, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleIn, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleOut, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneEnter, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneExit, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHeal, localIdToInvocationMap, invokeSiteList),
-                InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHealed, localIdToInvocationMap, invokeSiteList),
 
-            };
-        await Task.WhenAll(tasks);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAdded, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onRemoved, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHit, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAttackLanded, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHittingOther, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onThinkInterval, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onKill, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onCrash, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarIn, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onAvatarOut, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onReconnect, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onChangeAuthority, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleIn, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onVehicleOut, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneEnter, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onZoneExit, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onHeal, localIdToInvocationMap, invokeSiteList);
+        await InitializeActionSubCategory(idGenerator.ModifierIndex, configIndex++, onBeingHealed, localIdToInvocationMap, invokeSiteList);
 
-        if (modifierMixins == null) return;
-        idGenerator.Type = ConfigAbilitySubContainerType.MODIFIER_MIXIN;
+        // Then process modifier mixins in the same
+        // order as ConfigAbilityImpl::iterateModifierSubMixins.
+        if (modifierMixins == null)
+        {
+            return;
+        }
+
         ushort mixinIndex = 0;
-        var tasks2 = new List<Task>();
         for (uint i = 0; i < modifierMixins.Length; i++)
         {
-            idGenerator = new(ConfigAbilitySubContainerType.MODIFIER_MIXIN) { ConfigIndex = 0, MixinIndex = mixinIndex++ };
-            tasks2.Add(modifierMixins[i].Initialize(idGenerator, localIdToInvocationMap, invokeSiteList));
+            var mixinGenerator = new LocalIdGenerator(ConfigAbilitySubContainerType.MODIFIER_MIXIN)
+            {
+                ConfigIndex = 0,
+                MixinIndex = mixinIndex++,
+                ModifierIndex = idGenerator.ModifierIndex
+            };
+
+            await modifierMixins[i].Initialize(mixinGenerator, localIdToInvocationMap, invokeSiteList);
         }
     }
     private async Task InitializeActionSubCategory(

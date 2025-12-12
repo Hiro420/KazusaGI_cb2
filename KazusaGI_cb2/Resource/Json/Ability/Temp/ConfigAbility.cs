@@ -40,13 +40,13 @@ public class ConfigAbility : BaseConfigAbility
         LocalIdToInvocationMap = new();
         InvokeSiteList = new();
 
-        var tasks = new Task[]
-        {
-            InitializeMixinIds(),
-            InitializeModifierIds(),
-            InitializeActionIds()
-        };
-        await Task.WhenAll(tasks);
+        // Mirror hk4e's ConfigAbilityImpl initialization order:
+        // 1) ability sub-actions
+        // 2) ability sub-mixins
+        // 3) modifier sub-actions and sub-mixins
+        await InitializeActionIds();
+        await InitializeMixinIds();
+        await InitializeModifierIds();
     }
 
     public void DebugAbility(Logger logger)
@@ -90,7 +90,6 @@ public class ConfigAbility : BaseConfigAbility
     private async Task InitializeActionIds()
     {
         await Task.Yield();
-        ushort configIndex = 0;
         LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.ACTION);
         idGenerator.InitializeActionLocalIds(onAdded, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
@@ -116,40 +115,47 @@ public class ConfigAbility : BaseConfigAbility
 
     private async Task InitializeMixinIds()
     {
-        if (abilityMixins != null)
+        if (abilityMixins == null)
         {
-            LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.MIXIN);
-            for (uint i = 0; i < abilityMixins.Length; i++)
-            {
-                idGenerator.ConfigIndex = 0;
-                await abilityMixins[i].Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
-                idGenerator.MixinIndex++;
-            }
+            return;
+        }
+
+        LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.MIXIN);
+        for (uint i = 0; i < abilityMixins.Length; i++)
+        {
+            idGenerator.ConfigIndex = 0;
+            await abilityMixins[i].Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
+            idGenerator.MixinIndex++;
         }
     }
 
     private async Task InitializeModifierIds()
     {
-        if (modifiers != null)
+        if (modifiers == null)
         {
-            ModifierList = new();
-            // The game appears to index modifiers in a deterministic
-            // order (likely alphabetical by modifier name). To match
-            // the wire "modifier_local_id" values, sort by key.
-            var modifierArray = modifiers
-                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
-                .ToArray();
-            var tasks = new Task[modifierArray.Length];
-            ushort modifierIndex = 0;
-            for (uint i = 0; i < modifierArray.Length; i++)
-            {
-                LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.NONE) { ModifierIndex = modifierIndex };
-                ModifierList[i] = modifierArray[i].Value;
-                tasks[i] = modifierArray[i].Value.Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
-                modifierIndex++;
-            }
+            return;
+        }
 
-            await Task.WhenAll(tasks);
+        ModifierList = new();
+        // The game indexes modifiers in a deterministic order
+        // (alphabetical by modifier name). To match the wire
+        // "modifier_local_id" values and hk4e's modifier_vec,
+        // sort by key and then process each modifier sequentially.
+        var modifierArray = modifiers
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .ToArray();
+
+        ushort modifierIndex = 0;
+        for (uint i = 0; i < modifierArray.Length; i++)
+        {
+            LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.NONE)
+            {
+                ModifierIndex = modifierIndex
+            };
+
+            ModifierList[i] = modifierArray[i].Value;
+            await modifierArray[i].Value.Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
+            modifierIndex++;
         }
     }
 
@@ -163,9 +169,8 @@ public class ConfigAbility : BaseConfigAbility
         [5] = "onFieldExit",
         [6] = "onAttach",
         [7] = "onDetach",
-        [8] = "onAdded",
-        [9] = "onAvatarIn",
-        [10] = "onAvatarOut",
+        [8] = "onAvatarIn",
+        [9] = "onAvatarOut",
     };
 
     private static readonly Dictionary<int, string> ConfigIndexModifier = new()

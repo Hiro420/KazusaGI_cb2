@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using KazusaGI_cb2.Resource.Json.Talent;
 using KazusaGI_cb2.GameServer.Systems.Ability;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -47,6 +48,43 @@ namespace KazusaGI_cb2.GameServer
 
 		public SceneEntityInfo ToSceneEntityInfo(Session session) =>
 			base.ToSceneEntityInfo(session.player!.Pos, session.player!.Rot);
+
+		public void GenerateElemBallByAbility(GenerateElemBall info)
+		{
+			// Default to an elementless particle.
+			int itemId = info.configID != 0 ? info.configID : 2024;
+
+			// Generate 2 particles by default. todo: use info.ratio and info.baseEnergy?
+			int amount = 2;
+
+			int avatarId = (int)this.DbInfo.AvatarId;
+
+			var skillDepotData = this.DbInfo.avatarSkillDepotExcel;
+
+			// Determine how many particles we need to create for this avatar.
+			amount = this.getBallCountForAvatar(avatarId);
+
+			// Determine the avatar's element, and based on that the ID of the
+			// particles we have to generate.
+			if (skillDepotData != null)
+			{
+				Resource.ElementType element = skillDepotData.Element != null ? skillDepotData.Element.Type : Resource.ElementType.None;
+				itemId = this.getBallIdForElement(element);
+			}
+
+			int gadgetId = MainApp.resourceManager.MaterialExcel.Values.FirstOrDefault(m => m.id == itemId)?.gadgetId is uint gid ? (int)gid : 70610008; // no element by default
+			if (MainApp.resourceManager.MaterialExcel.TryGetValue((uint)itemId, out MaterialExcelConfig? materialExcel))
+			{
+				gadgetId = (int)materialExcel.gadgetId;
+			}
+
+			session.player.Scene.GenerateParticles(
+				gadgetId, 
+				amount, 
+				Session.Vector3ToVector(session.player!.Pos),
+				Session.Vector3ToVector(session.player!.Rot)
+			);
+		}
 
 		public override void GenerateElemBall(AbilityActionGenerateElemBall info)
 		{

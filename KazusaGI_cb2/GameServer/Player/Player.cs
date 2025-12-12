@@ -42,8 +42,9 @@ public class Player
     // Mirrors hk4e's PlayerAvatarComp::is_allow_use_skill_
     // Controls whether the client may use active skills.
     public bool IsAllowUseSkill { get; private set; } = true;
+    private const bool IsDefaultGirl = true;
 
-    public Player(Session session, uint uid)
+	public Player(Session session, uint uid)
     {
         Name = "KazusaPS";
         Level = 60;
@@ -312,21 +313,32 @@ public class Player
         //ClientAbilityInitFinishNotifyList.Notify();
     }
 
-    public void AddAllAvatars(Session session)
+    public void AddBasicAvatar()
+    {
+        uint avatarId = IsDefaultGirl ? 10000007 : 10000005;
+		PlayerAvatar playerAvatar = new(session, avatarId);
+		this.teamList[0] = new PlayerTeam(session, playerAvatar);
+		session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
+	}
+
+
+	public void AddAllAvatars()
     {
         foreach (KeyValuePair<uint, AvatarExcelConfig> avatarExcelRow in MainApp.resourceManager.AvatarExcel)
         {
-            if (avatarExcelRow.Key >= 11000000) continue;
+            if (avatarExcelRow.Key >= 11000000 || avatarExcelRow.Key == 10000007  || avatarExcelRow.Key == 10000005) continue;
             PlayerAvatar playerAvatar = new(session, avatarExcelRow.Key);
-            if (avatarExcelRow.Key == 10000007)
-            {
-                this.teamList[0] = new PlayerTeam(session, playerAvatar);
-            }
             session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
-        }
+			AvatarAddNotify addNotify = new()
+            {
+                Avatar = playerAvatar.ToAvatarInfo(),
+                IsInTeam = false
+            };
+            session.SendPacket(addNotify);
+		}
     }
 
-    public void AddAllMaterials(Session session, bool isSilent = false)
+    public void AddAllMaterials(bool isSilent = false)
     {
         foreach(KeyValuePair<uint, MaterialExcelConfig> materialExcelRow in MainApp.resourceManager.MaterialExcel)
         {
@@ -341,7 +353,7 @@ public class Player
                     StoreType = StoreType.StorePack,
                     ItemLists = { 
                         new Item() 
-                        { 
+                        {
                             Guid = playerItem.Guid,
                             ItemId = playerItem.ItemId,
                             Material = new Material() { Count = playerItem.Count }

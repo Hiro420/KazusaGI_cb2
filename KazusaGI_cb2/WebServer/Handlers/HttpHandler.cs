@@ -1,52 +1,16 @@
-﻿using System.Net;
+﻿using KazusaGI_cb2.GameServer;
+using KazusaGI_cb2.GameServer.Account;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.WebServer;
-using System.Reflection;
-using System.Text;
-using System;
-using KazusaGI_cb2.GameServer;
-using ProtoBuf;
+using KazusaGI_cb2.WebServer.Handlers;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Net;
 
 namespace KazusaGI_cb2.WebServer;
 
 public class HttpHandler
 {
     Config config = MainApp.config;
-    public string ACCOUNT_INFO = """
-    {
-       "retcode":0,
-       "message":"OK",
-       "data":{
-          "account":{
-             "uid":"69420",
-             "name":"KazusaGI",
-             "email":"Kazusa@pot.moe",
-             "mobile":"",
-             "is_email_verify":1,
-             "realname":"",
-             "identity_card":"",
-             "token":"token",
-             "safe_mobile":"",
-             "facebook_name":"",
-             "google_name":"",
-             "twitter_name":"",
-             "game_center_name":"",
-             "apple_name":"",
-             "sony_name":"",
-             "tap_name":"",
-             "country":"US",
-             "reactivate_ticket":"",
-             "area_code":"US",
-             "device_grant_ticket":"",
-             "steam_name":""
-          },
-          "device_grant_required":false,
-          "safe_mobile_required":false,
-          "realperson_required":false,
-          "realname_operation":"None"
-       }
-    }
-    """;
     public string GameConfig = """
     {
        "retcode":0,
@@ -101,14 +65,138 @@ public class HttpHandler
     [HttpEndpoint("/mdk/shield/api/login", "POST")]
     public HttpResponse MdkShieldApiLogin(HttpListenerRequest request)
     {
-        return new JsonResponse(ACCOUNT_INFO);
+		ShieldApiLoginReq apiLoginReq;
+
+		using (var reader = new StreamReader(request.InputStream))
+		{
+			var body = reader.ReadToEnd();
+			apiLoginReq = JsonConvert.DeserializeObject<ShieldApiLoginReq>(body)!;
+		}
+
+        // Resolve or create account in database based on provided account identifier.
+        // We deliberately skip password verification here as requested.
+        string accountUid = apiLoginReq.account;
+        if (string.IsNullOrWhiteSpace(accountUid))
+        {
+            // Minimal error handling: client must provide some account identifier
+            var errorRsp = new
+            {
+                retcode = -1,
+                message = "Invalid account",
+                data = (object?)null
+            };
+            return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
+        }
+
+        // Generate a simple token for this login and persist it with the account.
+        // Later, the game server will use this token in GetPlayerTokenReq.
+        string token = $"{accountUid}_token"; // dummy token generation for now
+		AccountRecord account = AccountManager.GetOrCreate(accountUid, token);
+
+        // Build response payload following the original ACCOUNT_INFO shape,
+        // but populated from the database-backed account.
+        var rspObj = new
+        {
+            retcode = 0,
+            message = "OK",
+            data = new
+            {
+                account = new
+                {
+                    uid = account.AccountUid,
+                    name = account.AccountUid,
+                    email = "",
+                    mobile = "",
+                    is_email_verify = 1,
+                    realname = "",
+                    identity_card = "",
+                    token = token,
+                    safe_mobile = "",
+                    facebook_name = "",
+                    google_name = "",
+                    twitter_name = "",
+                    game_center_name = "",
+                    apple_name = "",
+                    sony_name = "",
+                    tap_name = "",
+                    country = "US",
+                    reactivate_ticket = "",
+                    area_code = "US",
+                    device_grant_ticket = "",
+                    steam_name = ""
+                },
+                device_grant_required = false,
+                safe_mobile_required = false,
+                realperson_required = false,
+                realname_operation = "None"
+            }
+        };
+
+        string json = JsonConvert.SerializeObject(rspObj);
+        return new JsonResponse(json);
     }
 
     [HttpEndpoint("/mdk/shield/api/verify", "POST")]
     public HttpResponse MdkShieldApiVerify(HttpListenerRequest request)
     {
-        return new JsonResponse(ACCOUNT_INFO);
-    }
+        ShieldApiVerifyReq apiVerifyReq;
+        using (var reader = new StreamReader(request.InputStream))
+        {
+            var body = reader.ReadToEnd();
+            apiVerifyReq = JsonConvert.DeserializeObject<ShieldApiVerifyReq>(body)!;
+		}
+		// Lookup account in database based on provided uid.
+        AccountRecord? account = AccountManager.GetByAccountUid(apiVerifyReq.uid);
+        if (account == null)
+            {
+            // Minimal error handling: account not found
+            var errorRsp = new
+            {
+                retcode = -1,
+                message = "Account not found",
+                data = (object?)null
+            };
+            return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
+		}
+		var rspObj = new
+		{
+			retcode = 0,
+			message = "OK",
+			data = new
+			{
+				account = new
+				{
+					uid = account.AccountUid,
+					name = account.AccountUid,
+					email = "",
+					mobile = "",
+					is_email_verify = 1,
+					realname = "",
+					identity_card = "",
+					token = account.AccountToken,
+					safe_mobile = "",
+					facebook_name = "",
+					google_name = "",
+					twitter_name = "",
+					game_center_name = "",
+					apple_name = "",
+					sony_name = "",
+					tap_name = "",
+					country = "US",
+					reactivate_ticket = "",
+					area_code = "US",
+					device_grant_ticket = "",
+					steam_name = ""
+				},
+				device_grant_required = false,
+				safe_mobile_required = false,
+				realperson_required = false,
+				realname_operation = "None"
+			}
+		};
+		string json = JsonConvert.SerializeObject(rspObj);
+		return new JsonResponse(json);
+	}
 
     [HttpEndpoint("/mdk/shield/api/loadConfig", "POST")]
     public HttpResponse MdkShieldApiLoadConfig(HttpListenerRequest request)
@@ -146,21 +234,21 @@ public class HttpHandler
         return new JsonResponse("");
     }
 
-    [HttpEndpoint("/sdk/login", "GET")]
-    public HttpResponse SdkLogin(HttpListenerRequest request)
-    {
-        string rsp = """
-        {
-           "retcode":0,
-           "data":{
-              "uid":"69420",
-              "token":"kazusaaa",
-              "email":"Kazusa@pot.moe"
-           }
-        }
-        """;
-        return new JsonResponse(rsp);
-    }
+    //[HttpEndpoint("/sdk/login", "GET")]
+    //public HttpResponse SdkLogin(HttpListenerRequest request)
+    //{
+    //    string rsp = """
+    //    {
+    //       "retcode":0,
+    //       "data":{
+    //          "uid":"69420",
+    //          "token":"kazusaaa",
+    //          "email":"Kazusa@pot.moe"
+    //       }
+    //    }
+    //    """;
+    //    return new JsonResponse(rsp);
+    //}
 
     [HttpEndpoint("/client_design_data/:data", "GET")]
     public HttpResponse ClientDesignData(HttpListenerRequest request)

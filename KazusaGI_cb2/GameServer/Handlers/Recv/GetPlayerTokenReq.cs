@@ -36,8 +36,9 @@ internal class HandleGetPlayerTokenReq
         session.player = new Player(session, account.PlayerUid);
         session.player.MpLevelEntity = new MpLevelEntity(session);
         session.player.InitTeams();
-        session.player.AddAllAvatars(session);
-        session.player.AddAllMaterials(session, true);
+        session.player.AddBasicAvatar();
+        //session.player.AddAllAvatars(session);
+        //session.player.AddAllMaterials(session, true);
 
         // Load persisted basic player state (scene, pos, teams, inventory) if present
         var saved = AccountManager.LoadPlayerData(account.PlayerUid);

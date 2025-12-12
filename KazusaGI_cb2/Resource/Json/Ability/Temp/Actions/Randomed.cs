@@ -16,7 +16,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 
 			int chance = Convert.ToInt32(this.chance);
 			Random rand = new Random();
-			if (rand.Next(0, 100) < chance)
+			if (rand.Next(0, 10) < chance*10)
 			{
 				foreach (var action in successActions)
 				{

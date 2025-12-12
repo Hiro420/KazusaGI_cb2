@@ -52,7 +52,8 @@ namespace KazusaGI_cb2.GameServer
 		public void GenerateElemBallByAbility(GenerateElemBall info)
 		{
 			// Default to an elementless particle.
-			int itemId = info.configID != 0 ? info.configID : 2024;
+			int cfgId = Convert.ToInt32(info.configID);
+			int itemId = cfgId != 0 ? cfgId : 2024;
 
 			// Generate 2 particles by default. todo: use info.ratio and info.baseEnergy?
 			int amount = 2;
@@ -61,22 +62,20 @@ namespace KazusaGI_cb2.GameServer
 
 			var skillDepotData = this.DbInfo.avatarSkillDepotExcel;
 
-			// Determine how many particles we need to create for this avatar.
+			// Determine how many particles we need to create for this avatar. (todo)
 			amount = this.getBallCountForAvatar(avatarId);
 
 			// Determine the avatar's element, and based on that the ID of the
 			// particles we have to generate.
-			if (skillDepotData != null)
-			{
-				Resource.ElementType element = skillDepotData.Element != null ? skillDepotData.Element.Type : Resource.ElementType.None;
-				itemId = this.getBallIdForElement(element);
-			}
+			//if (skillDepotData != null)
+			//{
+			//	Resource.ElementType element = skillDepotData.Element != null ? skillDepotData.Element.Type : Resource.ElementType.None;
+			//	itemId = this.getBallIdForElement(element);
+			//}
 
 			int gadgetId = MainApp.resourceManager.MaterialExcel.Values.FirstOrDefault(m => m.id == itemId)?.gadgetId is uint gid ? (int)gid : 70610008; // no element by default
-			if (MainApp.resourceManager.MaterialExcel.TryGetValue((uint)itemId, out MaterialExcelConfig? materialExcel))
-			{
-				gadgetId = (int)materialExcel.gadgetId;
-			}
+
+			new Logger("GenerateElemBall").LogInfo($"Generating {amount} element balls of item ID {itemId} (gadget ID {gadgetId}) for avatar ID {avatarId}");
 
 			session.player.Scene.GenerateParticles(
 				gadgetId, 
@@ -84,38 +83,6 @@ namespace KazusaGI_cb2.GameServer
 				Session.Vector3ToVector(session.player!.Pos),
 				Session.Vector3ToVector(session.player!.Rot)
 			);
-		}
-
-		public override void GenerateElemBall(AbilityActionGenerateElemBall info)
-		{
-			// Default to an elementless particle.
-			int itemId = 2024;
-
-			// Generate 2 particles by default.
-			int amount = 2;
-
-			int avatarId = (int)this.DbInfo.AvatarId;
-
-			var skillDepotData = this.DbInfo.avatarSkillDepotExcel;
-
-			// Determine how many particles we need to create for this avatar.
-			amount = this.getBallCountForAvatar(avatarId);
-
-			// Determine the avatar's element, and based on that the ID of the
-			// particles we have to generate.
-			if (skillDepotData != null)
-			{
-				Resource.ElementType element = skillDepotData.Element != null ? skillDepotData.Element.Type : Resource.ElementType.None;
-				itemId = this.getBallIdForElement(element);
-			}
-
-			int gadgetId = 70610008; // no element by default
-			if (MainApp.resourceManager.MaterialExcel.TryGetValue((uint)itemId, out MaterialExcelConfig? materialExcel))
-			{
-				gadgetId = (int)materialExcel.gadgetId;
-			}
-
-			session.player.Scene.GenerateParticles(gadgetId, amount, info.Pos, info.Rot);
 		}
 
 		private int getBallCountForAvatar(int avatarId)

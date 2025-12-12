@@ -138,6 +138,6 @@ namespace KazusaGI_cb2.GameServer
 
 		public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);
 
-		public virtual void GenerateElemBall(AbilityActionGenerateElemBall info) { }
+		//public virtual void GenerateElemBall(AbilityActionGenerateElemBall info) { }
 	}
 }

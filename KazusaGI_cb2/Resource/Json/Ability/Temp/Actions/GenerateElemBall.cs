@@ -7,18 +7,26 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
 
 public class GenerateElemBall : BaseAction
 {
-    [JsonProperty] public readonly int configID;
+    private Logger logger = new Logger("GenerateElemBall");
+	[JsonProperty] public readonly object configID;
     [JsonProperty] public readonly BaseBornType born;
     [JsonProperty] public readonly object ratio;
     [JsonProperty] public readonly object baseEnergy;
 
     public override async Task Invoke(string abilityName, Entity srcEntity, Entity? targetEntity = null)
     {
-        await Task.Yield();
+        try
+        {
+            if (srcEntity is not AvatarEntity avatar)
+                return;
 
-        if (srcEntity is not AvatarEntity avatar)
-            return;
+            logger.LogSuccess($"Generating Elem Ball for Avatar ID {avatar.DbInfo.AvatarId} using Ability {abilityName}");
 
-        avatar.GenerateElemBallByAbility(this);
+            avatar.GenerateElemBallByAbility(this);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Error in GenerateElemBall.Invoke: {ex.Message}");
+        }
     }
 }

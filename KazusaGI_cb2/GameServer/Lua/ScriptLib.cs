@@ -119,7 +119,75 @@ public class ScriptLib
         return GetGroupVariableValueByGroup(session, var_name, currentGroupId);
     }
 
-    public int GetGroupVariableValueByGroup(Session session, string var_name, int group_id)
+	// ScriptLib.ShowReminder(context, 400004)
+    public int ShowReminder(Session session, int reminder_id)
+    {
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+        var notify = new DungeonShowReminderNotify()
+        {
+            ReminderId = (uint)reminder_id
+        };
+        currentSession.SendPacket(notify);
+        return 0;
+	}
+
+	// ScriptLib.AddQuestProgress(context, "133103106_progress1")
+    public int AddQuestProgress(Session session, string quest_param)
+    {
+        var player = currentSession.player;
+        if (player == null)
+            return -1;
+        // todo: quest manager
+        return 0;
+	}
+
+	// ScriptLib.PlayCutScene(context, 310624801, 0)
+	public int PlayCutScene(Session session, int cutscene_id, int wait_time)
+    {
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+        if (wait_time > 0)
+        {
+            currentSession.c.LogWarning("[ScriptLib] PlayCutScene wait_time > 0 is not supported yet, executing immediately");
+		}
+		var notify = new CutSceneBeginNotify()
+        {
+            CutsceneId = (uint)cutscene_id
+        };
+        currentSession.SendPacket(notify);
+        return 0;
+	}
+
+	// ScriptLib.ScenePlaySound(context, {play_pos = pos, sound_name = "LevelHornSound001", play_type= 1, is_broadcast = false })
+	public int ScenePlaySound(Session session, object _table)
+    {
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+        LuaTable? table = _table as LuaTable;
+        string sound_name = (string)table!["sound_name"];
+        int play_type = (int)(long)table["play_type"];
+        bool is_broadcast = (bool)table["is_broadcast"];
+        //if (is_broadcast)
+        //{
+        //    //currentSession.player!.Scene.BroadcastPacket(scenePlaySoundNotify); // todo
+        //}
+        //else
+        {
+            currentSession.SendPacket(new ScenePlayerSoundNotify()
+            {
+                SoundName = sound_name,
+                PlayType = (PlaySoundType)play_type
+            });
+        }
+        return 0;
+	}
+
+
+	public int GetGroupVariableValueByGroup(Session session, string var_name, int group_id)
     {
         Log("Called GetGroupVariableValueByGroup");
 
@@ -206,6 +274,39 @@ public class ScriptLib
         return 0;
     }
 
+    public int SetGroupVariableValueByGroup(Session session, string var_name, int value, int group_id)
+    {
+        Log("Called SetGroupVariableValueByGroup");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        var scene = player.Scene;
+        var group = scene.GetGroup(group_id);
+        if (group == null)
+            return -1;
+
+        group.variables.TryGetValue(var_name, out var oldValue);
+        if (oldValue == value)
+            return 0;
+
+        group.variables[var_name] = value;
+
+        // Fire VARIABLE_CHANGE for the target group so that dependent
+        // triggers behave like hk4e.
+        var args = new ScriptArgs(group_id, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+        {
+            param1 = oldValue,
+            param2 = value,
+            source = var_name
+        };
+
+        LuaManager.executeTriggersLua(currentSession, group, args);
+
+        return 0;
+    }
+
     public int ChangeGroupGadget(Session session, object table_)
     {
         Log("Called ChangeGroupGadget");
@@ -260,13 +361,54 @@ public class ScriptLib
     {
         Log("Called RefreshGroup");
         LuaTable? groupInfo = _groupInfo as LuaTable;
-        int groupId = (int)(long)groupInfo!["group_id"];
-        int suite = (int)(long)groupInfo["suite"];
-        SceneGroupLua? group = currentSession.player!.Scene.GetGroup(groupId);
+        if (groupInfo == null)
+            return -1;
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+
+        int groupId;
+        try
+        {
+            groupId = (int)(long)groupInfo["group_id"];
+        }
+        catch
+        {
+            currentSession.c.LogWarning("[ScriptLib] RefreshGroup called without valid group_id");
+            return -1;
+        }
+
+        int suite = 0;
+        try
+        {
+            var suiteObj = groupInfo["suite"];
+            if (suiteObj != null)
+                suite = (int)(long)suiteObj;
+        }
+        catch
+        {
+            // suite is optional; when absent we pass 0 to mean
+            // "use default/random suite" like hk4e.
+        }
+
+        // Optional refresh_level_revise parameter used by hk4e to scale
+        // group level. We currently parse it for compatibility but do not
+        // yet apply it to monster levels.
+        try
+        {
+            var lvlObj = groupInfo["refresh_level_revise"];
+            _ = lvlObj; // reserved for future use
+        }
+        catch
+        {
+        }
+
+        SceneGroupLua? group = player.Scene.GetGroup(groupId);
         if (group == null)
             return -1;
-        currentSession.player!.Scene.RefreshGroup(group, suite);
-        return 0;
+
+        return player.Scene.RefreshGroup(group, suite);
     }
 
     public int ActiveChallenge(Session session, int source_name, int challenge_id, int param1, int param2, int param3, int param4)

@@ -43,45 +43,116 @@ public class AvatarAbilityManager : BaseAbilityManager
 
 	public override void Initialize()
 	{
-		foreach (var proudSkill in CurDepot.InherentProudSkillOpens)
+		var avatar = Owner as AvatarEntity;
+		if (avatar?.DbInfo == null)
 		{
-			if (proudSkill.openConfig == null || proudSkill.openConfig == "") continue;
-			foreach (BaseConfigTalent config in (Owner as AvatarEntity).DbInfo.ConfigTalentMap[(Owner as AvatarEntity).DbInfo.CurrentSkillDepot.DepotId][proudSkill.openConfig])
+			base.Initialize();
+			return;
+		}
+
+		var db = avatar.DbInfo;
+
+		// ---------- Inherent proud skill opens ----------
+		if (CurDepot?.InherentProudSkillOpens != null)
+		{
+			foreach (var proudSkillOpen in CurDepot.InherentProudSkillOpens)
 			{
-				config.Apply(this, proudSkill.paramList);
+				var openConfig = proudSkillOpen.openConfig;
+				if (string.IsNullOrWhiteSpace(openConfig))
+					continue;
+
+				// ConfigTalentMap[depotId][openConfig]
+				if (!db.ConfigTalentMap.TryGetValue(CurDepotId, out var depotTalentMap))
+					continue;
+
+				if (!depotTalentMap.TryGetValue(openConfig, out var talents) || talents == null)
+					continue;
+
+				foreach (BaseConfigTalent config in talents)
+					config?.Apply(this, proudSkillOpen.paramList);
 			}
 		}
-		foreach (var skill in CurDepot.Skills)
+
+		// Local helper to find proud skill safely
+		ProudSkillExcelConfig? FindProudSkill(uint depotId, uint proudSkillGroupId, int level)
 		{
-			AvatarSkillExcelConfig skillData = (Owner as AvatarEntity).DbInfo.SkillData[CurDepotId][(uint)skill.Key];
-			ProudSkillExcelConfig proudSkill = (Owner as AvatarEntity).DbInfo.ProudSkillData[CurDepotId]
-					.Where(w => w.Value.proudSkillGroupId == skillData.proudSkillGroupId && w.Value.level == skill.Value).First().Value;
-			if ((Owner as AvatarEntity).DbInfo.ConfigTalentMap.ContainsKey(CurDepotId))
+			if (!db.ProudSkillData.TryGetValue((int)depotId, out var proudMap) || proudMap == null)
+				return null;
+
+			// proudMap is Dictionary<uint, ProudSkillExcelConfig>
+			return proudMap.Values.FirstOrDefault(p =>
+				p != null &&
+				p.proudSkillGroupId == proudSkillGroupId &&
+				p.level == level);
+		}
+
+		// Local helper to apply talents from depot map safely
+		void ApplyTalentsFromDepot(int depotId, string? openConfig, IList<double>? paramList)
+		{
+			if (string.IsNullOrWhiteSpace(openConfig))
+				return;
+
+			if (!db.ConfigTalentMap.TryGetValue(depotId, out var depotTalentMap) || depotTalentMap == null)
+				return;
+
+			if (!depotTalentMap.TryGetValue(openConfig, out var talents) || talents == null)
+				return;
+
+			foreach (var config in talents)
+				config?.Apply(this, paramList?.ToArray() ?? Array.Empty<double>());
+		}
+
+		// ---------- Skills ----------
+		if (CurDepot?.Skills != null)
+		{
+			foreach (var skill in CurDepot.Skills)
 			{
-				foreach (BaseConfigTalent config in (Owner as AvatarEntity).DbInfo.ConfigTalentMap[CurDepotId][proudSkill.openConfig])
+				// SkillData[depotId][skillId]
+				if (!db.SkillData.TryGetValue(CurDepotId, out var skillMap) || skillMap == null)
+					continue;
+
+				var skillId = (uint)skill.Key;
+				if (!skillMap.TryGetValue(skillId, out var skillData) || skillData == null)
+					continue;
+
+				var proudSkill = FindProudSkill((uint)CurDepotId, skillData.proudSkillGroupId, skill.Value);
+				if (proudSkill == null)
+					continue;
+
+				ApplyTalentsFromDepot(CurDepotId, proudSkill.openConfig, proudSkill.paramList);
+			}
+		}
+
+		// ---------- Energy skill (elemental burst) ----------
+		if (CurDepot?.Element != null)
+		{
+			uint energySkillId = (uint)CurDepot.EnergySkill;
+			int energySkillLevel = CurDepot.EnergySkillLevel;
+
+			if (db.SkillData.TryGetValue(CurDepotId, out var skillMap) &&
+				skillMap != null &&
+				skillMap.TryGetValue(energySkillId, out var energySkillData) &&
+				energySkillData != null)
+			{
+				var proudSkill = FindProudSkill((uint)CurDepotId, energySkillData.proudSkillGroupId, energySkillLevel);
+				if (proudSkill != null && !string.IsNullOrWhiteSpace(proudSkill.openConfig))
 				{
-					config.Apply(this, proudSkill.paramList);
+					// Apply across all depots that contain that openConfig
+					foreach (var depotTalentMap in db.ConfigTalentMap.Values)
+					{
+						if (depotTalentMap == null) continue;
+						if (!depotTalentMap.TryGetValue(proudSkill.openConfig, out var talents) || talents == null) continue;
+
+						foreach (var config in talents)
+							config?.Apply(this, proudSkill.paramList);
+					}
 				}
 			}
 		}
-		if (CurDepot.Element != null)
-		{
-			uint energySkill = (uint)CurDepot.EnergySkill;
-			int energySkillLevel = CurDepot.EnergySkillLevel;
-			AvatarSkillExcelConfig skillData = (Owner as AvatarEntity).DbInfo.SkillData[CurDepotId][energySkill];
-			ProudSkillExcelConfig proudSkill = (Owner as AvatarEntity).DbInfo.ProudSkillData[CurDepotId]
-					.Where(w => w.Value.proudSkillGroupId == skillData.proudSkillGroupId && w.Value.level == energySkillLevel).First().Value;
-			foreach (BaseConfigTalent config in
-				(Owner as AvatarEntity).DbInfo.ConfigTalentMap.Values
-					.Where(x => x.ContainsKey(proudSkill.openConfig))
-					.SelectMany(t => t.Values)          // IEnumerable<BaseConfigTalent[]>
-					.SelectMany(arr => arr))           // IEnumerable<BaseConfigTalent>
-			{
-				config.Apply(this, proudSkill.paramList);
-			}
-		}
+
 		base.Initialize();
 	}
+
 	protected override void AddAbility(AbilityAppliedAbility ability)
 	{
 		base.AddAbility(ability);

@@ -40,19 +40,17 @@ public class LuaManager
                 groupLua.DoString(luaFile.Replace("ScriptLib.", "ScriptLib:"));
 
                 string luaScript = @$"
-                              
                                 if {trigger.condition}(context_, evt_) then
                                     {trigger.action}(context_, evt_)
                                 end
-                            
                         ";
                 try
                 {
                     if (trigger.condition.Length == 0)
                     {
-                        luaScript = @$"
-                            {trigger.condition}(context_, evt_)
-                            ";
+                        // Triggers with no condition should always run their action,
+                        // matching hk4e behavior: just call the action directly.
+                        luaScript = @$"{trigger.action}(context_, evt_)";
                     }
                     groupLua.DoString(luaScript);
                     logger.LogSuccess($"Executed successfully LUA of type: {(TriggerEventType)trigger._event}");

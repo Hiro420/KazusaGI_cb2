@@ -533,6 +533,35 @@ public class ResourceLoader
 
             sceneGroupLua_.init_config.suite = Convert.ToUInt32(initConfig["suite"]);
 
+            try
+            {
+                var endSuiteObj = initConfig["end_suite"];
+                if (endSuiteObj != null)
+                {
+                    sceneGroupLua_.init_config.end_suite = Convert.ToUInt32(endSuiteObj);
+                }
+            }
+            catch
+            {
+                // end_suite is optional; ignore if missing or invalid
+            }
+
+            try
+            {
+                var randSuiteObj = initConfig["rand_suite"];
+                if (randSuiteObj != null)
+                {
+                    if (randSuiteObj is bool b)
+                        sceneGroupLua_.init_config.rand_suite = b ? 1u : 0u;
+                    else
+                        sceneGroupLua_.init_config.rand_suite = Convert.ToUInt32(randSuiteObj);
+                }
+            }
+            catch
+            {
+                // rand_suite is optional; ignore if missing or invalid
+            }
+
             foreach (LuaTable suite in suites.Values.Cast<LuaTable>())
             {
                 SceneGroupLuaSuite sceneGroupLuaSuite = new SceneGroupLuaSuite()

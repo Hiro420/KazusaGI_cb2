@@ -28,6 +28,8 @@ public class Scene
     private readonly HashSet<int> _activeRegionIds = new(64);
 
     private readonly Dictionary<(SceneGroupLua Group, uint SuiteId), SuiteMembership> _suiteCache = new(64);
+    private readonly Dictionary<SceneGroupLua, uint> _groupActiveSuite = new();
+    private readonly Random _random = new();
 
     private class SceneChallenge
     {
@@ -144,13 +146,67 @@ public class Scene
         }
     }
 
-    public void RefreshGroup(SceneGroupLua group, int suiteId)
+    public int RefreshGroup(SceneGroupLua group, int suiteId)
     {
-        if (group.suites == null || group.suites.Count == 0) return;
+        if (group.suites == null || group.suites.Count == 0)
+            return -1;
+
+        // In hk4e, ScriptLib.RefreshGroup passes suite_index = 0 to mean
+        // "use default/random suite". When suiteId is 0 or out of range,
+        // pick an appropriate default:
+        //   - if rand_suite is set, choose a suite by rand_weight;
+        //   - otherwise, fall back to init_config.suite (or 1).
+        int targetSuiteId;
         if (suiteId <= 0 || suiteId > group.suites.Count)
-            suiteId = 1;
-        SceneGroupLuaSuite suite = group.suites[suiteId - 1];
+        {
+            uint initSuite = group.init_config != null ? group.init_config.suite : 0u;
+            bool useRandom = group.init_config != null && group.init_config.rand_suite != 0;
+
+            if (useRandom && group.suites.Count > 0)
+            {
+                uint totalWeight = 0;
+                for (int i = 0; i < group.suites.Count; i++)
+                    totalWeight += group.suites[i].rand_weight;
+
+                if (totalWeight == 0)
+                {
+                    targetSuiteId = 1;
+                }
+                else
+                {
+                    uint ticket = (uint)_random.Next(1, (int)totalWeight + 1);
+                    uint acc = 0;
+                    int chosen = 1;
+                    for (int i = 0; i < group.suites.Count; i++)
+                    {
+                        acc += group.suites[i].rand_weight;
+                        if (ticket <= acc)
+                        {
+                            chosen = i + 1;
+                            break;
+                        }
+                    }
+                    targetSuiteId = chosen;
+                }
+            }
+            else if (initSuite >= 1 && initSuite <= group.suites.Count)
+            {
+                targetSuiteId = (int)initSuite;
+            }
+            else
+            {
+                targetSuiteId = 1;
+            }
+        }
+        else
+        {
+            targetSuiteId = suiteId;
+        }
+
+        SceneGroupLuaSuite suite = group.suites[targetSuiteId - 1];
         var membership = GetOrBuildSuiteMembership(group, suite);
+
+        _groupActiveSuite[group] = (uint)targetSuiteId;
 
         //Console.WriteLine($"[Scene] Refreshing group {GetGroupIdFromGroupInfo(group)} to suite {suiteId} -> {membership.Monsters.Count} monsters, {membership.Gadgets.Count} gadgets");
 
@@ -204,6 +260,8 @@ public class Scene
         // Npcs are not controlled by suites, so we don't despawn them here
         // Spawn entities in the new suite
         UpdateGroup(group, suite);
+
+        return 0;
     }
 
     private void UpdateGroupRegions(SceneGroupLua group)
@@ -573,8 +631,16 @@ public class Scene
 
     public SceneGroupLuaSuite GetBaseSuite(SceneGroupLua group)
     {
-        uint suiteId = group.init_config.suite;
-        if (suiteId == 0) return group.suites[0];
+        // Prefer the last suite selected via RefreshGroup; otherwise fall
+        // back to init_config.suite (or 1) like hk4e's Group::refresh logic.
+        uint suiteId;
+        if (!_groupActiveSuite.TryGetValue(group, out suiteId) || suiteId == 0 || suiteId > group.suites.Count)
+        {
+            suiteId = group.init_config.suite;
+            if (suiteId == 0 || suiteId > group.suites.Count)
+                suiteId = 1;
+        }
+
         return group.suites[System.Convert.ToInt32(suiteId - 1)];
     }
 
@@ -783,7 +849,39 @@ public class Scene
                 case "CHALLENGE_KILL_COUNT_FAST":
                     HandleKillIntervalChallenge(challenge, now);
                     break;
+
+                // Simple kill-count based challenges; hk4e wires these through
+                // ChallengeCondKillCount (and variants) and drives progress via
+                // param_index = 1.
+                case "CHALLENGE_KILL_COUNT":
+                case "CHALLENGE_KILL_COUNT_IN_TIME":
+                case "CHALLENGE_KILL_COUNT_GUARD_HP":
+                case "CHALLENGE_TIME_FLY":
+                case "CHALLENGE_KILL_COUNT_FROZEN_LESS":
+                    HandleKillCountChallenge(challenge);
+                    break;
             }
+        }
+    }
+
+    private void HandleKillCountChallenge(SceneChallenge challenge)
+    {
+        if (challenge.KillTarget == 0)
+            return;
+
+        challenge.KillCount++;
+
+        var data = new ChallengeDataNotify
+        {
+            ChallengeIndex = challenge.ChallengeIndex,
+            ParamIndex = 1,
+            Value = challenge.KillCount
+        };
+        session.SendPacket(data);
+
+        if (challenge.KillCount >= challenge.KillTarget)
+        {
+            FinishChallengeInternal(challenge, true);
         }
     }
 
@@ -792,33 +890,27 @@ public class Scene
         if (challenge.KillTarget == 0)
             return;
 
-        // First kill just starts the chain.
-        if (challenge.KillCount == 0)
+        // Always enforce the interval between the last kill time and now.
+        if (challenge.MaxIntervalBetweenKills > 0 && challenge.LastKillTime != default)
         {
-            challenge.KillCount = 1;
-            challenge.LastKillTime = now;
-        }
-        else
-        {
-            if (challenge.MaxIntervalBetweenKills > 0)
+            var delta = (uint)Math.Max(0, (now - challenge.LastKillTime).TotalSeconds);
+            if (delta > challenge.MaxIntervalBetweenKills)
             {
-                var delta = (uint)Math.Max(0, (now - challenge.LastKillTime).TotalSeconds);
-                if (delta > challenge.MaxIntervalBetweenKills)
-                {
-                    FinishChallengeInternal(challenge, false);
-                    return;
-                }
+                FinishChallengeInternal(challenge, false);
+                return;
             }
-
-            challenge.KillCount++;
-            challenge.LastKillTime = now;
         }
 
-        // Update kill-count progress for the HUD.
+        // Chain is still valid, count this kill and restart the interval window.
+        challenge.KillCount++;
+        challenge.LastKillTime = now;
+
+        // Update kill-count progress for the HUD. In hk4e this is
+        // ChallengeCondKillCount with param_index = 1.
         var data = new ChallengeDataNotify
         {
             ChallengeIndex = challenge.ChallengeIndex,
-            ParamIndex = 2,
+            ParamIndex = 1,
             Value = challenge.KillCount
         };
         session.SendPacket(data);
@@ -850,9 +942,10 @@ public class Scene
         if (paramList.Count > 0)
         {
             uint p1 = paramList[0];
-            // Treat p1 as a duration only if it is in a sane time range.
-            // Many non-timed challenges pass a large group_id as p1 (e.g. 240xxx...),
-            // which should not be interpreted as seconds.
+            // Default behaviour (overridden per-type below): treat p1 as a duration
+            // only if it is in a sane time range. Many non-timed challenges pass a
+            // large group_id as p1 (e.g. 240xxx...), which should not be interpreted
+            // as seconds.
             if (p1 > 0 && p1 <= 86400)
             {
                 durationSeconds = p1;
@@ -880,32 +973,70 @@ public class Scene
             switch (challCfg.challengeType)
             {
                 case "CHALLENGE_KILL_COUNT_IN_TIME":
+                    // In hk4e this type wires an IN_TIME condition to p1 and a
+                    // KILL_COUNT condition to p3 (index 2). Mirror that here so
+                    // that HUD and settle use the same kill target.
+                    if (paramList.Count > 2)
+                        challenge.KillTarget = paramList[2];
+                    break;
+
                 case "CHALLENGE_KILL_COUNT_GUARD_HP":
                 case "CHALLENGE_KILL_COUNT":
-                    // Common pattern in data: p2 = kill target.
+                    // Plain kill-count challenges use p2 (index 1) as kill
+                    // target in hk4e.
                     if (paramList.Count > 1)
                         challenge.KillTarget = paramList[1];
                     break;
 
                 case "CHALLENGE_KILL_COUNT_FAST":
                     // DungeonChallengeConfig id 5 uses CHALLENGE_KILL_COUNT_FAST.
-                    // Lua ActiveChallenge typically passes:
-                    //   p1: duration
-                    //   p2: group_id
+                    // Lua ActiveChallenge passes:
+                    //   p1: interval between kills (seconds)
+                    //   p2: group_id filter (0 = any)
                     //   p3: kill target
                     if (paramList.Count > 2)
                         challenge.KillTarget = paramList[2];
                     if (paramList.Count > 0)
                         challenge.MaxIntervalBetweenKills = paramList[0];
 
+                    // This type is driven purely by the kill-fast window and
+                    // kill count; there is no overall challenge timer like
+                    // CHALLENGE_IN_TIME. Disable the generic duration-based
+                    // countdown so that ParamIndex = 1 can be used for kill
+                    // count, matching hk4e's ChallengeCondKillCount.
+                    challenge.DurationSeconds = 0;
+                    challenge.LastNotifiedRemaining = 0;
+
+                    // Seed the last-kill timestamp so that the very first
+                    // kill must also happen within the configured interval,
+                    // like ChallengeCondKillFast::initChallengeCond.
+                    challenge.KillCount = 0;
+                    challenge.LastKillTime = DateTimeOffset.UtcNow;
+
                     // Initialise kill counter in HUD ("Defeat N opponent(s)").
+                    // In hk4e this is param_index = 1.
                     var killData = new ChallengeDataNotify
                     {
                         ChallengeIndex = challengeIndex,
-                        ParamIndex = 2,
+                        ParamIndex = 1,
                         Value = 0
                     };
                     session.SendPacket(killData);
+                    break;
+
+                case "CHALLENGE_TIME_FLY":
+                    // In hk4e this type uses an IN_TIME condition whose time limit
+                    // comes from param index 2. Mirror that by driving the local
+                    // countdown timer from p3 when it looks sane.
+                    if (paramList.Count > 2)
+                    {
+                        uint p3 = paramList[2];
+                        if (p3 > 0 && p3 <= 86400)
+                        {
+                            challenge.DurationSeconds = p3;
+                            challenge.LastNotifiedRemaining = p3;
+                        }
+                    }
                     break;
             }
         }
@@ -918,27 +1049,82 @@ public class Scene
             ChallengeIndex = challengeIndex
         };
 
-        // Build the parameter list for the client HUD in a
-        // data-driven way based on challengeType, mirroring hk4e's
-        // ChallengeComp logic. Default behaviour is to pass through
-        // the raw parameters, but some types (e.g. CHALLENGE_TIME_FLY)
-        // reorder them so that UI texts bind to the correct values.
-        var notifyParams = paramList.ToList();
+        // Build the parameter list for the client HUD in the same way as
+        // hk4e's ChallengeComp::beginChallenge does via append_notify_params:
+        // each challengeType supplies an index vector picking values out of
+        // param_vec by 0-based index. For types that are not explicitly
+        // handled, fall back to passing the raw parameter list through.
+        uint GetParamAt(int idx)
+        {
+            return (idx >= 0 && idx < paramList.Count) ? paramList[idx] : 0u;
+        }
+
+        var notifyParams = new List<uint>();
 
         if (!string.IsNullOrEmpty(challenge.ChallengeType))
         {
             switch (challenge.ChallengeType)
             {
+                case "CHALLENGE_KILL_COUNT":
+                    // index_vec = {1}
+                    notifyParams.Add(GetParamAt(1));
+                    break;
+
+                case "CHALLENGE_KILL_COUNT_IN_TIME":
+                    // index_vec = {2, 0}  -> [kill_target, time]
+                    notifyParams.Add(GetParamAt(2));
+                    notifyParams.Add(GetParamAt(0));
+                    break;
+
+                case "CHALLENGE_SURVIVE":
+                    // index_vec = {0, 1} -> [time, extra]
+                    notifyParams.Add(GetParamAt(0));
+                    notifyParams.Add(GetParamAt(1));
+                    break;
+
+                case "CHALLENGE_TIME_FLY":
+                    // index_vec = {1, 2}
+                    notifyParams.Add(GetParamAt(1));
+                    notifyParams.Add(GetParamAt(2));
+                    break;
+
                 case "CHALLENGE_KILL_COUNT_FAST":
-                    // For id 5 challenges, scripts pass
-                    //   [duration, group_id, kill_target, ...].
-                    // The HUD text for this family uses a dedicated
-                    // "time between kills" parameter derived client-side,
-                    // but it expects the kill target to be in param[2]
-                    // (which it already is). Leave ordering as-is so
-                    // DungeonChallengeConfig text templates bind correctly.
+                    // index_vec = {2, 0} -> [kill_target, time]
+                    notifyParams.Add(GetParamAt(2));
+                    notifyParams.Add(GetParamAt(0));
+                    break;
+
+                case "CHALLENGE_KILL_COUNT_FROZEN_LESS":
+                    // index_vec = {1, 2}
+                    notifyParams.Add(GetParamAt(1));
+                    notifyParams.Add(GetParamAt(2));
+                    break;
+
+                case "CHALLENGE_KILL_MONSTER_IN_TIME":
+                    // index_vec = {0}
+                    notifyParams.Add(GetParamAt(0));
+                    break;
+
+                case "CHALLENGE_TRIGGER_IN_TIME":
+                    // index_vec = {0, 3}
+                    notifyParams.Add(GetParamAt(0));
+                    notifyParams.Add(GetParamAt(3));
+                    break;
+
+                case "CHALLENGE_GUARD_HP":
+                    // For short forms hk4e uses index_vec = {3, 0}.
+                    notifyParams.Add(GetParamAt(3));
+                    notifyParams.Add(GetParamAt(0));
+                    break;
+
+                default:
+                    notifyParams.AddRange(paramList);
                     break;
             }
+        }
+        else
+        {
+            notifyParams.AddRange(paramList);
         }
 
         foreach (var p in notifyParams)
@@ -990,7 +1176,14 @@ public class Scene
         uint groupId = challenge.GroupId;
 
         uint currentValue = 0;
-        if (challenge.DurationSeconds > 0)
+        if (challenge.ChallengeType == "CHALLENGE_KILL_COUNT_FAST")
+        {
+            // For fast-kill challenges hk4e uses the kill-count condition
+            // as the record source, so the settle/record value is the
+            // number of defeated monsters in the chain.
+            currentValue = challenge.KillCount;
+        }
+        else if (challenge.DurationSeconds > 0)
         {
             var now = DateTimeOffset.UtcNow;
             var elapsed = (uint)Math.Max(0, (now - challenge.StartTime).TotalSeconds);
@@ -1045,6 +1238,43 @@ public class Scene
             var perGroup = kv.Value;
             foreach (var challenge in perGroup.Values.ToList())
             {
+                // Special handling for CHALLENGE_KILL_COUNT_FAST: there is no
+                // global challenge timer, only an interval between kills.
+                if (challenge.ChallengeType == "CHALLENGE_KILL_COUNT_FAST")
+                {
+                    if (challenge.MaxIntervalBetweenKills == 0 || challenge.LastKillTime == default)
+                        continue;
+
+                    var intervalElapsed = (uint)Math.Max(0, (now - challenge.LastKillTime).TotalSeconds);
+                    uint remainingInterval = intervalElapsed >= challenge.MaxIntervalBetweenKills
+                        ? 0
+                        : challenge.MaxIntervalBetweenKills - intervalElapsed;
+
+                    if (remainingInterval != challenge.LastNotifiedRemaining)
+                    {
+                        challenge.LastNotifiedRemaining = remainingInterval;
+
+                        // In hk4e the fast-kill timer is driven by a
+                        // CHALLENGE_COND_KILL_FAST condition with
+                        // param_index = 2. Use ParamIndex = 2 here so the HUD
+                        // bar behaves the same.
+                        var data = new ChallengeDataNotify
+                        {
+                            ChallengeIndex = challenge.ChallengeIndex,
+                            ParamIndex = 2,
+                            Value = remainingInterval
+                        };
+                        session.SendPacket(data);
+                    }
+
+                    if (remainingInterval == 0)
+                    {
+                        FinishChallengeInternal(challenge, false);
+                    }
+
+                    continue;
+                }
+
                 if (challenge.DurationSeconds == 0)
                     continue;
 
@@ -1055,10 +1285,25 @@ public class Scene
                 {
                     challenge.LastNotifiedRemaining = remaining;
 
+                    // Timer data is reported on the same param_index that the
+                    // corresponding IN_TIME/ALL_TIME condition in hk4e uses.
+                    uint timeParamIndex = 1;
+                    switch (challenge.ChallengeType)
+                    {
+                        case "CHALLENGE_KILL_COUNT_IN_TIME":
+                        case "CHALLENGE_TIME_FLY":
+                        case "CHALLENGE_GUARD_HP":
+                            timeParamIndex = 2;
+                            break;
+                        default:
+                            timeParamIndex = 1;
+                            break;
+                    }
+
                     var data = new ChallengeDataNotify
                     {
                         ChallengeIndex = challenge.ChallengeIndex,
-                        ParamIndex = 1,
+                        ParamIndex = timeParamIndex,
                         Value = remaining
                     };
                     session.SendPacket(data);

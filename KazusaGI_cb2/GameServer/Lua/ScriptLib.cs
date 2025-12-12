@@ -39,6 +39,36 @@ public class ScriptLib
             .Count();
     }
 
+    public int GetRegionEntityCount(Session session, object _table)
+    {
+        Log("Called GetRegionEntityCount");
+
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return 0;
+
+        LuaTable? table = _table as LuaTable;
+        if (table == null)
+            return 0;
+
+        int regionConfigId;
+        int entityTypeRaw;
+
+        try
+        {
+            regionConfigId = (int)(long)table["region_eid"];
+            entityTypeRaw = (int)(long)table["entity_type"];
+        }
+        catch
+        {
+            // Malformed call from Lua; mirror hk4e by returning 0.
+            return 0;
+        }
+
+        var entityType = (EntityType)entityTypeRaw;
+        return player.Scene.GetRegionEntityCount(regionConfigId, entityType);
+    }
+
     public int AddExtraGroupSuite(Session session, int group_id, int suite_index)
     {
         Log("Called AddExtraGroupSuite");

@@ -350,10 +350,30 @@ public class Scene
 
     private void TriggerRegionEvent(SceneGroupLua group, SceneRegionLua region, bool enter)
     {
-         var args = new ScriptArgs((int)GetGroupIdFromGroupInfo(group),
-             enter ? (int)TriggerEventType.EVENT_ENTER_REGION : (int)TriggerEventType.EVENT_LEAVE_REGION,
-             (int)region.config_id);
+        var args = new ScriptArgs((int)GetGroupIdFromGroupInfo(group),
+            enter ? (int)TriggerEventType.EVENT_ENTER_REGION : (int)TriggerEventType.EVENT_LEAVE_REGION,
+            (int)region.config_id)
+        {
+            // In hk4e, evt.source_eid for region events carries the
+            // region's config_id so ScriptLib.GetRegionEntityCount can
+            // use it as region_eid. We mirror that here.
+            source_eid = (int)region.config_id
+        };
         LuaManager.executeTriggersLua(session, group, args);
+    }
+
+    public int GetRegionEntityCount(int regionConfigId, EntityType entityType)
+    {
+        // Currently we only track avatar presence per-region via
+        // _activeRegionIds. The server hosts a single player, so the
+        // count is either 0 or 1.
+        if (entityType == EntityType.Avatar)
+        {
+            return _activeRegionIds.Contains(regionConfigId) ? 1 : 0;
+        }
+
+        // Other entity types are not yet tracked at region granularity.
+        return 0;
     }
 
 

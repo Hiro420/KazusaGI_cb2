@@ -122,14 +122,19 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarSkillExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
     private Dictionary<uint, AvatarTalentExcelConfig> LoadAvatarTalentExcelConfig() =>
-		JsonConvert.DeserializeObject<List<AvatarTalentExcelConfig>>(
-			File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarTalentExcelConfigData.json"))
-		)!.ToDictionary(data => data.talentId);
+        JsonConvert.DeserializeObject<List<AvatarTalentExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "AvatarTalentExcelConfigData.json"))
+        )!.ToDictionary(data => data.talentId);
 
-	private Dictionary<uint, MaterialExcelConfig> LoadMaterialExcel() =>
+    private Dictionary<uint, MaterialExcelConfig> LoadMaterialExcel() =>
         JsonConvert.DeserializeObject<List<MaterialExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MaterialExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
+
+    private Dictionary<uint, GatherExcelConfig> LoadGatherExcelConfig() =>
+        JsonConvert.DeserializeObject<List<GatherExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "GatherExcelConfigData.json"))
+        )!.ToDictionary(data => data.pointType);
 
     private Dictionary<uint, GadgetExcelConfig> LoadGadgetExcel() =>
         JsonConvert.DeserializeObject<List<GadgetExcelConfig>>(
@@ -183,7 +188,7 @@ public class ResourceLoader
             group => group.ToDictionary(data => data.promoteLevel)
         );
 
-	private GlobalCombatData LoadGlobalCombatData() =>
+    private GlobalCombatData LoadGlobalCombatData() =>
         JsonConvert.DeserializeObject<GlobalCombatData>(
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
         )!;
@@ -192,27 +197,27 @@ public class ResourceLoader
     {
         ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> ret = new();
 
-		string[] filePaths = Directory.GetFiles(
+        string[] filePaths = Directory.GetFiles(
             Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"), 
             "*.json", SearchOption.AllDirectories
         );
-		var tasks = new List<Task>();
-		filePaths.AsParallel().ForAll(async file =>
-		{
-			var filePath = new FileInfo(file);
-			using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
-			using var jr = new JsonTextReader(sr);
-			var fileData = Serializer.Deserialize<Dictionary<string, BaseConfigTalent[]>>(jr);
+        var tasks = new List<Task>();
+        filePaths.AsParallel().ForAll(async file =>
+        {
+            var filePath = new FileInfo(file);
+            using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
+            using var jr = new JsonTextReader(sr);
+            var fileData = Serializer.Deserialize<Dictionary<string, BaseConfigTalent[]>>(jr);
             // Use the name (without ".json") of the file as the key
             //Console.WriteLine(Regex.Replace(filePath.Name, "\\.json", ""));
-			ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
-		});
+            ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+        });
 
-		return ret;
-	}
+        return ret;
+    }
 
-	// load scene infos asyncronously to speed up loading
-	private async Task<ConcurrentDictionary<uint, ScenePoint>> LoadScenePointsAsync()
+    // load scene infos asyncronously to speed up loading
+    private async Task<ConcurrentDictionary<uint, ScenePoint>> LoadScenePointsAsync()
     {
         var scenePoints = new Dictionary<uint, ScenePoint>();
         var sceneTasks = new List<Task>();
@@ -239,32 +244,32 @@ public class ResourceLoader
         await Task.WhenAll(sceneTasks);
 
         return new ConcurrentDictionary<uint, ScenePoint>(scenePoints);
-	}
+    }
 
     public Dictionary<string, ConfigAbilityContainer> LoadConfigAbilityMap()
     {
         ConcurrentDictionary<string, ConfigAbilityContainer> ret = new();
 
-		string[] filePaths = Directory.GetFiles(
-			Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp"),
-			"*.json", SearchOption.AllDirectories
-		);
-		var tasks = new List<Task>();
-		filePaths.AsParallel().ForAll(file =>
-		{
+        string[] filePaths = Directory.GetFiles(
+            Path.Combine(_baseResourcePath, JsonSubPath, "Ability", "Temp"),
+            "*.json", SearchOption.AllDirectories
+        );
+        var tasks = new List<Task>();
+        filePaths.AsParallel().ForAll(file =>
+        {
             try
             {
-				var filePath = new FileInfo(file);
-				using var sr = new StringReader(File.ReadAllText(filePath.FullName));
-				using var jr = new JsonTextReader(sr);
-				var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
-				foreach (var c in fileData)
-				{
+                var filePath = new FileInfo(file);
+                using var sr = new StringReader(File.ReadAllText(filePath.FullName));
+                using var jr = new JsonTextReader(sr);
+                var fileData = Serializer.Deserialize<ConfigAbilityContainer[]>(jr);
+                foreach (var c in fileData)
+                {
                     var ability = (ConfigAbility)c.Default;
-					ret[ability.abilityName] = c;
-				}
-			} catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
-		});
+                    ret[ability.abilityName] = c;
+                }
+            } catch (Exception e) { Console.WriteLine(file); Console.WriteLine(e); Thread.Sleep(100); }
+        });
 
         logger1.LogSuccess($"Loaded {ret.Count} abilities.");
 
@@ -277,53 +282,53 @@ public class ResourceLoader
         //    "AbilityEmbryos.json",
         //    JsonConvert.SerializeObject(Embryos, Formatting.Indented)
         //);
-		return ret.ToDictionary();
-	}
+        return ret.ToDictionary();
+    }
 
-	public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()
-	{
-		var ret = new ConcurrentDictionary<string, ConfigGadget>();
-
-		string[] filePaths = Directory.GetFiles(
-			Path.Combine(_baseResourcePath, JsonSubPath, "Gadget"),
-			"*.json", SearchOption.AllDirectories
-		);
-
-		var tasks = filePaths.Select(async file =>
-		{
-			string data = await File.ReadAllTextAsync(file);
-			var configs = JsonConvert.DeserializeObject<Dictionary<string, ConfigGadget>>(data)!;
-			foreach (var kv in configs)
-			{
-				ret[kv.Key] = kv.Value;
-			}
-		});
-
-		await Task.WhenAll(tasks);
-
-		return ret.ToDictionary();
-	}
-
-	public Dictionary<string, ConfigAvatar> LoadConfigAvatarMap()
+    public async Task<Dictionary<string, ConfigGadget>> LoadConfigGadgetMap()
     {
-		ConcurrentDictionary<string, ConfigAvatar> ret = new();
+        var ret = new ConcurrentDictionary<string, ConfigGadget>();
 
-		string[] filePaths = Directory.GetFiles(
-			Path.Combine(_baseResourcePath, JsonSubPath, "Avatar"),
-			"*.json", SearchOption.TopDirectoryOnly
-		);
-		var tasks = new List<Task>();
-		filePaths.AsParallel().ForAll(async file =>
-		{
-			var filePath = new FileInfo(file);
-			var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName));
-			ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
-		});
+        string[] filePaths = Directory.GetFiles(
+            Path.Combine(_baseResourcePath, JsonSubPath, "Gadget"),
+            "*.json", SearchOption.AllDirectories
+        );
 
-		return ret.ToDictionary();
-	}
+        var tasks = filePaths.Select(async file =>
+        {
+            string data = await File.ReadAllTextAsync(file);
+            var configs = JsonConvert.DeserializeObject<Dictionary<string, ConfigGadget>>(data)!;
+            foreach (var kv in configs)
+            {
+                ret[kv.Key] = kv.Value;
+            }
+        });
 
-	private void LoadSceneLua(string sceneDir, uint sceneId)
+        await Task.WhenAll(tasks);
+
+        return ret.ToDictionary();
+    }
+
+    public Dictionary<string, ConfigAvatar> LoadConfigAvatarMap()
+    {
+        ConcurrentDictionary<string, ConfigAvatar> ret = new();
+
+        string[] filePaths = Directory.GetFiles(
+            Path.Combine(_baseResourcePath, JsonSubPath, "Avatar"),
+            "*.json", SearchOption.TopDirectoryOnly
+        );
+        var tasks = new List<Task>();
+        filePaths.AsParallel().ForAll(async file =>
+        {
+            var filePath = new FileInfo(file);
+            var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName));
+            ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+        });
+
+        return ret.ToDictionary();
+    }
+
+    private void LoadSceneLua(string sceneDir, uint sceneId)
     {
         string luaPath = Path.Combine(sceneDir, $"scene{sceneId}.lua");
         using (Lua luaContent = new Lua())
@@ -536,7 +541,15 @@ public class ResourceLoader
                     type = gadget["type"] != null ? (GadgetType_Lua)Convert.ToUInt32(gadget["type"]) : GadgetType_Lua.GADGET_NONE,
                     born_type = gadget["born_type"] != null
                         ? (KazusaGI_cb2.Protocol.GadgetBornType)Convert.ToUInt32(gadget["born_type"])
-                        : KazusaGI_cb2.Protocol.GadgetBornType.GadgetBornNone
+                        : KazusaGI_cb2.Protocol.GadgetBornType.GadgetBornNone,
+
+                    // Optional fields, mirror hk4e behavior: missing/nil -> default
+                    isOneoff = gadget["isOneoff"] != null && Convert.ToBoolean(gadget["isOneoff"]),
+                    persistent = gadget["persistent"] != null && Convert.ToBoolean(gadget["persistent"]),
+                    showcutscene = gadget["showcutscene"] != null && Convert.ToBoolean(gadget["showcutscene"]),
+                    drop_tag = gadget["drop_tag"] != null ? Convert.ToString(gadget["drop_tag"]) : null,
+                    point_type = gadget["point_type"] != null ? Convert.ToUInt32(gadget["point_type"]) : 0u,
+                    owner = gadget["owner"] != null ? Convert.ToUInt32(gadget["owner"]) : 0u
                 });
             }
 
@@ -633,11 +646,12 @@ public class ResourceLoader
         _resourceManager.AvatarSkillExcel = this.LoadAvatarSkillExcel();
         _resourceManager.ProudSkillExcel = this.LoadProudSkillExcel();
         _resourceManager.AvatarTalentExcel = this.LoadAvatarTalentExcelConfig();
-		_resourceManager.WeaponExcel = this.LoadWeaponExcel();
+        _resourceManager.WeaponExcel = this.LoadWeaponExcel();
         _resourceManager.ScenePoints = LoadScenePointsAsync().Result;
         _resourceManager.MonsterExcel = this.loadMonsterExcel();
         _resourceManager.GadgetExcel = this.LoadGadgetExcel();
         _resourceManager.MaterialExcel = this.LoadMaterialExcel();
+        _resourceManager.GatherExcel = this.LoadGatherExcelConfig();
         _resourceManager.GachaExcel = this.LoadGachaExcel();
         _resourceManager.GachaPoolExcel = this.LoadGachaPoolExcel();
         _resourceManager.AvatarCurveExcel = this.LoadAvatarCurveExcelConfig();
@@ -657,19 +671,19 @@ public class ResourceLoader
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
-		_resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
+        _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
 
         _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
-		_resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
+        _resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
 
-		_resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
-	        k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),
-	        k => k.Value.Default as ConfigAbility
-		)!;
-	}
+        _resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
+            k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),
+            k => k.Value.Default as ConfigAbility
+        )!;
+    }
 
 
 
@@ -686,12 +700,12 @@ public class ResourceLoader
                     typeof(GuidePaimonDisappearEnd), typeof(ExecuteGroupTrigger), typeof(ApplyLevelModifier), typeof(RefreshAndAddDurability),
                     typeof(SetPaimonLookAtAvatar), typeof(EnableGadgetIntee), typeof(SetSystemValueToOverrideMap), typeof(TriggerGadgetInteractive), typeof(HitLevelGaugeMixin),
                     typeof(ActTimeSlow), typeof(PaimonAction), typeof(ExecuteGadgetLua),typeof(SetPaimonLookAtCamera), typeof(SetCrashDamage), typeof(MonsterReadyMixin),
-					typeof(SetPaimonTempOffset), typeof(SetAvatarHitBuckets), typeof(UpdateReactionDamage), typeof(FireEffectForStorm), typeof(DoTileAction),
+                    typeof(SetPaimonTempOffset), typeof(SetAvatarHitBuckets), typeof(UpdateReactionDamage), typeof(FireEffectForStorm), typeof(DoTileAction),
 
                     // Point Types
                     //typeof(DungeonEntry), typeof(DungeonExit), typeof(DungeonQuitPoint), typeof(DungeonSlipRevivePoint), typeof(DungeonWayPoint), typeof(SceneBuildingPoint),
-					//typeof(SceneTransPoint), typeof(PersonalSceneJumpPoint), typeof(SceneVehicleSummonPoint), typeof(TransPointStatue), typeof(TransPointNormal),
-					//typeof(VehicleSummonPoint), typeof(VirtualTransPoint),
+                    //typeof(SceneTransPoint), typeof(PersonalSceneJumpPoint), typeof(SceneVehicleSummonPoint), typeof(TransPointStatue), typeof(TransPointNormal),
+                    //typeof(VehicleSummonPoint), typeof(VirtualTransPoint),
                     // ConfigAbility
                     typeof(ConfigAbility),
                     // AbilityMixin
@@ -781,19 +795,19 @@ public class ResourceLoader
         }
     };
 
-	public class KnownTypesBinder : ISerializationBinder
-	{
-		public IList<Type> KnownTypes { get; set; }
+    public class KnownTypesBinder : ISerializationBinder
+    {
+        public IList<Type> KnownTypes { get; set; }
 
-		public Type BindToType(string assemblyName, string typeName)
-		{
-			return KnownTypes.SingleOrDefault(t => t.Name == typeName);
-		}
+        public Type BindToType(string assemblyName, string typeName)
+        {
+            return KnownTypes.SingleOrDefault(t => t.Name == typeName);
+        }
 
-		public void BindToName(Type serializedType, out string assemblyName, out string typeName)
-		{
-			assemblyName = null;
-			typeName = serializedType.Name;
-		}
-	}
+        public void BindToName(Type serializedType, out string assemblyName, out string typeName)
+        {
+            assemblyName = null;
+            typeName = serializedType.Name;
+        }
+    }
 }

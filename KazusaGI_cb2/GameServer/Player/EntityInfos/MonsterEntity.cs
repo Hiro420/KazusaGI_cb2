@@ -59,6 +59,8 @@ namespace KazusaGI_cb2.GameServer
 
 		private float ApplyCurve(float baseValue, MonsterCurveExcelConfig curveConfig, FightPropType prop)
 		{
+			if (!excelConfig.propGrowCurves.Exists(c => c.type == prop))
+				return baseValue;
 			var growType = excelConfig.propGrowCurves.Find(c => c.type == prop)!.growCurve;
 			var g = curveConfig.curveInfos.Find(c => c.type == growType)!;
 			return g.arith switch

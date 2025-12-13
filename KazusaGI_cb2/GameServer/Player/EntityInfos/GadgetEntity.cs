@@ -167,6 +167,43 @@ namespace KazusaGI_cb2.GameServer
 				BornType = bornType,
 				GadgetType = (uint)(_gadgetLua?.type ?? 0)
 			};
+
+			// If this is a gather gadget (GatherPoint/GatherObject) and the script
+			// provides a non-zero point_type, mirror hk4e by looking up the
+			// corresponding GatherExcelConfig and wiring its itemId into
+			// GatherGadgetInfo for the client.
+			if (_gadgetLua != null && _gadgetLua.point_type != 0 &&
+				(gadgetExcel.type == GadgetType_Excel.GatherPoint || gadgetExcel.type == GadgetType_Excel.GatherObject))
+			{
+				if (MainApp.resourceManager.GatherExcel.TryGetValue(_gadgetLua.point_type, out var gatherCfg))
+				{
+					info.GatherGadget = new GatherGadgetInfo
+					{
+						ItemId = gatherCfg.itemId,
+						IsForbidGuest = false
+					};
+				}
+			}
+
+			// Mirror hk4e's script-config wiring for gadget owner and cutscene flags.
+			// "owner" in gadget lua refers to another gadget's config_id within the
+			// same group; we resolve it to that gadget's runtime entity id if present.
+			if (_gadgetLua != null && _gadgetLua.owner != 0 && session.player?.Scene != null)
+			{
+				var scene = session.player.Scene;
+				var ownerEnt = scene.EntityManager.Entities.Values
+					.OfType<GadgetEntity>()
+					.FirstOrDefault(e => e._gadgetLua != null
+						&& e._gadgetLua.group_id == _gadgetLua.group_id
+						&& e._gadgetLua.config_id == _gadgetLua.owner);
+
+				if (ownerEnt != null)
+					info.OwnerEntityId = ownerEnt._EntityId;
+			}
+
+			// showcutscene in gadget lua directly maps to SceneGadgetInfo.IsShowCutscene.
+			info.IsShowCutscene = _gadgetLua?.showcutscene ?? false;
+			
 			ret.Gadget = info;
 		}
 
@@ -338,7 +375,7 @@ namespace KazusaGI_cb2.GameServer
 					(int)_gadgetLua.config_id));
 		}
 
-        public void ChangeState(GadgetState newState)
+		public void ChangeState(GadgetState newState)
 		{
 			if (_gadgetLua == null) return;
 
@@ -384,9 +421,9 @@ namespace KazusaGI_cb2.GameServer
 			}
 
 
-			Directory.CreateDirectory("Test");
-			File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
+			// Directory.CreateDirectory("Test");
+			// File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
 
-        }
+		}
 	}
 }

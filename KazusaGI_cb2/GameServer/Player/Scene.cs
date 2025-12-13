@@ -11,7 +11,8 @@ namespace KazusaGI_cb2.GameServer;
 
 public class Scene
 {
-    public Session session { get; private set; }
+    public uint SceneId => player.SceneId;
+	public Session session { get; private set; }
     public Player player { get; private set; }
     public EntityManager EntityManager { get; }
     public SceneLua sceneLua { get; private set; }
@@ -82,7 +83,7 @@ public class Scene
         player = _player;
         sceneLua = MainApp.resourceManager.SceneLuas[_player.SceneId];
         EntityManager = new EntityManager(session);
-    }
+	}
 
     public void TickGadgets(uint now)
     {
@@ -641,6 +642,11 @@ public class Scene
                 var gadgetPos = g.pos;
                 if (IsInRange(gadgetPos, player.Pos, defaultRange))
                 {
+                    // Skip gadgets that this player has already consumed and
+                    // that are scripted as one-off or persistent.
+                    if (player.OpenedGadgets.Contains((SceneId, g.group_id, g.config_id)) && (g.isOneoff || g.persistent))
+                        continue;
+
                     if (!alreadySpawnedGadgets.Contains(g))
                     {
                         uint gid = g.gadget_id;
@@ -735,7 +741,7 @@ public class Scene
         SceneGroupLuaSuite baseSuite = GetBaseSuite(sceneGroupLua);
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
-        var appearBatches = new List<SceneEntityAppearNotify>(2);
+		var appearBatches = new List<SceneEntityAppearNotify>(2);
         SceneEntityAppearNotify current = new() { AppearType = Protocol.VisionType.VisionMeet };
 
         if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
@@ -786,10 +792,15 @@ public class Scene
             {
                 var g = sceneGroupLua.gadgets[i];
                 if (!membership.Gadgets.Contains(g.config_id)) continue;
-            var gadgetPos = g.pos;
-            if (!IsInRange(gadgetPos, player.Pos, 50f) || alreadySpawnedGadgets.Contains(g)) continue;
+                var gadgetPos = g.pos;
+                if (!IsInRange(gadgetPos, player.Pos, 50f) || alreadySpawnedGadgets.Contains(g)) continue;
 
-            var ent = new GadgetEntity(session, g.gadget_id, g, gadgetPos, g.rot);
+                // Skip gadgets that this player has already consumed and
+                // that are scripted as one-off or persistent.
+                if (player.OpenedGadgets.Contains(((uint)SceneId, g.group_id, g.config_id)) && (g.isOneoff || g.persistent))
+                    continue;
+
+                var ent = new GadgetEntity(session, g.gadget_id, g, gadgetPos, g.rot);
                 EntityManager.Add(ent);
                 current.EntityLists.Add(ent.ToSceneEntityInfo());
                 alreadySpawnedGadgets.Add(g);

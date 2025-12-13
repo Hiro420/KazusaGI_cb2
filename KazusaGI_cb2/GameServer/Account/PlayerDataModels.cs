@@ -45,7 +45,22 @@ public class PlayerDataRecord
     [BsonElement("level")]
     public int Level { get; set; }
 
+    [BsonElement("opened_gadgets")]
+    public List<OpenedGadgetSnapshot> OpenedGadgets { get; set; } = new();
+
     public Vector3 ToPosition() => new(PosX, PosY, PosZ);
+}
+
+public class OpenedGadgetSnapshot
+{
+    [BsonElement("scene_id")]
+    public uint SceneId { get; set; }
+
+    [BsonElement("group_id")]
+    public uint GroupId { get; set; }
+
+    [BsonElement("config_id")]
+    public uint ConfigId { get; set; }
 }
 
 public class PlayerTeamSnapshot

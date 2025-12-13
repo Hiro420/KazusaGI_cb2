@@ -66,6 +66,10 @@ public class Player
         this.Rot = new();
     }
 
+    // Tracks opened one-off/persistent gadgets across sessions, keyed by
+    // (SceneId, GroupId, ConfigId) to mirror hk4e's per-world gadget state.
+    public HashSet<(uint SceneId, uint GroupId, uint ConfigId)> OpenedGadgets { get; } = new();
+
     public void SavePersistent()
     {
         AccountManager.SavePlayerData(ToPlayerDataRecord());
@@ -101,6 +105,21 @@ public class Player
             TeamIndex = TeamIndex,
             Level = Level
         };
+
+        // Persist opened one-off/persistent gadgets so they don't respawn
+        // across sessions when marked persistent in script config.
+        if (OpenedGadgets.Count > 0)
+        {
+            foreach (var (sceneId, groupId, configId) in OpenedGadgets)
+            {
+                record.OpenedGadgets.Add(new Account.OpenedGadgetSnapshot
+                {
+                    SceneId = sceneId,
+                    GroupId = groupId,
+                    ConfigId = configId
+                });
+            }
+        }
 
         for (uint i = 1; i <= teamList.Count; i++)
         {

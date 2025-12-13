@@ -25,6 +25,7 @@ public class ResourceManager
     public Dictionary<uint, WeaponExcelConfig> WeaponExcel { get; set; }
     public Dictionary<uint, MonsterExcelConfig> MonsterExcel { get; set; }
     public Dictionary<uint, GadgetExcelConfig> GadgetExcel { get; set; }
+    public Dictionary<uint, GatherExcelConfig> GatherExcel { get; set; }
     public ConcurrentDictionary<uint, ScenePoint> ScenePoints { get; set; }
     public ConcurrentDictionary<uint, SceneLua> SceneLuas { get; set; }
     public Dictionary<uint, MaterialExcelConfig> MaterialExcel { get; set; }

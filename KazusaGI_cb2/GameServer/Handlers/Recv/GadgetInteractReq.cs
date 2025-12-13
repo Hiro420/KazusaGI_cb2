@@ -89,16 +89,16 @@ internal class HandleGadgetInteractReq
         // Approximate hk4e behavior for the most common cases.
         switch (interactType)
         {
-			case InteractType.InteractOpenChest:
+            case InteractType.InteractOpenChest:
                 {
                     if (gadget.state == Resource.GadgetState.ChestLocked || gadget.state == Resource.GadgetState.Default)
                         gadget.ChangeState(Resource.GadgetState.ChestOpened);
 
-	                gadget.ForceKill();
+                    gadget.ForceKill();
                     break;
                 }
 
-			case InteractType.InteractGather:
+            case InteractType.InteractGather:
                 // Gather points / gather objects: despawn the gadget and fire EVENT_GATHER
                 // so Lua group scripts can react (e.g. KillEntityByConfigId, refresh, etc.).
                 if (gadget._gadgetLua != null && session.player?.Scene != null)
@@ -132,6 +132,14 @@ internal class HandleGadgetInteractReq
             default:
                 // Other interaction types are currently handled via gadget abilities / Lua.
                 break;
+        }
+
+        // Record one-off/persistent gadget consumption so it won't respawn
+        // for this player in future sessions, mirroring hk4e gadget state.
+        var lua = gadget._gadgetLua;
+        if (session.player != null && lua != null && (lua.isOneoff || lua.persistent))
+        {
+            session.player.OpenedGadgets.Add((session.player.SceneId, lua.group_id, lua.config_id));
         }
     }
 }

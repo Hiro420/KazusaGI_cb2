@@ -27,13 +27,18 @@ internal class HandleEvtBeingHitsCombineNotify
             session.player.Scene.EntityManager.TryGet(sourceEntityId, out var sourceEntity);
             session.player.Scene.EntityManager.TryGet(targetEntityId, out var targetEntity);
 
-            if (sourceEntity == null || targetEntity == null)
+            if (sourceEntity == null)
             {
-                logger.LogError($"Entity not found (source={sourceEntityId}, target={targetEntityId})");
+                logger.LogError($"Entity not found (source={sourceEntityId})");
                 continue;
             }
+            if (targetEntity == null)
+            {
+                logger.LogError($"Entity not found (target={targetEntityId})");
+                continue;
+			}
 
-            if (attackResult.Damage > 0 && targetEntity is IDamageable dmg)
+			if (attackResult.Damage > 0 && targetEntity is IDamageable dmg)
             {
                 dmg.ApplyDamage(attackResult.Damage, attackResult);
             }

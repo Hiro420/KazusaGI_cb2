@@ -140,12 +140,6 @@ namespace KazusaGI_cb2.GameServer
 
 		protected virtual void OnDied(Protocol.VisionType disappearType)
 		{
-			// Prefer going through the owning scene's EntityManager when available.
-			if (session.player?.Scene != null)
-			{
-				session.player.Scene.EntityManager.Remove(_EntityId, disappearType);
-				return;
-			}
 
 			// Fallback: directly notify and do not assume a backing map.
 			session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
@@ -154,6 +148,13 @@ namespace KazusaGI_cb2.GameServer
 				EntityLists = { _EntityId },
 				DisappearType = disappearType
 			});
+						// Prefer going through the owning scene's EntityManager when available.
+			if (session.player?.Scene != null)
+			{
+				session.player.Scene.EntityManager.Remove(_EntityId, disappearType);
+				return;
+			}
+
 		}
 
 		public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);

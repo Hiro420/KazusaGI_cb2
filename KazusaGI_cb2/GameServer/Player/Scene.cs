@@ -84,6 +84,24 @@ public class Scene
         EntityManager = new EntityManager(session);
     }
 
+    public void TickGadgets(uint now)
+    {
+        // Mirror hk4e's GearComp::onUpdateTimer-style behavior by invoking
+        // gadget lua OnTimer callbacks once per second with the current time.
+        var gadgets = EntityManager.Entities.Values.OfType<GadgetEntity>();
+        foreach (var gadget in gadgets)
+        {
+            try
+            {
+                gadget.OnTimer(now);
+            }
+            catch (Exception ex)
+            {
+                session.c.LogError($"Error occured executing Gadget Lua OnTimer for gadget {gadget._gadgetId}: {ex.Message}");
+            }
+        }
+    }
+
     public void EndAllChallenges()
     {
         foreach (var perGroup in _groupChallenges.Values)

@@ -688,16 +688,15 @@ public class Player
             var avatarEntity = new AvatarEntity(session, avatar);
             Scene.EntityManager.Add(avatarEntity);
 
-            // ensure weapon entity exists if equipped
-            //if (avatar.EquipGuid != 0 && weaponDict.TryGetValue(avatar.EquipGuid, out var playerWeapon))
-            //{
-            //    var weaponEntity = new WeaponEntity(session, playerWeapon.ItemId)
-            //    {
-            //        WeaponGuid = playerWeapon.Guid
-            //    };
-            //    playerWeapon.WeaponEntityId = weaponEntity._EntityId;
-            //    Scene.EntityManager.Add(weaponEntity);
-            //}
+            // ensure weapon entity exists in the new scene if equipped
+            if (avatar.EquipGuid != 0 && weaponDict.TryGetValue(avatar.EquipGuid, out var playerWeapon))
+            {
+                var weaponEntity = new WeaponEntity(session, playerWeapon.WeaponId);
+                // update the stored WeaponEntityId so future packets and hit events
+                // reference the entity that actually exists in this Scene instance
+                playerWeapon.WeaponEntityId = weaponEntity._EntityId;
+                Scene.EntityManager.Add(weaponEntity);
+            }
         }
 
         // 2) team entity

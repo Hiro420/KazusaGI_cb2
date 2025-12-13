@@ -9,6 +9,8 @@ using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using System.Linq;
 using KazusaGI_cb2.Resource.Json.Avatar;
 using Newtonsoft.Json;
+using System;
+using System.IO;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -20,6 +22,7 @@ namespace KazusaGI_cb2.GameServer
 		public ConfigGadget? configGadget;
 		public uint level;
 		public bool isLockHP => configGadget?.combat?.property?.isLockHP ?? false;
+		public uint StateBeginTime { get; private set; }
 
 		public float Hp { get; private set; } = 1f;
 		public float MaxHp { get; private set; } = 1f;
@@ -59,6 +62,9 @@ namespace KazusaGI_cb2.GameServer
 				}
 			}
 
+			// Initialize state begin time similarly to Gadget::state_begin_time_
+			StateBeginTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
 			abilityManager = new GadgetAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
@@ -91,10 +97,10 @@ namespace KazusaGI_cb2.GameServer
 			{
 				ScriptLib scriptLib = new(session);
 				scriptLib.currentSession = session;
-				scriptLib.currentGroupId = (int)_gadgetLua!.group_id;
-                tGadgetLua["ScriptLib"] = scriptLib;
-                tGadgetLua["context_"] = session;
-				//groupLua["evt_"] = args.toTable();
+				scriptLib.currentGroupId = (int)(_gadgetLua?.group_id ?? 0);
+				scriptLib.currentGadget = this;
+				tGadgetLua["ScriptLib"] = scriptLib;
+				tGadgetLua["context_"] = session;
 
 				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
 						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
@@ -104,13 +110,24 @@ namespace KazusaGI_cb2.GameServer
 				try
 				{
 					tGadgetLua.DoString(luaStr.Replace("ScriptLib.", "ScriptLib:"));
+					var func = tGadgetLua.GetFunction("OnClientExecuteReq");
+					if (func == null)
+					{
+						session.c.LogError($"OnClientExecuteReq not found in gadget lua for gadgetId {_gadgetId}");
+						return Retcode.RetSvrError;
+					}
+
+					// In hk4e this passes ScriptContext plus param1-3; our context
+					// is the current session, which ScriptLib methods use together
+					// with currentGadget/currentGroupId.
+					func.Call(session, param1, param2, param3);
 				}
 				catch (Exception ex)
 				{
-					session.c.LogError($"Error occured in loading Gadget Lua {ex.Message}");
+					session.c.LogError($"Error occured executing Gadget Lua OnClientExecuteReq: {ex.Message}");
 					return Retcode.RetSvrError;
-                }
-            }
+				}
+			}
 			return Retcode.RetSucc;
 		}
 
@@ -155,6 +172,17 @@ namespace KazusaGI_cb2.GameServer
 
 		public void ApplyDamage(float amount, AttackResult attack)
 		{
+			// Mirror hk4e gadget OnBeHurt callback: notify gadget lua
+			// about elemental hits before applying HP changes.
+			try
+			{
+				OnBeHurt(attack, true);
+			}
+			catch (Exception ex)
+			{
+				session.c.LogError($"Error occured executing Gadget Lua OnBeHurt: {ex.Message}");
+			}
+
 			if (isLockHP)
 				return;
 
@@ -167,8 +195,147 @@ namespace KazusaGI_cb2.GameServer
 
 			if (Hp <= 0f)
 			{
+				// Mirror hk4e gadget OnDie callback: notify gadget lua
+				// about the final blow that destroyed this gadget before
+				// running generic death/cleanup logic.
+				try
+				{
+					OnDie(attack);
+				}
+				catch (Exception ex)
+				{
+					session.c.LogError($"Error occured executing Gadget Lua OnDie: {ex.Message}");
+				}
+
 				this.OnDied(Protocol.VisionType.VisionDie);
 			}
+		}
+
+		public void OnDie(AttackResult attack)
+		{
+			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
+			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+				return;
+
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+
+			using (NLua.Lua tGadgetLua = new NLua.Lua())
+			{
+				ScriptLib scriptLib = new(session);
+				scriptLib.currentSession = session;
+				scriptLib.currentGroupId = (int)(_gadgetLua?.group_id ?? 0);
+				scriptLib.currentGadget = this;
+				tGadgetLua["ScriptLib"] = scriptLib;
+				tGadgetLua["context_"] = session;
+
+				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
+						+ LuaManager.GetConfigEntityEnumAsLua() + "\n"
+						+ File.ReadAllText(luaPath);
+
+				if (!luaStr.Contains("function OnDie"))
+					return; // avoid loading lua if not needed
+
+				tGadgetLua.DoString(luaStr.Replace("ScriptLib.", "ScriptLib:"));
+				var func = tGadgetLua.GetFunction("OnDie");
+				if (func == null)
+					return; // optional in hk4e
+
+				// Lua signature: OnDie(context, element_type, strike_type)
+				func.Call(session, (int)attack.ElementType, (int)attack.StrikeType);
+			}
+		}
+
+		public void OnBeHurt(AttackResult attack, bool isHost)
+		{
+			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
+			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+				return;
+
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+
+			using (NLua.Lua tGadgetLua = new NLua.Lua())
+			{
+				ScriptLib scriptLib = new(session);
+				scriptLib.currentSession = session;
+				scriptLib.currentGroupId = (int)(_gadgetLua?.group_id ?? 0);
+				scriptLib.currentGadget = this;
+				tGadgetLua["ScriptLib"] = scriptLib;
+				tGadgetLua["context_"] = session;
+
+				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
+						+ LuaManager.GetConfigEntityEnumAsLua() + "\n"
+						+ File.ReadAllText(luaPath);
+
+				if (!luaStr.Contains("function OnBeHurt"))
+					return; // avoid loading lua if not needed
+
+				tGadgetLua.DoString(luaStr.Replace("ScriptLib.", "ScriptLib:"));
+				var func = tGadgetLua.GetFunction("OnBeHurt");
+				if (func == null)
+					return; // optional in hk4e
+
+				// Lua signature: OnBeHurt(context, element_type, strike_type, is_host)
+				func.Call(session, (int)attack.ElementType, (int)attack.StrikeType, isHost);
+			}
+		}
+
+		public void OnTimer(uint now)
+		{
+			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
+			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+				return;
+
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+
+			using (NLua.Lua tGadgetLua = new NLua.Lua())
+			{
+				ScriptLib scriptLib = new(session);
+				scriptLib.currentSession = session;
+				scriptLib.currentGroupId = (int)(_gadgetLua?.group_id ?? 0);
+				scriptLib.currentGadget = this;
+				tGadgetLua["ScriptLib"] = scriptLib;
+				tGadgetLua["context_"] = session;
+
+				string luaStr = LuaManager.GetCommonScriptConfigAsLua() + "\n"
+						+ LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
+						+ LuaManager.GetConfigEntityEnumAsLua() + "\n"
+						+ File.ReadAllText(luaPath);
+
+				if (!luaStr.Contains("function OnTimer"))
+					return; // avoid loading lua if not needed
+
+				tGadgetLua.DoString(luaStr.Replace("ScriptLib.", "ScriptLib:"));
+				var func = tGadgetLua.GetFunction("OnTimer");
+				if (func == null)
+					return; // optional in hk4e
+
+				// Lua signature: OnTimer(context, now)
+				func.Call(session, (int)now);
+			}
+		}
+
+		protected override void OnDied(Protocol.VisionType disappearType)
+		{
+			base.OnDied(disappearType);
+
+			// Fire EVENT_ANY_GADGET_DIE triggers for this gadget's group/config,
+			// mirroring MonsterEntity's EVENT_ANY_MONSTER_DIE handling.
+			if (_gadgetLua == null || session.player == null)
+				return;
+
+			var group = session.player.Scene.GetGroup((int)_gadgetLua.group_id);
+			if (group == null)
+				return;
+
+			LuaManager.executeTriggersLua(
+				session,
+				group,
+				new Lua.ScriptArgs(
+					(int)_gadgetLua.group_id,
+					(int)Lua.TriggerEventType.EVENT_ANY_GADGET_DIE,
+					(int)_gadgetLua.config_id));
 		}
 
         public void ChangeState(GadgetState newState)
@@ -177,6 +344,7 @@ namespace KazusaGI_cb2.GameServer
 
 			var old = _gadgetLua.state;
 			_gadgetLua.state = newState;
+			StateBeginTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
 			session.SendPacket(new GadgetStateNotify
 			{

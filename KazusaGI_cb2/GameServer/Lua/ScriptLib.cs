@@ -18,6 +18,7 @@ public class ScriptLib
     public int currentGroupId;
     public Session currentSession;
     public ScriptArgs? currentEventArgs;
+    public GadgetEntity? currentGadget;
 
     private SceneGroupLua? GetCurrentGroup()
     {
@@ -97,6 +98,42 @@ public class ScriptLib
 
         var entityType = (EntityType)entityTypeRaw;
         return player.Scene.GetRegionEntityCount(regionConfigId, entityType);
+    }
+
+    // Mirror hk4e's ScriptLib gadget APIs using the bound currentGadget set by GadgetEntity before executing lua.
+
+    public int GetGadgetState(Session session)
+    {
+        if (currentGadget == null || currentGadget._gadgetLua == null)
+        {
+            Log("GetGadgetState called with no current gadget");
+            return (int)GadgetState.Default;
+        }
+
+        return (int)currentGadget._gadgetLua.state;
+    }
+
+    public int SetGadgetState(Session session, int state)
+    {
+        if (currentGadget == null)
+        {
+            Log("SetGadgetState called with no current gadget");
+            return -1;
+        }
+
+        currentGadget.ChangeState((GadgetState)state);
+        return 0;
+    }
+
+    public uint GetGadgetStateBeginTime(Session session)
+    {
+        if (currentGadget == null)
+        {
+            Log("GetGadgetStateBeginTime called with no current gadget");
+            return 0;
+        }
+
+        return currentGadget.StateBeginTime;
     }
 
     public int AddExtraGroupSuite(Session session, int group_id, int suite_index)

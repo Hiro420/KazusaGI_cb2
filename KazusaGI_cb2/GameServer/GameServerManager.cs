@@ -13,6 +13,7 @@ namespace KazusaGI_cb2.GameServer;
 public class GameServerManager
 {
     public static List<Session> sessions = new List<Session>();
+	private static uint _lastTimerSecond;
     public static void StartLoop()
     {
         Config config = MainApp.config;
@@ -77,6 +78,23 @@ public class GameServerManager
                     break;
                 default:
                     break;
+            }
+
+            // Drive gadget OnTimer callbacks roughly once per second using
+            // server wall-clock time in seconds, similar to hk4e's gear
+            // component timers.
+            uint now = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (now != _lastTimerSecond)
+            {
+                _lastTimerSecond = now;
+                foreach (var s in sessions.ToArray())
+                {
+                    var player = s.player;
+                    if (player?.Scene != null)
+                    {
+                        player.Scene.TickGadgets(now);
+                    }
+                }
             }
         }
     }

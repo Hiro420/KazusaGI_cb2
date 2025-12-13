@@ -15,7 +15,23 @@ internal class HandleEvtDestroyGadgetNotify
     {
         EvtDestroyGadgetNotify req = packet.GetDecodedBody<EvtDestroyGadgetNotify>();
         uint entityId = req.EntityId;
-        session.player.Scene.EntityManager.Remove(entityId);
-        // session.SendPacket(req);
+        if (session.player?.Scene == null)
+        {
+            return;
+        }
+        
+        if (!session.player.Scene.EntityManager.TryGet(entityId, out var entity))
+        {
+            return;
+        }
+
+        if (entity is GadgetEntity)
+        {
+            session.player.Scene.EntityManager.Remove(entityId);
+        }
+        else
+        {
+            session.c.LogWarning($"EvtDestroyGadgetNotify for non-gadget entity {entityId} ({entity.GetType().Name}); ignoring.");
+        }
     }
 }

@@ -15,6 +15,7 @@ internal class HandleEvtBeingHitsCombineNotify
         var logger = new Logger("EvtBeingHitsCombineNotify");
         var req = packet.GetDecodedBody<EvtBeingHitsCombineNotify>();
 
+        var entityMgr = session.player.Scene.EntityManager;
         foreach (var hitInfo in req.EvtBeingHitInfoLists)
         {
             if (hitInfo?.AttackResult == null)
@@ -24,21 +25,27 @@ internal class HandleEvtBeingHitsCombineNotify
             var sourceEntityId = attackResult.AttackerId;
             var targetEntityId = attackResult.DefenseId;
 
-            session.player.Scene.EntityManager.TryGet(sourceEntityId, out var sourceEntity);
-            session.player.Scene.EntityManager.TryGet(targetEntityId, out var targetEntity);
+            entityMgr.TryGet(sourceEntityId, out var sourceEntity);
+            entityMgr.TryGet(targetEntityId, out var targetEntity);
 
             if (sourceEntity == null)
             {
-                logger.LogError($"Entity not found (source={sourceEntityId})");
-                continue;
+                if (!entityMgr.WasRecentlyRemoved(sourceEntityId))
+                {
+                    logger.LogError($"Entity not found (source={sourceEntityId})");
+                    continue;
+                }
             }
             if (targetEntity == null)
             {
-                logger.LogError($"Entity not found (target={targetEntityId})");
-                continue;
-			}
+                if (!entityMgr.WasRecentlyRemoved(targetEntityId))
+                {
+                    logger.LogError($"Entity not found (target={targetEntityId})");
+                    continue;
+                }
+            }
 
-			if (attackResult.Damage > 0 && targetEntity is IDamageable dmg)
+            if (attackResult.Damage > 0 && targetEntity is IDamageable dmg)
             {
                 dmg.ApplyDamage(attackResult.Damage, attackResult);
             }

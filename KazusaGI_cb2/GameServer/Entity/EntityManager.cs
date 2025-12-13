@@ -7,6 +7,9 @@ public class EntityManager
 {
 	private readonly Session _session;
 	private readonly Dictionary<uint, Entity> _entities = new();
+	// Tracks recently removed entities and their removal time (for hit suppression)
+	private readonly Dictionary<uint, DateTime> _recentlyRemovedEntities = new();
+	private readonly TimeSpan _removalExpiry = TimeSpan.FromSeconds(2);
 
 	public EntityManager(Session session)
 	{
@@ -18,6 +21,8 @@ public class EntityManager
 	public void Add(Entity entity, VisionType appearType = VisionType.VisionMeet)
 	{
 		_entities[entity._EntityId] = entity;
+		// Remove from recently removed if re-added
+		_recentlyRemovedEntities.Remove(entity._EntityId);
 
 		var notify = new SceneEntityAppearNotify
 		{
@@ -31,6 +36,8 @@ public class EntityManager
 	{
 		if (!_entities.Remove(entityId))
 			return false;
+		// Track removal time
+		_recentlyRemovedEntities[entityId] = DateTime.UtcNow;
 
 		_session.SendPacket(new LifeStateChangeNotify
 		{
@@ -46,4 +53,16 @@ public class EntityManager
 	}
 
 	public bool TryGet(uint entityId, out Entity entity) => _entities.TryGetValue(entityId, out entity!);
+	// Returns true if entity was recently removed (within expiry window)
+	public bool WasRecentlyRemoved(uint entityId)
+	{
+		if (_recentlyRemovedEntities.TryGetValue(entityId, out var removedAt))
+		{
+			if ((DateTime.UtcNow - removedAt) < _removalExpiry)
+				return true;
+			// Expired, clean up
+			_recentlyRemovedEntities.Remove(entityId);
+		}
+		return false;
+	}
 }

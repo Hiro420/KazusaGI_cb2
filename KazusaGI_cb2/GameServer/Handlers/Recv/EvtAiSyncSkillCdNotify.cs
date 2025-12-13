@@ -12,7 +12,8 @@ internal class HandleEvtAiSyncSkillCdNotify
     [Packet.PacketCmdId(PacketId.EvtAiSyncSkillCdNotify)]
     public static void OnPacket(Session session, Packet packet)
     {
-        EvtAiSyncSkillCdNotify req = packet.GetDecodedBody<EvtAiSyncSkillCdNotify>();
-        // session.SendPacket(req);
+        var notify = packet.GetDecodedBody<EvtAiSyncSkillCdNotify>();
+
+        CombatForwarder.Forward(session, notify, ForwardType.ForwardToAllExceptCur);
     }
 }

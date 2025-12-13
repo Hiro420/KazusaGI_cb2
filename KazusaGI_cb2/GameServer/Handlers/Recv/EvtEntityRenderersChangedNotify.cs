@@ -12,7 +12,13 @@ internal class HandleEvtEntityRenderersChangedNotify
     [Packet.PacketCmdId(PacketId.EvtEntityRenderersChangedNotify)]
     public static void OnPacket(Session session, Packet packet)
     {
-        EvtEntityRenderersChangedNotify req = packet.GetDecodedBody<EvtEntityRenderersChangedNotify>();
-        // session.SendPacket(req);
+        var notify = packet.GetDecodedBody<EvtEntityRenderersChangedNotify>();
+        if (notify.IsServerCache && session.player?.Scene != null &&
+            session.player.Scene.EntityManager.TryGet(notify.EntityId, out var entity))
+        {
+            entity.CachedRendererChangedInfo = notify.RendererChangedInfo;
+        }
+
+        CombatForwarder.Forward(session, notify, notify.ForwardType);
     }
 }

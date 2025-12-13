@@ -12,12 +12,30 @@ internal class HandleEntityForceSyncReq
     [Packet.PacketCmdId(PacketId.EntityForceSyncReq)]
     public static void OnPacket(Session session, Packet packet)
     {
-        EntityForceSyncReq req = packet.GetDecodedBody<EntityForceSyncReq>();
-        EntityForceSyncRsp rsp = new EntityForceSyncRsp()
+        var req = packet.GetDecodedBody<EntityForceSyncReq>();
+
+        var rsp = new EntityForceSyncRsp
         {
             EntityId = req.EntityId,
-            SceneTime = req.SceneTime
+            SceneTime = req.SceneTime,
+            Retcode = 0
         };
+
+        var player = session.player;
+        if (player?.Scene == null || !player.Scene.EntityManager.TryGet(req.EntityId, out var entity))
+        {
+            rsp.Retcode = -1;
+            session.SendPacket(rsp);
+            return;
+        }
+
+        var motion = req.MotionInfo;
+        if (motion != null)
+        {
+            entity.Position = Session.VectorProto2Vector3(motion.Pos);
+            entity.Rotation = Session.VectorProto2Vector3(motion.Rot);
+        }
+
         session.SendPacket(rsp);
     }
 }

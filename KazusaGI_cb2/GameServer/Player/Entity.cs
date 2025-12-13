@@ -19,6 +19,8 @@ namespace KazusaGI_cb2.GameServer
 	{
 		public List<AbilityInstance> InstancedAbilities { get; } = new();
 		public Dictionary<uint, AbilityModifierController> InstancedModifiers { get; } = new();
+		public Dictionary<int, AnimatorParameterValueInfo> AnimatorParameters { get; } = new();
+		public EntityRendererChangedInfo? CachedRendererChangedInfo { get; set; }
 
 		// Simple shield bar state as reported by ShieldBarMixin.
 		// This mirrors the client-side shield bar UI but does not yet
@@ -121,6 +123,10 @@ namespace KazusaGI_cb2.GameServer
 
 			BuildKindSpecific(info);
 			InjectCommonProps(info);
+			foreach (var kv in AnimatorParameters)
+				info.AnimatorParaMaps[kv.Key] = kv.Value;
+			if (CachedRendererChangedInfo != null)
+				info.RendererChangedInfo = CachedRendererChangedInfo;
 			return info;
 		}
 

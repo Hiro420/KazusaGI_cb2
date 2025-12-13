@@ -12,7 +12,8 @@ internal class HandleEvtDoSkillSuccNotify
     [Packet.PacketCmdId(PacketId.EvtDoSkillSuccNotify)]
     public static void OnPacket(Session session, Packet packet)
     {
-        EvtDoSkillSuccNotify req = packet.GetDecodedBody<EvtDoSkillSuccNotify>();
-        // session.SendPacket(req);
+        var notify = packet.GetDecodedBody<EvtDoSkillSuccNotify>();
+
+        CombatForwarder.Forward(session, notify, notify.ForwardType);
     }
 }

@@ -12,6 +12,8 @@ internal class HandleEvtSetAttackTargetNotify
     [Packet.PacketCmdId(PacketId.EvtSetAttackTargetNotify)]
     public static void OnPacket(Session session, Packet packet)
     {
-        // do nothing
+        var notify = packet.GetDecodedBody<EvtSetAttackTargetNotify>();
+
+        CombatForwarder.Forward(session, notify, notify.ForwardType);
     }
 }

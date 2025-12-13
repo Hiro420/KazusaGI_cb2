@@ -14,10 +14,11 @@ namespace KazusaGI_cb2.GameServer;
 
 public class Player
 {
+    private static uint s_nextPeerId = 1;
     private Session session { get; set; }
     public Session Session => session;
     private Logger logger = new("Player");
-    // Single-player worlds default to 1; MP can assign other values later.
+    // Unique peer id for this player within the server process.
     public uint PeerId { get; set; } = 1;
     public string Name { get; set; }
     public int Level { get; set; }
@@ -36,9 +37,6 @@ public class Player
     public Vector3 Rot { get; private set; } // wont actually be used except for scene tp
     public Gender PlayerGender { get; private set; } = Gender.Female;
     public TowerInstance? towerInstance { get; set; }
-	public InvokeNotifier<AbilityInvokeEntry> AbilityInvNotifyList;
-	public InvokeNotifier<CombatInvokeEntry> CombatInvNotifyList;
-	//public InvokeNotifier<AbilityInvokeEntry> ClientAbilityInitFinishNotifyList;
     public Entity? MpLevelEntity;
 
     // Mirrors hk4e's PlayerAvatarComp::is_allow_use_skill_
@@ -52,6 +50,7 @@ public class Player
         Level = 60;
         Uid = uid;
         this.session = session;
+        PeerId = s_nextPeerId++;
 
         // Initialize the dictionaries, todo: automatically add everyhing
         this.avatarDict = new();
@@ -61,9 +60,6 @@ public class Player
         this.Scene = new Scene(session, this);
         this.Pos = new();
         this.Rot = new();
-        AbilityInvNotifyList = new(this, typeof(AbilityInvocationsNotify));
-        CombatInvNotifyList = new(this, typeof(CombatInvocationsNotify));
-        //ClientAbilityInitFinishNotifyList = new(this, typeof(ClientAbilityInitFinishNotify));
     }
 
     public void SavePersistent()
@@ -359,17 +355,6 @@ public class Player
 			this.teamList.Add(new PlayerTeam(session));
 		}
 	}
-
-    /// <summary>
-    /// Flushes all pending invoke notifications (ability, combat, client ability init)
-    /// Call this method periodically or when needed to send accumulated notifications
-    /// </summary>
-    public void FlushInvokeNotifications()
-    {
-        AbilityInvNotifyList.Notify();
-        CombatInvNotifyList.Notify();
-        //ClientAbilityInitFinishNotifyList.Notify();
-    }
 
     public void AddBasicAvatar()
     {

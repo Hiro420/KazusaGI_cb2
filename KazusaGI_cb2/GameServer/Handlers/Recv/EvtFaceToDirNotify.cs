@@ -12,7 +12,8 @@ internal class HandleEvtFaceToDirNotify
     [Packet.PacketCmdId(PacketId.EvtFaceToDirNotify)]
     public static void OnPacket(Session session, Packet packet)
     {
-        EvtFaceToDirNotify req = packet.GetDecodedBody<EvtFaceToDirNotify>();
-        // session.SendPacket(req);
+        var notify = packet.GetDecodedBody<EvtFaceToDirNotify>();
+
+        CombatForwarder.Forward(session, notify, notify.ForwardType);
     }
 }

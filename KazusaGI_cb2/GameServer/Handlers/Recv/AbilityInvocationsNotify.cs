@@ -16,9 +16,6 @@ internal class HandleAbilityInvocationsNotify
 
         foreach (var invoke in req.Invokes)
         {
-            // Add to the InvokeNotifier list for proper forwarding
-            session.player!.AbilityInvNotifyList.AddEntry(invoke);
-
             // Handle the ability invoke on the entity if it exists
             if (session.player.Scene.EntityManager.TryGet(invoke.EntityId, out GameServer.Entity? entity))
             {
@@ -42,7 +39,13 @@ internal class HandleAbilityInvocationsNotify
             }
         }
 
-        // Send the notifications
-        session.player!.AbilityInvNotifyList.Notify();
+        // Forward the ability invocations to other peers according to ForwardType
+        // This mirrors hk4e's behavior: the client specifies how the
+        // invocation should be propagated, and the server forwards it
+        // within the scene using the combat forwarder.
+        if (req.Invokes.Count > 0)
+        {
+            CombatForwarder.Forward(session, req, req.ForwardType);
+        }
     }
 }

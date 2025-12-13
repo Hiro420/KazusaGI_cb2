@@ -17,6 +17,8 @@ public class Player
     private Session session { get; set; }
     public Session Session => session;
     private Logger logger = new("Player");
+    // Single-player worlds default to 1; MP can assign other values later.
+    public uint PeerId { get; set; } = 1;
     public string Name { get; set; }
     public int Level { get; set; }
     public uint Uid { get; set; }
@@ -534,7 +536,7 @@ public class Player
             MpLevelEntityInfo = new()
             {
                 EntityId = this.MpLevelEntity._EntityId,
-                AuthorityPeerId = 1,
+                AuthorityPeerId = this.PeerId,
                 AbilityInfo = new()
             }
         };
@@ -563,7 +565,7 @@ public class Player
             {
                 new TeamEntityInfo()
                 {
-                    AuthorityPeerId = 69,
+                    AuthorityPeerId = this.PeerId,
                     TeamEntityId = GetCurrentLineup().teamEntity._EntityId,
                     TeamAbilityInfo = new() // todo
 				}

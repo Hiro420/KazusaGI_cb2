@@ -141,7 +141,7 @@ namespace KazusaGI_cb2.GameServer
 
 			var info = new SceneGadgetInfo
 			{
-				AuthorityPeerId = 1,
+				AuthorityPeerId = session.player!.PeerId,
 				GadgetState = (uint)state,
 				IsEnableInteract = state == GadgetState.Default,
 				ConfigId = _gadgetLua?.config_id ?? 0,

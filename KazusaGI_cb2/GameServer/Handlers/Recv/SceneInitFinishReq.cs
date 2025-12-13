@@ -36,7 +36,7 @@ internal class HandleSceneInitFinishReq
         });
         session.SendPacket(new HostPlayerNotify()
         {
-            HostPeerId = 1,
+            HostPeerId = session.player!.PeerId,
             HostUid = session.player!.Uid
         });
         session.SendPacket(new PlayerGameTimeNotify()
@@ -61,7 +61,7 @@ internal class HandleSceneInitFinishReq
                 new ScenePlayerInfo()
                 {
                     Uid = session.player.Uid,
-                    PeerId = 1,
+                    PeerId = session.player.PeerId,
                     Name = session.player.Name,
                     IsConnected = true,
                     SceneId = session.player.SceneId,

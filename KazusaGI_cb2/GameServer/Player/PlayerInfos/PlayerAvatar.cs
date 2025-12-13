@@ -162,7 +162,7 @@ public class PlayerAvatar
     {
         SceneAvatarInfo sceneAvatarInfo = new SceneAvatarInfo()
         {
-            PeerId = 1,
+            PeerId = Session.player!.PeerId,
             Guid = this.Guid,
             AvatarId = this.AvatarId,
             Uid = Session.player!.Uid,

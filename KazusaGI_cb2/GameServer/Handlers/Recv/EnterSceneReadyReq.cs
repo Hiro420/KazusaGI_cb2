@@ -15,8 +15,8 @@ internal class HandleEnterSceneReadyReq
         EnterSceneReadyReq req = packet.GetDecodedBody<EnterSceneReadyReq>();
         EnterScenePeerNotify rsp = new EnterScenePeerNotify()
         {
-            PeerId = 1,
-            HostPeerId = 1,
+            PeerId = session.player!.PeerId,
+            HostPeerId = session.player!.PeerId,
             DestSceneId = session.player!.SceneId
         };
 

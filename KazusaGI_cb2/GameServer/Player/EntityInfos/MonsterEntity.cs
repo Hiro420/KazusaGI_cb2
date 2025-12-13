@@ -90,7 +90,7 @@ namespace KazusaGI_cb2.GameServer
 		{
 			var sceneMonsterInfo = new SceneMonsterInfo
 			{
-				AuthorityPeerId = 1,
+				AuthorityPeerId = session.player!.PeerId,
 				MonsterId = _monsterId,
 				IsElite = _monsterInfo?.isElite ?? false,
 				ConfigId = _monsterInfo?.config_id ?? 0,

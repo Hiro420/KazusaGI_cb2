@@ -70,7 +70,20 @@ public class ScriptLib
         return 0;
     }
 
-    public int GetRegionEntityCount(Session session, object _table)
+    public int DropSubfield(Session session, object _table)
+	{
+		LuaTable? table = _table as LuaTable;
+		if (table == null)
+			return 0;
+		string subfield_name = (string)table["subfield_name"];
+
+        Log($"Called DropSubfield subfield_name={subfield_name}");
+
+		// todo: implement subfield dropping logic
+        return 0;
+	}
+
+	public int GetRegionEntityCount(Session session, object _table)
     {
         Log("Called GetRegionEntityCount");
 

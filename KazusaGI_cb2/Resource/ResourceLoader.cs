@@ -548,6 +548,8 @@ public class ResourceLoader
                     persistent = gadget["persistent"] != null && Convert.ToBoolean(gadget["persistent"]),
                     showcutscene = gadget["showcutscene"] != null && Convert.ToBoolean(gadget["showcutscene"]),
                     drop_tag = gadget["drop_tag"] != null ? Convert.ToString(gadget["drop_tag"]) : null,
+                    interact_id = gadget["interact_id"] != null ? Convert.ToUInt32(gadget["interact_id"]) : 0u,
+                    mark_flag = gadget["mark_flag"] != null ? Convert.ToUInt32(gadget["mark_flag"]) : 0u,
                     point_type = gadget["point_type"] != null ? Convert.ToUInt32(gadget["point_type"]) : 0u,
                     owner = gadget["owner"] != null ? Convert.ToUInt32(gadget["owner"]) : 0u
                 });

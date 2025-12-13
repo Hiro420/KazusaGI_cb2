@@ -36,6 +36,10 @@ public class GadgetLua
     public bool showcutscene;    // showcutscene = true/false
     public string? drop_tag;     // drop_tag = "..." (may be null/empty)
 
+    // Additional script fields used by hk4e for gadgets.
+    public uint interact_id;     // interact_id = <uint>, 0 if none
+    public uint mark_flag;       // mark_flag = <uint>, 0 if none
+
     // Gathering/point data
     public uint point_type;      // point_type = <uint>, 0 if not present
 

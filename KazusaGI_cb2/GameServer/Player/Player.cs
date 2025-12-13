@@ -38,6 +38,10 @@ public class Player
     public Gender PlayerGender { get; private set; } = Gender.Female;
     public TowerInstance? towerInstance { get; set; }
     public Entity? MpLevelEntity;
+    // Mirrors hk4e's PlayerSceneComp::first_trans_point_id_ and enter_first_trans_point_time_. 
+    // Used when entering tower trans point regions.
+    public uint FirstTransPointId { get; private set; }
+    public uint EnterFirstTransPointTime { get; private set; }
 
     // Mirrors hk4e's PlayerAvatarComp::is_allow_use_skill_
     // Controls whether the client may use active skills.
@@ -190,6 +194,23 @@ public class Player
         }
 
         return record;
+    }
+
+    public void OnEnterFirstTransPointRegion(uint pointId)
+    {
+        // In hk4e this also revives all avatars and records the time the player entered the first trans point region.
+        // For now we mirror the state tracking aspect so that any future tower/dungeon logic can rely on it.
+        FirstTransPointId = pointId;
+        EnterFirstTransPointTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    }
+
+    public void OnExitFirstTransPointRegion(uint pointId)
+    {
+        if (FirstTransPointId == pointId)
+        {
+            FirstTransPointId = 0;
+            EnterFirstTransPointTime = 0;
+        }
     }
 
     public void ApplyPlayerDataRecord(PlayerDataRecord record)

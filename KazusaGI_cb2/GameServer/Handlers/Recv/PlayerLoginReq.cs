@@ -26,7 +26,12 @@ internal class HandlePlayerLoginReq
             AbilityHashCode = 2004869408, // todo: figure out
         };
 
-        Vector3 targetPos = MainApp.resourceManager.SceneLuas[session.player.SceneId].scene_config.born_pos;
+        // If the player's position was loaded from the DB (non-zero), use it.
+        // Otherwise this is likely a new account so teleport to the scene's born position.
+        Vector3 dbPos = session.player.Pos;
+        Vector3 bornPos = MainApp.resourceManager.SceneLuas[session.player.SceneId].scene_config.born_pos;
+        Vector3 targetPos = dbPos != new Vector3() ? dbPos : bornPos;
+        // TeleportToPos will update the player's Pos and persist it.
         session.player.TeleportToPos(session, targetPos, true);
         session.player.SetRot(MainApp.resourceManager.SceneLuas[session.player.SceneId].scene_config.born_rot);
 

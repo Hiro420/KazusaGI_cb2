@@ -22,6 +22,12 @@ namespace KazusaGI_cb2.GameServer
 		public Dictionary<int, AnimatorParameterValueInfo> AnimatorParameters { get; } = new();
 		public EntityRendererChangedInfo? CachedRendererChangedInfo { get; set; }
 
+		// Mirrors hk4e's Entity::motion_state_: the last known motion state
+		// as updated from client MotionInfo. Used when serializing MotionInfo
+		// in SceneEntityInfo so that MotionInfo.State reflects the entity's
+		// actual motion state instead of always MOTION_NONE.
+		public MotionState MotionState { get; private set; }
+
 		// Simple shield bar state as reported by ShieldBarMixin.
 		// This mirrors the client-side shield bar UI but does not yet
 		// participate in damage calculation or GlobalMainShield logic.
@@ -44,6 +50,17 @@ namespace KazusaGI_cb2.GameServer
 			Rotation = rotation ?? session.player!.Rot;
 			EntityType = entityType;
 			_EntityId = entityId ?? session.GetEntityId(entityType);
+
+			// Initialize motion state to match hk4e spawn behavior:
+			// living entities (avatars, monsters, NPCs) start in STANDBY,
+			// while non-creatures default to NONE until motion is set.
+			MotionState = entityType switch
+			{
+				ProtEntityType.ProtEntityAvatar => MotionState.MotionStandby,
+				ProtEntityType.ProtEntityMonster => MotionState.MotionStandby,
+				ProtEntityType.ProtEntityNpc => MotionState.MotionStandby,
+				_ => MotionState.MotionNone
+			};
 		}
 
 		public void UpdateShieldBar(uint elementType, float shield, float maxShield)
@@ -81,8 +98,13 @@ namespace KazusaGI_cb2.GameServer
 				Pos = pos,
 				Rot = rot,
 				Speed = new Protocol.Vector(),
-				State = MotionState.MotionNone
+				State = MotionState
 			};
+		}
+
+		public void SetMotionState(MotionState state)
+		{
+			MotionState = state;
 		}
 
 		protected SceneEntityAiInfo MakeAi(Vector3? bornAt)

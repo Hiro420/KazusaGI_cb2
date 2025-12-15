@@ -25,6 +25,10 @@ internal class HandleSceneEntitiesMovesReq
                 // may happen sometimes, may not. better be safe.
                 continue;
             }
+
+            // Mirror hk4e: Entity::setMotionInfo updates both transform and motion_state_,
+            // which is then used by Entity::toClient when filling MotionInfo.state.
+            entity.SetMotionState(move.MotionInfo.State);
             entity.Position = Session.VectorProto2Vector3(move.MotionInfo.Pos);
             if (entity is AvatarEntity)
             {

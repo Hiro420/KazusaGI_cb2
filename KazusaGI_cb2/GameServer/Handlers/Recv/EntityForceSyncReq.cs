@@ -32,6 +32,7 @@ internal class HandleEntityForceSyncReq
         var motion = req.MotionInfo;
         if (motion != null)
         {
+            entity.SetMotionState(motion.State);
             entity.Position = Session.VectorProto2Vector3(motion.Pos);
             entity.Rotation = Session.VectorProto2Vector3(motion.Rot);
         }

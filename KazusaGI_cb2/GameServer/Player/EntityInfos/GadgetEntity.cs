@@ -36,6 +36,7 @@ namespace KazusaGI_cb2.GameServer
 		public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();
 		public HashSet<string> ActiveDynamicAbilities = new();
 		public Dictionary<string, HashSet<string>> UnlockedTalentParams = new();
+		public uint OwnerEntityId = 0;
 
 		public GadgetEntity(Session session, uint gadgetId, GadgetLua? gadgetInfo, Vector3? position, Vector3? rotation, uint? entityId = null)
 		: base(session, position, rotation, ProtEntityType.ProtEntityGadget, entityId)
@@ -44,6 +45,16 @@ namespace KazusaGI_cb2.GameServer
 			_gadgetLua = gadgetInfo;
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
+
+			if (_gadgetLua != null && _gadgetLua.owner != 0)
+			{
+				// Find owner gadget Id from lua config
+				var ownerGadget = session.player.Scene.EntityManager.Entities.Values
+					.OfType<GadgetEntity>()
+					.FirstOrDefault(e => e._gadgetLua != null
+						&& e._gadgetLua.group_id == _gadgetLua.group_id
+						&& e._gadgetLua.config_id == _gadgetLua.owner);
+			}
 
 			if (
 				!MainApp.resourceManager.ConfigGadgetMap.TryGetValue(gadgetExcel.jsonName, out configGadget) || configGadget == null)

@@ -17,8 +17,21 @@ public class GenerateElemBall : BaseAction
     {
         try
         {
+            if (srcEntity is GadgetEntity gadget && gadget.OwnerEntityId != 0)
+            {
+                Entity? ownerEntity = null;
+                gadget.session.player.Scene.EntityManager?.TryGet(gadget.OwnerEntityId, out ownerEntity);
+                if (ownerEntity != null && ownerEntity is AvatarEntity ownerAvatar)
+                {
+                    srcEntity = ownerAvatar;
+                }
+            }
+
             if (srcEntity is not AvatarEntity avatar)
+            {
+                logger.LogError($"GenerateElemBall action can only be invoked by AvatarEntity, got {srcEntity.GetType().Name}");
                 return;
+            }
 
             logger.LogSuccess($"Generating Elem Ball for Avatar ID {avatar.DbInfo.AvatarId} using Ability {abilityName}");
 

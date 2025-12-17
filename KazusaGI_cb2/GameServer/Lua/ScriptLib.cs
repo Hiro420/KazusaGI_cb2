@@ -40,6 +40,15 @@ public class ScriptLib
             .Count();
     }
 
+    public int GetGatherConfigIdList(Session session)
+    {
+        Log("Called GetGatherConfigIdList");
+
+        // todo: implement
+
+        return 0;
+    }
+
     public int TowerMirrorTeamSetUp(Session session, int tower_team_id)
     {
         Log($"Called TowerMirrorTeamSetUp tower_team_id={tower_team_id}");
@@ -71,19 +80,19 @@ public class ScriptLib
     }
 
     public int DropSubfield(Session session, object _table)
-	{
-		LuaTable? table = _table as LuaTable;
-		if (table == null)
-			return 0;
-		string subfield_name = (string)table["subfield_name"];
+    {
+	    LuaTable? table = _table as LuaTable;
+	    if (table == null)
+		    return 0;
+	    string subfield_name = (string)table["subfield_name"];
 
         Log($"Called DropSubfield subfield_name={subfield_name}");
 
-		// todo: implement subfield dropping logic
+	    // todo: implement subfield dropping logic
         return 0;
-	}
+    }
 
-	public int GetRegionEntityCount(Session session, object _table)
+    public int GetRegionEntityCount(Session session, object _table)
     {
         Log("Called GetRegionEntityCount");
 
@@ -229,7 +238,7 @@ public class ScriptLib
         return GetGroupVariableValueByGroup(session, var_name, currentGroupId);
     }
 
-	// ScriptLib.ShowReminder(context, 400004)
+    // ScriptLib.ShowReminder(context, 400004)
     public int ShowReminder(Session session, int reminder_id)
     {
         var player = currentSession.player;
@@ -241,9 +250,9 @@ public class ScriptLib
         };
         currentSession.SendPacket(notify);
         return 0;
-	}
+    }
 
-	// ScriptLib.AddQuestProgress(context, "133103106_progress1")
+    // ScriptLib.AddQuestProgress(context, "133103106_progress1")
     public int AddQuestProgress(Session session, string quest_param)
     {
         var player = currentSession.player;
@@ -251,10 +260,10 @@ public class ScriptLib
             return -1;
         // todo: quest manager
         return 0;
-	}
+    }
 
-	// ScriptLib.PlayCutScene(context, 310624801, 0)
-	public int PlayCutScene(Session session, int cutscene_id, int wait_time)
+    // ScriptLib.PlayCutScene(context, 310624801, 0)
+    public int PlayCutScene(Session session, int cutscene_id, int wait_time)
     {
         var player = currentSession.player;
         if (player == null || player.Scene == null)
@@ -262,17 +271,17 @@ public class ScriptLib
         if (wait_time > 0)
         {
             currentSession.c.LogWarning("[ScriptLib] PlayCutScene wait_time > 0 is not supported yet, executing immediately");
-		}
-		var notify = new CutSceneBeginNotify()
+	    }
+	    var notify = new CutSceneBeginNotify()
         {
             CutsceneId = (uint)cutscene_id
         };
         currentSession.SendPacket(notify);
         return 0;
-	}
+    }
 
-	// ScriptLib.ScenePlaySound(context, {play_pos = pos, sound_name = "LevelHornSound001", play_type= 1, is_broadcast = false })
-	public int ScenePlaySound(Session session, object _table)
+    // ScriptLib.ScenePlaySound(context, {play_pos = pos, sound_name = "LevelHornSound001", play_type= 1, is_broadcast = false })
+    public int ScenePlaySound(Session session, object _table)
     {
         var player = currentSession.player;
         if (player == null || player.Scene == null)
@@ -294,10 +303,10 @@ public class ScriptLib
             });
         }
         return 0;
-	}
+    }
 
 
-	public int GetGroupVariableValueByGroup(Session session, string var_name, int group_id)
+    public int GetGroupVariableValueByGroup(Session session, string var_name, int group_id)
     {
         Log("Called GetGroupVariableValueByGroup");
 
@@ -560,23 +569,13 @@ public class ScriptLib
         if (config == null)
             return -1;
 
-        int configId;
-        try
-        {
-            configId = (int)(long)config["config_id"];
-        }
-        catch
-        {
-            return -1;
-        }
-
-        int delayTime = 0;
+        float delayTime = 0;
         try
         {
             var delayObj = config["delay_time"];
             if (delayObj != null)
             {
-                delayTime = (int)(long)delayObj;
+                delayTime = (float)delayObj;
             }
         }
         catch
@@ -587,6 +586,33 @@ public class ScriptLib
         if (delayTime > 0)
         {
             currentSession.c.LogWarning($"[ScriptLib] CreateMonster delay_time={delayTime} currently ignored (spawning immediately)");
+            // wait {delayTime} seconds before spawning
+            Task.Delay(TimeSpan.FromSeconds(delayTime)).ContinueWith(_ =>
+            {
+                DoSpawnMonster(currentSession, config);
+            });
+        }
+        else
+        {
+            DoSpawnMonster(currentSession, config);
+        }
+
+        return 0;
+    }
+
+    private void DoSpawnMonster(Session session, LuaTable config)
+    {
+        var player = currentSession.player;
+
+
+        int configId;
+        try
+        {
+            configId = (int)(long)config["config_id"];
+        }
+        catch
+        {
+            return;
         }
 
         int groupId = currentGroupId;
@@ -605,11 +631,11 @@ public class ScriptLib
         var scene = player.Scene;
         SceneGroupLua? group = scene.GetGroup(groupId);
         if (group == null || group.monsters == null)
-            return -1;
+            return;
 
         var monsterInfo = group.monsters.FirstOrDefault(m => m.config_id == (uint)configId);
         if (monsterInfo == null)
-            return -1;
+            return;
 
         var ent = new MonsterEntity(currentSession, monsterInfo.monster_id, monsterInfo, monsterInfo.pos, monsterInfo.rot);
         scene.EntityManager.Add(ent);
@@ -627,7 +653,7 @@ public class ScriptLib
         var args = new ScriptArgs(groupId, (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)monsterInfo.config_id);
         LuaManager.executeTriggersLua(currentSession, group, args);
 
-        return 0;
+        return;
     }
 
     public int StopChallenge(Session session, int source_name, int is_success)
@@ -714,8 +740,8 @@ public class ScriptLib
         if (gadgetInfo == null)
             return -1;
 
-		var ent = new GadgetEntity(currentSession, gadgetInfo.gadget_id, gadgetInfo, gadgetInfo.pos, gadgetInfo.rot);
-		scene.EntityManager.Add(ent);
+	    var ent = new GadgetEntity(currentSession, gadgetInfo.gadget_id, gadgetInfo, gadgetInfo.pos, gadgetInfo.rot);
+	    scene.EntityManager.Add(ent);
 
         if (!scene.alreadySpawnedGadgets.Contains(gadgetInfo))
             scene.alreadySpawnedGadgets.Add(gadgetInfo);

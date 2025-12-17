@@ -117,7 +117,15 @@ public abstract class BaseAbilityManager
 			}
 
 			logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {localId} | {invocation.GetType().Name}");
-			await invocation.Invoke(ability.abilityName, Owner);
+			Entity? entity2invoke = null;
+			EntityManager entityManager = Owner.session.player.Scene.EntityManager;
+
+			if (invoke.EntityId != 0)
+				entityManager.TryGet(invoke.EntityId, out entity2invoke);
+			if (entity2invoke == null)
+				entity2invoke = Owner;
+
+			await invocation.Invoke(ability.abilityName, entity2invoke);
 
 			return;
 		}

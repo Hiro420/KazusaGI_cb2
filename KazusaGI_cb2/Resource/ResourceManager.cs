@@ -8,6 +8,7 @@ using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Avatar;
+using KazusaGI_cb2.Resource.Json.Monster;
 using KazusaGI_cb2.Resource.Json.Scene;
 using KazusaGI_cb2.Resource.Json.Talent;
 using KazusaGI_cb2.Utils;
@@ -56,6 +57,7 @@ public class ResourceManager
 	public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
 	public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
 	public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }
+    public Dictionary<string, ConfigMonster> ConfigMonsterMap { get; set; }
 
     public Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; set; } // ability hash
 

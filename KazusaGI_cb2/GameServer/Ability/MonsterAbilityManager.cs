@@ -63,12 +63,28 @@ public class MonsterAbilityManager : BaseAbilityManager
 			abilityNames.Add(defaultAbilities.monterEliteAbilityName);
 		}
 
-		// 3. Per-monster abilities from config, if any exist.
-		//    Gadget/monster JSON configs can define ability names; wire them here
-		//    when you introduce such fields.
-		//    Example placeholder:
-		// if (!string.IsNullOrWhiteSpace(_monster.excelConfig.abilityName))
-		// 	abilityNames.Add(_monster.excelConfig.abilityName);
+		// 3. Per-monster abilities from ConfigMonster, mirroring
+		//    hk4e's Monster::initAbility which pulls from the
+		//    monster's config abilities list.
+		var monsterName = _monster.excelConfig.monsterName;
+		if (!string.IsNullOrWhiteSpace(monsterName) &&
+			resourceManager.ConfigMonsterMap != null)
+		{
+			var key = $"ConfigMonster_{monsterName}";
+			if (resourceManager.ConfigMonsterMap.TryGetValue(key, out var configMonster) &&
+				configMonster.abilities != null)
+			{
+				foreach (var targetAbility in configMonster.abilities)
+				{
+					//Console.WriteLine($"MonsterAbilityManager: Monster {monsterName} ability: ID={targetAbility.abilityID} Name={targetAbility.abilityName} Override={targetAbility.abilityOverride}");
+					if (!string.IsNullOrWhiteSpace(targetAbility.abilityName))
+					{
+						abilityNames.Add(targetAbility.abilityName);
+					}
+				}
+			}
+		}
+
 
 		// 4. Resolve ability names to ConfigAbility using ResourceManager.ConfigAbilityMap.
 		var configAbilityMap = resourceManager.ConfigAbilityMap;
@@ -101,5 +117,16 @@ public class MonsterAbilityManager : BaseAbilityManager
 		// Let the base manager build AbilitySpecialOverrideMap / AbilitySpecialHashMap
 		// from the populated AbilitySpecials.
 		base.Initialize();
+
+		// Finally, mirror hk4e's Monster::initAbility by attaching all
+		// resolved config abilities to the monster entity's AbilityComp.
+		foreach (var kvp in ConfigAbilityHashMap)
+		{
+			var ability = kvp.Value;
+			if (ability != null)
+			{
+				AddAbilityToEntity(_monster, ability);
+			}
+		}
 	}
 }

@@ -47,7 +47,9 @@ public class TeamAbilityManager : BaseAbilityManager
 				var abilityData = MainApp.resourceManager.ConfigAbilityMap[abilityName];
 				if (abilityData != null)
 				{
-					ConfigAbilityHashMap[Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
+					var config = (ConfigAbility)abilityData.Default!;
+					ConfigAbilityHashMap[Utils.AbilityHash(abilityName)] = config;
+					AddAbilityToEntity(Owner, config);
 				}
 			}
 		}

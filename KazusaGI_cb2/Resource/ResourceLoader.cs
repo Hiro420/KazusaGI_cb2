@@ -309,6 +309,31 @@ public class ResourceLoader
         return ret.ToDictionary();
     }
 
+    public async Task<Dictionary<string, Json.Monster.ConfigMonster>> LoadConfigMonsterMap()
+    {
+        var ret = new ConcurrentDictionary<string, Json.Monster.ConfigMonster>();
+
+        string[] filePaths = Directory.GetFiles(
+            Path.Combine(_baseResourcePath, JsonSubPath, "Monster"),
+            "*.json", SearchOption.AllDirectories
+        );
+
+        var tasks = filePaths.Select(async file =>
+        {
+            string data = await File.ReadAllTextAsync(file);
+            var config = JsonConvert.DeserializeObject<Json.Monster.ConfigMonster>(data);
+            if (config == null)
+                return;
+
+            string key = Path.GetFileNameWithoutExtension(file); // e.g. "ConfigMonster_Hili_None_01"
+            ret[key] = config;
+        });
+
+        await Task.WhenAll(tasks);
+
+        return ret.ToDictionary();
+    }
+
     public Dictionary<string, ConfigAvatar> LoadConfigAvatarMap()
     {
         ConcurrentDictionary<string, ConfigAvatar> ret = new();
@@ -680,6 +705,7 @@ public class ResourceLoader
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
         _resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
+        _resourceManager.ConfigMonsterMap = this.LoadConfigMonsterMap().Result;
 
         _resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
             k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),

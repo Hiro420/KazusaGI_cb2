@@ -36,8 +36,22 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public override void Initialize()
 	{
-		// Initialize gadget-specific ability behavior
+		// Let the base manager build AbilitySpecialOverrideMap /
+		// AbilitySpecialHashMap from the gadget's AbilitySpecials and
+		// ensure all ConfigAbility instances are initialized.
 		base.Initialize();
+
+		// Mirror hk4e-style initialization by attaching all configured
+		// gadget abilities (from ConfigGadget.abilities) to the gadget
+		// entity's AbilityComp so they can receive invokes/meta.
+		foreach (var kvp in _gadget.AbilityHashMap)
+		{
+			var ability = kvp.Value;
+			if (ability != null)
+			{
+				AddAbilityToEntity(_gadget, ability);
+			}
+		}
 	}
 
 }

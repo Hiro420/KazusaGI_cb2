@@ -26,17 +26,16 @@ public class AvatarAbilityManager : BaseAbilityManager
 
 	private void InitAbilities()
 	{
-		// Initialize scene-specific abilities here if needed
-		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.defaultAvatarAbilities!)
+		// Attach all configured abilities for this avatar's current depot
+		// (both avatar-specific and default avatar abilities) to the entity,
+		// mirroring hk4e's Avatar::initAbility which seeds AbilityComp from
+		// the config ability list before entering the scene.
+		foreach (var kvp in ConfigAbilityHashMap)
 		{
-			if (!string.IsNullOrWhiteSpace(abilityName))
+			var ability = kvp.Value;
+			if (ability != null)
 			{
-				var abilityData = MainApp.resourceManager.ConfigAbilityMap[abilityName];
-				if (abilityData != null)
-				{
-					ConfigAbilityHashMap[GameServer.Ability.Utils.AbilityHash(abilityName)] = (ConfigAbility)abilityData.Default!;
-					AddAbilityToEntity(Owner, (ConfigAbility)abilityData.Default!);
-				}
+				AddAbilityToEntity(Owner, ability);
 			}
 		}
 	}

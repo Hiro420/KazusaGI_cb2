@@ -95,11 +95,23 @@ namespace KazusaGI_cb2.GameServer
                 }
             }
 
-			// Add default avatar abilities if available
-			// This would need to be adapted based on your resource structure
-			// For now, we'll skip this part to avoid additional complexity
-			//Console.WriteLine($"Initialized SkillDepot for DepotId: {DepotId} with {Abilities.Count} abilities.");
-		}
+            // Add default avatar abilities like hk4e's AvatarSkillDepotExcelConfig.InitializeConfig.
+            var defaultAbilities = MainApp.resourceManager.GlobalCombatData?.defaultAbilities?.defaultAvatarAbilities;
+            if (defaultAbilities != null)
+            {
+                foreach (var abilityName in defaultAbilities)
+                {
+                    if (string.IsNullOrWhiteSpace(abilityName))
+                        continue;
+                    if (!MainApp.resourceManager.ConfigAbilityMap.TryGetValue(abilityName, out var container) ||
+                        container?.Default is not ConfigAbility config)
+                        continue;
+
+                    uint hash = GameServer.Ability.Utils.AbilityHash(abilityName);
+                    Abilities[hash] = config;
+                }
+            }
+        }
 
         public Dictionary<int, int> GetSkillLevelMap()
         {

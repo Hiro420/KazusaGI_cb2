@@ -428,6 +428,20 @@ namespace KazusaGI_cb2.GameServer
 				{
 					uint abilityHash = (uint)Ability.Utils.AbilityHash(ability.abilityName);
 					AbilityHashMap[abilityHash] = ability;
+
+					// Seed AbilitySpecials for this gadget ability from the
+					// underlying ConfigAbility so BaseAbilityManager can
+					// build override maps just like for avatars/monsters.
+					if (AbilitySpecials != null)
+					{
+						if (!AbilitySpecials.TryGetValue(ability.abilityName, out var specials) || specials == null)
+						{
+							specials = ability.abilitySpecials != null
+								? new Dictionary<string, float>(ability.abilitySpecials)
+								: new Dictionary<string, float>();
+							AbilitySpecials[ability.abilityName] = specials;
+						}
+					}
 				}
 			}
 

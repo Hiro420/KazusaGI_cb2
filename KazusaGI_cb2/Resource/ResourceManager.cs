@@ -7,8 +7,10 @@ using System.Text;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.AbilityPath;
 using KazusaGI_cb2.Resource.Json.Avatar;
 using KazusaGI_cb2.Resource.Json.Monster;
+using KazusaGI_cb2.Resource.Json.Preload;
 using KazusaGI_cb2.Resource.Json.Scene;
 using KazusaGI_cb2.Resource.Json.Talent;
 using KazusaGI_cb2.Utils;
@@ -51,6 +53,8 @@ public class ResourceManager
     public Dictionary<uint, string> GadgetLuaConfig { get; set; }
     public GlobalCombatData GlobalCombatData { get; set; }
     public Dictionary<uint, DungeonChallengeConfig> DungeonChallengeConfig { get; set; }
+	public ConfigPreload ConfigPreload { get; set; }
+    public AbilityPathData AbilityPathData { get; set; } // ability name
 
 
 	public ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> AvatarTalentConfigDataMap { get; set; } // file name

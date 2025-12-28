@@ -28,6 +28,8 @@ using KazusaGI_cb2.Resource.Json.Avatar;
 using System.Collections.Concurrent;
 using System.Collections;
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.Resource.Json.Preload;
+using KazusaGI_cb2.Resource.Json.AbilityPath;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -193,7 +195,17 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
         )!;
 
-    private ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> LoadTalentConfigs()
+	private ConfigPreload LoadConfigPreload() =>
+	    JsonConvert.DeserializeObject<ConfigPreload>(
+		    File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Preload", "ConfigPreload.json"))
+	    )!;
+
+    private AbilityPathData LoadAbilityPathData() =>
+        JsonConvert.DeserializeObject<AbilityPathData>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "AbilityPath", "AbilityPathData.json"))
+        )!;
+
+	private ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> LoadTalentConfigs()
     {
         ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> ret = new();
 
@@ -700,8 +712,10 @@ public class ResourceLoader
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
         _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
+        _resourceManager.ConfigPreload = this.LoadConfigPreload();
+        _resourceManager.AbilityPathData = this.LoadAbilityPathData();
 
-        _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
+		_resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
         _resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;

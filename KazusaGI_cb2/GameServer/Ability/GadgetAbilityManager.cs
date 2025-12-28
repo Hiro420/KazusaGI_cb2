@@ -36,15 +36,54 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public override void Initialize()
 	{
-		// Let the base manager build AbilitySpecialOverrideMap /
-		// AbilitySpecialHashMap from the gadget's AbilitySpecials and
-		// ensure all ConfigAbility instances are initialized.
+		List<string> abilityNames = new();
+
+		uint gadgetId = _gadget._gadgetId;
+
+		var resourceManager = MainApp.resourceManager;
+		if (resourceManager.ConfigPreload != null &&
+			resourceManager.ConfigPreload.entitiesPreload != null &&
+			resourceManager.ConfigPreload.entitiesPreload.TryGetValue(gadgetId, out var preloadInfo))
+		{
+			foreach (var fullPath in preloadInfo.abilities.onCreate)
+			{
+				if (resourceManager.AbilityPathData != null &&
+					resourceManager.AbilityPathData.abilityPaths.TryGetValue(fullPath, out var pathData))
+				{
+					foreach (var abilityName in pathData)
+					{
+						if (!string.IsNullOrWhiteSpace(abilityName))
+							abilityNames.Add(abilityName);
+					}
+				}
+			}
+		}
+
+		var configAbilityMap = resourceManager.ConfigAbilityMap;
+		if (configAbilityMap != null)
+		{
+			foreach (var abilityName in abilityNames)
+			{
+				if (!configAbilityMap.TryGetValue(abilityName, out ConfigAbilityContainer? container) ||
+					container == null ||
+					container.Default == null)
+				{
+					continue;
+				}
+
+				if (container.Default is not ConfigAbility configAbility)
+					continue;
+
+				uint hash = GameServer.Ability.Utils.AbilityHash(abilityName);
+				ConfigAbilityHashMap[hash] = configAbility;
+			}
+		}
+
 		base.Initialize();
 
-		// Mirror hk4e-style initialization by attaching all configured
-		// gadget abilities (from ConfigGadget.abilities) to the gadget
-		// entity's AbilityComp so they can receive invokes/meta.
-		foreach (var kvp in _gadget.AbilityHashMap)
+		// Finally, mirror hk4e's Monster::initAbility by attaching all
+		// resolved config abilities to the monster entity's AbilityComp.
+		foreach (var kvp in ConfigAbilityHashMap)
 		{
 			var ability = kvp.Value;
 			if (ability != null)

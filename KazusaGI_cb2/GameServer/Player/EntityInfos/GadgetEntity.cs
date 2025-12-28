@@ -11,6 +11,7 @@ using KazusaGI_cb2.Resource.Json.Avatar;
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -449,6 +450,41 @@ namespace KazusaGI_cb2.GameServer
 			// Directory.CreateDirectory("Test");
 			// File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
 
+		}
+
+		public static System.Numerics.Vector3 ResolveBornPosition(Entity entity, BaseBornType bornType)
+		{
+			switch (bornType)
+			{
+				case ConfigBornBySelf:
+					return new Vector3(
+						entity.Position.X + (bornType.offset?.x ?? 0),
+						entity.Position.Y + (bornType.offset?.y ?? 0),
+						entity.Position.Z + (bornType.offset?.z ?? 0));
+				case ConfigBornBySelfOwner ownerBorn:
+					if (entity is GadgetEntity gadgetEntity && gadgetEntity.session.player != null)
+					{
+						var scene = gadgetEntity.session.player.Scene;
+						var ownerEnt = scene.EntityManager.Entities.Values
+							.OfType<GadgetEntity>()
+							.FirstOrDefault(e => e._EntityId == gadgetEntity.OwnerEntityId);
+						if (ownerEnt != null)
+						{
+							return new Vector3(
+								ownerEnt.Position.X + (bornType.offset?.x ?? 0),
+								ownerEnt.Position.Y + (bornType.offset?.y ?? 0),
+								ownerEnt.Position.Z + (bornType.offset?.z ?? 0));
+						}
+						else
+						{
+							return entity.Position;
+						}
+					}
+					return entity.Position;
+				default:
+					entity.session.c.LogWarning($"Unknown born type {bornType.GetType().Name}, falling back to entity position.");
+					return entity.Position;
+			}
 		}
 	}
 }

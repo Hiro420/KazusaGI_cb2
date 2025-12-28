@@ -4,39 +4,45 @@ using Newtonsoft.Json;
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class Randomed : BaseAction
-    {
-        [JsonProperty] public readonly object chance;
-        [JsonProperty] public readonly BaseAction[] successActions;
-        [JsonProperty] public readonly BaseAction[] failActions;
+	internal sealed class Randomed : BaseAction
+	{
+		[JsonProperty("chance")]
+		private object ChanceRaw
+		{
+			set => Chance = value switch
+			{
+				float f => f,
+				double d => (float)d,
+				long l => l,
+				int i => i,
+				string s when float.TryParse(s, out var f) => f,
+				_ => 0f
+			};
+		}
+
+		[JsonIgnore]
+		public float Chance { get; private set; }
+
+		[JsonProperty("successActions")]
+		public BaseAction[] SuccessActions { get; init; } = [];
+
+		[JsonProperty("failActions")]
+		public BaseAction[] FailActions { get; init; } = [];
 
 		public override async Task Invoke(string abilityName, Entity srcEntity, Entity? targetEntity = null)
 		{
-			await Task.Yield();
+			// Ensure chance is sane
+			var chance = Math.Clamp(Chance, 0f, 1f);
 
-			float chance = Convert.ToSingle(this.chance);
-			Random rand = new Random();
+			// Random.Shared is available on modern .NET and is thread-safe.
+			var roll = (float)Random.Shared.NextDouble();
 
-			// chance is between 0 and 1
-			float roll = (float)rand.NextDouble();
-			if (roll <= chance)
+			var actions = roll <= chance ? SuccessActions : FailActions;
+
+			foreach (var action in actions)
 			{
-				// Console.WriteLine($"Randomed action succeeded (chance: {chance} / {roll})");
-				// Success
-				foreach (var action in successActions)
-				{
-					// Console.WriteLine($"Invoking success action: {action.GetType().Name}");
-					await action.Invoke(abilityName, srcEntity, targetEntity);
-				}
-			}
-			else
-			{
-				// Console.WriteLine($"Randomed action failed (chance: {chance} / {roll})");
-				// Fail
-				foreach (var action in failActions)
-				{
-					await action.Invoke(abilityName, srcEntity, targetEntity);
-				}
+				if (action is null) continue;
+				await action.Invoke(abilityName, srcEntity, targetEntity).ConfigureAwait(false);
 			}
 		}
 	}

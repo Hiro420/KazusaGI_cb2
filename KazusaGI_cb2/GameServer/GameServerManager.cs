@@ -13,7 +13,7 @@ namespace KazusaGI_cb2.GameServer;
 public class GameServerManager
 {
     public static List<Session> sessions = new List<Session>();
-	private static uint _lastTimerSecond;
+    private static uint _lastTimerSecond;
     public static void StartLoop()
     {
         Config config = MainApp.config;
@@ -87,14 +87,27 @@ public class GameServerManager
             if (now != _lastTimerSecond)
             {
                 _lastTimerSecond = now;
-                foreach (var s in sessions.ToArray())
-                {
-                    var player = s.player;
-                    if (player?.Scene != null)
+                    foreach (var s in sessions.ToArray())
                     {
-                        player.Scene.TickGadgets(now);
+                        var player = s.player;
+                        if (player?.Scene != null)
+                        {
+                            player.Scene.TickGadgets(now);
+                        }
                     }
-                }
+
+                    // hk4e calls Scene::notifyAllPlayerLocation periodically but
+                    // only sends ScenePlayerLocationNotify when there is more
+                    // than one player in the scene. Mirror that behavior here
+                    // via Scene.NotifyAllPlayerLocationIfMultiPlayer.
+                    foreach (var s in sessions.ToArray())
+                    {
+                        var player = s.player;
+                        if (player?.Scene != null)
+                        {
+                            player.Scene.NotifyAllPlayerLocationIfMultiPlayer();
+                        }
+                    }
             }
         }
     }

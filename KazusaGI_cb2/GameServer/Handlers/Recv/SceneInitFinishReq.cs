@@ -14,6 +14,16 @@ internal class HandleSceneInitFinishReq
     {
         SceneInitFinishReq req = packet.GetDecodedBody<SceneInitFinishReq>();
 
+        // Mirror hk4e: validate enter_scene_token for SceneInitFinishReq.
+        if (req.EnterSceneToken != session.player!.EnterSceneToken)
+        {
+            session.SendPacket(new SceneInitFinishRsp
+            {
+                Retcode = (int)Retcode.RetEnterSceneTokenInvalid
+            });
+            return;
+        }
+
         OnlinePlayerInfo onlinePlayerInfo = new OnlinePlayerInfo()
         {
             Uid = session.player!.Uid,

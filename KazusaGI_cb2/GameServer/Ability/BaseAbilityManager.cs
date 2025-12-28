@@ -22,7 +22,7 @@ public abstract class BaseAbilityManager
 
 	protected Dictionary<uint, float> GlobalValueHashMap = new(); // <hash, value> TODO map the hashes to variable names
 	protected Dictionary<int, ActiveModifierInfo> ActiveModifiers = new(); // <modifierLocalId, modifierInfo>
-	
+
 	// <instancedModifierId, AbilityModifierController>
 	protected readonly Dictionary<uint, AbilityModifierController> InstancedModifierMap = new();
 	protected BaseAbilityManager(Entity owner)
@@ -204,6 +204,10 @@ public abstract class BaseAbilityManager
 				break;
 			case AbilityInvokeArgument.AbilityMetaModifierDurabilityChange:
 				AbilityMetaModifierDurabilityChange info6 = Serializer.Deserialize<AbilityMetaModifierDurabilityChange>(data);
+				break;
+			case AbilityInvokeArgument.AbilityMetaSetModifierApplyEntity:
+				AbilityMetaSetModifierApplyEntityId setApplyInfo = Serializer.Deserialize<AbilityMetaSetModifierApplyEntityId>(data);
+				HandleSetModifierApplyEntity(invoke, setApplyInfo);
 				break;
 			case AbilityInvokeArgument.AbilityActionTriggerAbility:
 				AbilityActionTriggerAbility info7 = Serializer.Deserialize<AbilityActionTriggerAbility>(data);
@@ -527,6 +531,50 @@ public abstract class BaseAbilityManager
 		{
 			logger.LogError($"Failed to apply modifier: {ex.Message}");
 		}
+	}
+
+	/// <summary>
+	/// Handles AbilityMetaSetModifierApplyEntity by retargeting an existing
+	/// instanced modifier to a new apply_entity_id, mirroring hk4e's
+	/// AbilityComp::metaHandleSetModifierApplyEntityId behavior.
+	/// </summary>
+	protected virtual void HandleSetModifierApplyEntity(AbilityInvokeEntry invoke, AbilityMetaSetModifierApplyEntityId? meta)
+	{
+		if (meta == null)
+		{
+			logger.LogWarning("HandleSetModifierApplyEntity called with null meta");
+			return;
+		}
+
+		uint instancedModifierId = invoke.Head.InstancedModifierId;
+		if (instancedModifierId == 0)
+		{
+			logger.LogWarning("HandleSetModifierApplyEntity: instancedModifierId is 0");
+			return;
+		}
+
+		if (!InstancedModifierMap.TryGetValue(instancedModifierId, out var controller))
+		{
+			logger.LogWarning($"HandleSetModifierApplyEntity: unknown instancedModifierId {instancedModifierId}");
+			return;
+		}
+
+		uint newApplyEntityId = meta.ApplyEntityId;
+		controller.MetaData.ApplyEntityId = newApplyEntityId;
+
+		// Keep ActiveModifiers in sync: find the entry bound to this instanced modifier
+		// and retarget its ApplyEntityId.
+		foreach (var kv in ActiveModifiers)
+		{
+			var info = kv.Value;
+			if (info.InstancedModifierId == instancedModifierId)
+			{
+				info.ApplyEntityId = newApplyEntityId;
+				break;
+			}
+		}
+
+		logger.LogInfo($"HandleSetModifierApplyEntity: retargeted modifier {instancedModifierId} to ApplyEntityId={newApplyEntityId}");
 	}
 
 	protected virtual void ReInitOverrideMap(uint abilityNameHash, AbilityMetaReInitOverrideMap? overrideMap)

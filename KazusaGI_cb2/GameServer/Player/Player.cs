@@ -46,9 +46,12 @@ public class Player
     // Mirrors hk4e's PlayerAvatarComp::is_allow_use_skill_
     // Controls whether the client may use active skills.
     public bool IsAllowUseSkill { get; private set; } = true;
+    // Mirrors hk4e's PlayerSceneComp::enter_scene_token_. Tracks the
+    // current enter-scene token for validating EnterScene* requests.
+    public uint EnterSceneToken { get; private set; }
     private const bool IsDefaultGirl = true;
 
-	public Player(Session session, uint uid)
+    public Player(Session session, uint uid)
     {
         Name = "KazusaPS";
         Level = 60;
@@ -79,9 +82,9 @@ public class Player
     {
         var currentTeam = GetCurrentLineup();
         return currentTeam.Avatars.Any(a => a.Guid == avatarGuid);
-	}
+    }
 
-	public PlayerDataRecord ToPlayerDataRecord()
+    public PlayerDataRecord ToPlayerDataRecord()
     {
         // If for some reason teams were never initialized but we have
         // avatars, create a default team so that the DB always has a
@@ -389,30 +392,30 @@ public class Player
     }
 
     public void InitTeams()
-	{
-		for (int i = 0; i < 4; i++) // maybe later change to use config for max teams amount
-		{
-			this.teamList.Add(new PlayerTeam(session));
-		}
-	}
+    {
+        for (int i = 0; i < 4; i++) // maybe later change to use config for max teams amount
+        {
+            this.teamList.Add(new PlayerTeam(session));
+        }
+    }
 
     public void AddBasicAvatar()
     {
         uint avatarId = IsDefaultGirl ? 10000007 : 10000005;
-		PlayerAvatar playerAvatar = new(session, avatarId);
-		this.teamList[0] = new PlayerTeam(session, playerAvatar);
-		session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
-	}
+        PlayerAvatar playerAvatar = new(session, avatarId);
+        this.teamList[0] = new PlayerTeam(session, playerAvatar);
+        session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
+    }
 
 
-	public void AddAllAvatars()
+    public void AddAllAvatars()
     {
         foreach (KeyValuePair<uint, AvatarExcelConfig> avatarExcelRow in MainApp.resourceManager.AvatarExcel)
         {
             if (avatarExcelRow.Key >= 11000000 || avatarExcelRow.Key == 10000007  || avatarExcelRow.Key == 10000005) continue;
             PlayerAvatar playerAvatar = new(session, avatarExcelRow.Key);
             session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
-			AvatarAddNotify addNotify = new()
+            AvatarAddNotify addNotify = new()
             {
                 Avatar = playerAvatar.ToAvatarInfo(),
                 IsInTeam = false
@@ -452,8 +455,8 @@ public class Player
                     }
                 });
             }
-			session.SendPacket(addNotify);
-		}
+            session.SendPacket(addNotify);
+        }
     }
 
     public void AddAllWeapons()
@@ -466,11 +469,11 @@ public class Player
 
             // PlayerWeapon constructor handles adding itself to weaponDict and creating the entity
             var weapon = new PlayerWeapon(session, weaponExcelRow.Key);
-			session.SendPacket(new ItemAddHintNotify()
-			{
-				Reason = 3, // pick random one cuz doesnt matter, at least for now
-				ItemLists = { new ItemHint() { Count = 1, ItemId = weaponExcelRow.Key } }
-			});
+            session.SendPacket(new ItemAddHintNotify()
+            {
+                Reason = 3, // pick random one cuz doesnt matter, at least for now
+                ItemLists = { new ItemHint() { Count = 1, ItemId = weaponExcelRow.Key } }
+            });
             session.SendPacket(new StoreItemChangeNotify()
             {
                 StoreType = StoreType.StorePack,
@@ -478,20 +481,20 @@ public class Player
                     new Item()
                     {
                         Guid = weapon.Guid,
-						ItemId = weaponExcelRow.Key,
+                        ItemId = weaponExcelRow.Key,
                         Equip = new Equip()
                         {
                             Weapon = new Weapon()
                             {
                                 Exp = weapon.Exp,
-								Level = weapon.Level,
+                                Level = weapon.Level,
                                 PromoteLevel = weapon.PromoteLevel
-							}
-						}
+                            }
+                        }
                     }
                 }
             });
-		}
+        }
     }
 
     public void AddAllMaterials(bool isSilent = false)
@@ -524,7 +527,7 @@ public class Player
             }
         }
     }
-    
+
     public AvatarEntity? FindEntityByPlayerAvatar(Session session, PlayerAvatar playerAvatar)
     {
         List<AvatarEntity> avatarEntities = session.player.Scene.EntityManager.Entities.Values
@@ -535,6 +538,13 @@ public class Player
 
     public void SendPlayerEnterSceneInfoNotify(Session session)
     {
+        // team entity
+        if (GetCurrentLineup().teamEntity == null)
+        {
+            GetCurrentLineup().teamEntity = new TeamEntity(session);
+            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
+        }
+
         // Ensure team entity exists and keep its entity id stable across scene loads
         if (GetCurrentLineup().teamEntity == null)
         {
@@ -552,12 +562,13 @@ public class Player
 
         PlayerEnterSceneInfoNotify notify = new PlayerEnterSceneInfoNotify()
         {
+
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
             TeamEnterInfo = new TeamEnterSceneInfo()
             {
                 TeamAbilityInfo = new(),
                 TeamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam)// GetCurrentLineup().teamEntity._EntityId
-			},
+            },
             MpLevelEntityInfo = new()
             {
                 EntityId = this.MpLevelEntity._EntityId,
@@ -583,6 +594,13 @@ public class Player
 
     public void SendSyncTeamEntityNotify(Session session)
     {
+        // team entity
+        if (GetCurrentLineup().teamEntity == null)
+        {
+            GetCurrentLineup().teamEntity = new TeamEntity(session);
+            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
+        }
+
         SyncTeamEntityNotify notify = new SyncTeamEntityNotify()
         {
             SceneId = session.player.SceneId,
@@ -593,11 +611,11 @@ public class Player
                     AuthorityPeerId = this.PeerId,
                     TeamEntityId = GetCurrentLineup().teamEntity._EntityId,
                     TeamAbilityInfo = new() // todo
-				}
+                }
             }
         };
         session.SendPacket(notify);
-	}
+    }
 
     public void SendSceneTeamUpdateNotify(Session session)
     {
@@ -666,9 +684,9 @@ public class Player
         foreach (var entity in session.player.Scene.EntityManager.Entities.Values.ToList())
         {
             if (entity is MonsterEntity || entity is GadgetEntity)
-			{
-				session.player.Scene.EntityManager.Remove(entity._EntityId, Protocol.VisionType.VisionMiss);
-			}
+            {
+                session.player.Scene.EntityManager.Remove(entity._EntityId, Protocol.VisionType.VisionMiss);
+            }
         }
         
         uint oldSceneId = session.player!.SceneId;
@@ -698,7 +716,7 @@ public class Player
         this.SceneId = sceneId;
         // instantiate a fresh scene (and EntityManager) for the new scene id
         this.Scene = new Scene(session, this);
-		this.Scene.EntityManager.Add(new SceneEntity(session));
+        this.Scene.EntityManager.Add(new SceneEntity(session));
 
         // re-add core player-related entities into the new scene's entity manager
         // 1) avatars in current lineup
@@ -718,11 +736,6 @@ public class Player
             }
         }
 
-        // 2) team entity
-        if (GetCurrentLineup().teamEntity == null)
-            GetCurrentLineup().teamEntity = new TeamEntity(session);
-        Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
-
         // 3) MP level entity: reuse the single static instance and keep its entity id stable
         if (MpLevelEntity == null)
         {
@@ -730,6 +743,9 @@ public class Player
         }
         MpLevelEntity.Position = newPos;
         Scene.EntityManager.Add(MpLevelEntity);
+        // Generate a new non-zero enter-scene token for this transition,
+        // mirroring hk4e's monotonic PlayerSceneComp::enter_scene_token_.
+        EnterSceneToken = EnterSceneToken != 0 ? EnterSceneToken + 1 : 1;
 
         PlayerEnterSceneNotify enterSceneNotify = new()
         {
@@ -739,7 +755,7 @@ public class Player
             SceneBeginTime = 0,
             Type = enterType,
             PrevPos = Session.Vector3ToVector(oldPos),
-            EnterSceneToken = 69,
+            EnterSceneToken = EnterSceneToken,
             WorldLevel = 1,
             TargetUid = this.Uid
         };

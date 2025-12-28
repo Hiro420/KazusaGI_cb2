@@ -163,17 +163,18 @@ namespace KazusaGI_cb2.GameServer
 		protected virtual void OnDied(Protocol.VisionType disappearType)
 		{
 
-			// Fallback: directly notify and do not assume a backing map.
+			// Default network notifications for entity death.
 			session.SendPacket(new LifeStateChangeNotify { EntityId = _EntityId, LifeState = 2 });
 			session.SendPacket(new SceneEntityDisappearNotify
 			{
 				EntityLists = { _EntityId },
 				DisappearType = disappearType
 			});
-						// Prefer going through the owning scene's EntityManager when available.
+			// Prefer going through the owning scene's EntityManager when available,
+			// but avoid double-sending disappear packets.
 			if (session.player?.Scene != null)
 			{
-				session.player.Scene.EntityManager.Remove(_EntityId, disappearType);
+				session.player.Scene.EntityManager.Remove(_EntityId, disappearType, notifyClients: false);
 				return;
 			}
 

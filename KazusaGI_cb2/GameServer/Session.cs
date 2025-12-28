@@ -28,12 +28,13 @@ public class Session
     private static readonly List<string> blacklist = new List<string>() {  // to not flood the console
         "SceneEntityAppearNotify", "AbilityInvocationsNotify", "ClientAbilitiesInitFinishCombineNotify",
         "SceneEntitiesMovesReq", "SceneEntitiesMovesRsp", "EvtAnimatorParameterNotify", "QueryPathReq", "QueryPathRsp",
-        "EvtSetAttackTargetNotify", "PlayerStoreNotify", "ClientFpsStatusNotify", "ObstacleModifyNotify"
-	};
+        "EvtSetAttackTargetNotify", "PlayerStoreNotify", "ClientFpsStatusNotify", "ObstacleModifyNotify",
+        "ScenePlayerLocationNotify"
+    };
     private JsonSerializer _JsonConverter;
 
 
-	public Session(ENetClient client, IntPtr peer)
+    public Session(ENetClient client, IntPtr peer)
     {
         _client = client;
         _peer = peer;
@@ -50,12 +51,12 @@ public class Session
             builder.AddFile(Path.Combine(logsFolder, $"session_{_peer}.log"));
         }).CreateLogger<Session>();
 
-		_JsonConverter = new JsonSerializer
-		{
-			NullValueHandling = NullValueHandling.Ignore
-		};
-		_JsonConverter.Converters.Add(new StringEnumConverter());
-	}
+        _JsonConverter = new JsonSerializer
+        {
+            NullValueHandling = NullValueHandling.Ignore
+        };
+        _JsonConverter.Converters.Add(new StringEnumConverter());
+    }
 
     public async Task LogToFileAsync(string message)
     {
@@ -74,7 +75,7 @@ public class Session
             Type protoType = Type.GetType($"KazusaGI_cb2.Protocol.{protoName}")!;
             MethodInfo method = typeof(Packet).GetMethod(nameof(packet.GetDecodedBody))!.MakeGenericMethod(protoType);
             string jsonBody = _JsonConverter.SerializeObject(method.Invoke(packet, null)!);
-			return jsonBody;
+            return jsonBody;
         } 
         catch (Exception e)
         {
@@ -113,8 +114,26 @@ public class Session
 
     public uint GetEntityId(ProtEntityType type)
     {
+        // Prefer hk4e-style Scene::genNewEntityId when a Scene exists for this player.
+        // In hk4e this uses a per-scene index in [1, 0xFFFFFF] combined with
+        // the entity type in the high 8 bits via EntityUtils::getEntityId.
+        var scene = player?.Scene;
+        if (scene != null)
+        {
+            return scene.GenNewEntityId(type);
+        }
+
+        // Fallback for very early allocations before a Scene is attached.
+        // This preserves the same bit layout (type in high 8 bits, index in
+        // low 24 bits) but uses a simple session-local counter.
         lastEntityId++;
-        return ((uint)type << 24) + lastEntityId;
+        var index = lastEntityId & 0xFFFFFFu;
+        if (index == 0)
+        {
+            index = 1;
+            lastEntityId = 1; // keep internal counter roughly aligned
+        }
+        return ((uint)type << 24) | index;
     }
 
     public void onMessage(Packet packet)

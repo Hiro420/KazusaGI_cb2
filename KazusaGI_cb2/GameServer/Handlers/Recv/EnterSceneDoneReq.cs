@@ -14,7 +14,23 @@ internal class HandleEnterSceneDoneReq
     public static void OnPacket(Session session, Packet packet)
     {
         EnterSceneDoneReq req = packet.GetDecodedBody<EnterSceneDoneReq>();
-        SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify();
+        // Validate enter-scene token just like hk4e's Player::enterSceneDone.
+        if (req.EnterSceneToken != session.player!.EnterSceneToken)
+        {
+            session.SendPacket(new EnterSceneDoneRsp
+            {
+                Retcode = (int)Retcode.RetEnterSceneTokenInvalid
+            });
+            return;
+        }
+
+        SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify
+        {
+            // First avatar appear on scene load uses a normal "meet"
+            // vision, matching hk4e's dest_vision_type_ for standard
+            // enter-scene transitions.
+            AppearType = VisionType.VisionMeet
+        };
         List<AvatarEntity> avatarEntities = session.player.Scene.EntityManager.Entities.Values
                 .OfType<AvatarEntity>()
                 .ToList();
@@ -23,18 +39,7 @@ internal class HandleEnterSceneDoneReq
         SceneEntityInfo entityInfo = currentAvatarEntity.ToSceneEntityInfo(session);
         sceneEntityAppearNotify.EntityLists.Add(entityInfo);
         sceneEntityAppearNotify.Param = entityInfo.EntityId;
-        ScenePlayerLocationNotify scenePlayerLocationNotify = new ScenePlayerLocationNotify()
-        {
-            SceneId = session.player.SceneId
-        };
-        scenePlayerLocationNotify.PlayerLocLists.Add(new PlayerLocationInfo()
-        {
-            Uid = session.player.Uid,
-            Pos = Session.Vector3ToVector(session.player.Pos),
-            Rot = Session.Vector3ToVector(session.player.Rot),
-        });
         session.SendPacket(sceneEntityAppearNotify);
-        session.SendPacket(scenePlayerLocationNotify);
-        session.SendPacket(new EnterSceneDoneRsp());
+        session.SendPacket(new EnterSceneDoneRsp { Retcode = 0 });
     }
 }

@@ -13,6 +13,17 @@ internal class HandleEnterSceneReadyReq
     public static void OnPacket(Session session, Packet packet)
     {
         EnterSceneReadyReq req = packet.GetDecodedBody<EnterSceneReadyReq>();
+
+        // Mirror hk4e: validate enter_scene_token for the ready step.
+        if (req.EnterSceneToken != session.player!.EnterSceneToken)
+        {
+            session.SendPacket(new EnterSceneReadyRsp
+            {
+                Retcode = (int)Retcode.RetEnterSceneTokenInvalid
+            });
+            return;
+        }
+
         EnterScenePeerNotify rsp = new EnterScenePeerNotify()
         {
             PeerId = session.player!.PeerId,
@@ -21,6 +32,6 @@ internal class HandleEnterSceneReadyReq
         };
 
         session.SendPacket(rsp);
-        session.SendPacket(new EnterSceneReadyRsp());
+        session.SendPacket(new EnterSceneReadyRsp { Retcode = 0 });
     }
 }

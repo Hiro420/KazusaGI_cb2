@@ -12,7 +12,7 @@ namespace KazusaGI_cb2.GameServer;
 public class Scene
 {
     public uint SceneId => player.SceneId;
-	public Session session { get; private set; }
+    public Session session { get; private set; }
     public Player player { get; private set; }
     public EntityManager EntityManager { get; }
     public SceneLua sceneLua { get; private set; }
@@ -31,6 +31,13 @@ public class Scene
     private readonly Dictionary<(SceneGroupLua Group, uint SuiteId), SuiteMembership> _suiteCache = new(64);
     private readonly Dictionary<SceneGroupLua, uint> _groupActiveSuite = new();
     private readonly Random _random = new();
+
+    // hk4e-style per-scene entity index used by Scene::genNewEntityId.
+    // This is a simple monotonically increasing counter in the range
+    // [1, 0xFFFFFF] that is combined with the ProtEntityType in the
+    // high bits to form the final entity id.
+    private uint _nextEntityIndex = 0;
+    private readonly object _entityIdLock = new();
 
     private class SceneChallenge
     {
@@ -83,7 +90,30 @@ public class Scene
         player = _player;
         sceneLua = MainApp.resourceManager.SceneLuas[_player.SceneId];
         EntityManager = new EntityManager(session);
-	}
+    }
+
+    /// <summary>
+    /// Mirror hk4e's Scene::genNewEntityId.
+    /// In C++ this does:
+    ///   next_entity_index_ = (next_entity_index_ % 0xFFFFFF) + 1;
+    ///   return EntityUtils::getEntityId(type, next_entity_index_);
+    /// Where EntityUtils::getEntityId(type, index) is:
+    ///   return index | (type << 24);
+    /// We implement the same semantics here.
+    /// </summary>
+    public uint GenNewEntityId(ProtEntityType type)
+    {
+        lock (_entityIdLock)
+        {
+            _nextEntityIndex++;
+            if (_nextEntityIndex > 0xFFFFFF)
+            {
+                _nextEntityIndex = 1;
+            }
+
+            return ((uint)type << 24) | _nextEntityIndex;
+        }
+    }
 
     public void TickGadgets(uint now)
     {
@@ -103,6 +133,46 @@ public class Scene
         }
     }
 
+    /// <summary>
+    /// hk4e periodically broadcasts ScenePlayerLocationNotify from the
+    /// scene when there are multiple players present. Our server keeps
+    /// one Scene per Player, but we can still mirror the behavior for
+    /// future co-op by scanning all sessions for players in the same
+    /// SceneId and sending a combined notify when count &gt; 1.
+    /// </summary>
+    public void NotifyAllPlayerLocationIfMultiPlayer()
+    {
+        // If there is only one session in this scene, skip just like hk4e.
+        var sessionsInScene = GameServerManager.sessions
+            .Where(s => s.player != null && s.player.SceneId == this.SceneId)
+            .ToList();
+
+        if (sessionsInScene.Count > 1)
+            return;
+
+        var notify = new ScenePlayerLocationNotify
+        {
+            SceneId = this.SceneId
+        };
+
+        foreach (var s in sessionsInScene)
+        {
+            var p = s.player!;
+            notify.PlayerLocLists.Add(new PlayerLocationInfo
+            {
+                Uid = p.Uid,
+                Pos = Session.Vector3ToVector(p.Pos),
+                Rot = Session.Vector3ToVector(p.Rot)
+            });
+        }
+
+        // Broadcast to all players in this scene.
+        foreach (var s in sessionsInScene)
+        {
+            s.SendPacket(notify);
+        }
+    }
+
     public void EndAllChallenges()
     {
         foreach (var perGroup in _groupChallenges.Values)
@@ -113,9 +183,9 @@ public class Scene
             }
         }
         _groupChallenges.Clear();
-	}
+    }
 
-	public void UpdateOnMove()
+    public void UpdateOnMove()
     {
         if (!isFinishInit) return;
 
@@ -271,7 +341,7 @@ public class Scene
                 uint eid = _tmpDisappearIds[i];
                 disappear.EntityLists.Add(eid);
                 session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
-                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss);
+                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss, notifyClients: false);
             }
             session.SendPacket(disappear);
             _tmpDisappearIds.Clear();
@@ -374,8 +444,8 @@ public class Scene
                     if (hz <= 0f) hz = hx;
 
                     return MathF.Abs(dx) <= hx &&
-                           MathF.Abs(dy) <= hy &&
-                           MathF.Abs(dz) <= hz;
+                            MathF.Abs(dy) <= hy &&
+                            MathF.Abs(dz) <= hz;
                 }
             default:
                 {
@@ -690,7 +760,7 @@ public class Scene
                 uint eid = _tmpDisappearIds[i];
                 disappear.EntityLists.Add(eid);
                 session.SendPacket(new LifeStateChangeNotify { EntityId = eid, LifeState = 2 });
-                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss);
+                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss, notifyClients: false);
             }
             session.SendPacket(disappear);
             _tmpDisappearIds.Clear();
@@ -741,7 +811,7 @@ public class Scene
         SceneGroupLuaSuite baseSuite = GetBaseSuite(sceneGroupLua);
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
-		var appearBatches = new List<SceneEntityAppearNotify>(2);
+        var appearBatches = new List<SceneEntityAppearNotify>(2);
         SceneEntityAppearNotify current = new() { AppearType = Protocol.VisionType.VisionMeet };
 
         if (sceneGroupLua.monsters != null && membership.Monsters.Count != 0)
@@ -836,7 +906,7 @@ public class Scene
                 if (ent != null)
                 {
                     disappear.EntityLists.Add(ent._EntityId);
-                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss);
+                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss, notifyClients: false);
                 }
             }
         }
@@ -848,7 +918,7 @@ public class Scene
                 if (ent != null)
                 {
                     disappear.EntityLists.Add(ent._EntityId);
-                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss);
+                    EntityManager.Remove(ent._EntityId, Protocol.VisionType.VisionMiss, notifyClients: false);
                 }
             }
         }
@@ -868,15 +938,15 @@ public class Scene
     {
         for (int i = 0; i < Amount; i++)
         {
-			GadgetEntity gadgetEntity = new GadgetEntity(session, (uint)gadgetId, null, Session.VectorProto2Vector3(pos), Session.VectorProto2Vector3(rot));
-			var ntf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
-			ntf.EntityLists.Add(gadgetEntity.ToSceneEntityInfo());
-			session.SendPacket(ntf);
-			EntityManager.Add(gadgetEntity);
-		}
-	}
+            GadgetEntity gadgetEntity = new GadgetEntity(session, (uint)gadgetId, null, Session.VectorProto2Vector3(pos), Session.VectorProto2Vector3(rot));
+            var ntf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
+            ntf.EntityLists.Add(gadgetEntity.ToSceneEntityInfo());
+            session.SendPacket(ntf);
+            EntityManager.Add(gadgetEntity);
+        }
+    }
 
-	public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
+    public static bool IsInRange(in Vector3 a, in Vector3 b, float range)
     {
         float dx = a.X - b.X;
         float dy = a.Y - b.Y;

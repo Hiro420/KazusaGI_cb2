@@ -1,6 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using KazusaGI_cb2.GameServer;
+using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
-using KazusaGI_cb2.GameServer;
+using Newtonsoft.Json;
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
@@ -12,7 +13,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
         [JsonProperty] public readonly bool lethal;
         [JsonProperty] public readonly float? limboByTargetMaxHPRatio;
 
-        public override async Task Invoke(string abilityName, Entity avatarr, Entity? enemyTarget = null)
+        public override async Task Invoke(AbilityInvokeEntry invoke,string abilityName, Entity avatarr, Entity? enemyTarget = null)
         {
             if (!(avatarr is AvatarEntity avatar)) return;
             //if (!doOffStage && avatar.abilityManager.Owner.TeamManager.GetCurrentAvatarEntity() != avatar) return;

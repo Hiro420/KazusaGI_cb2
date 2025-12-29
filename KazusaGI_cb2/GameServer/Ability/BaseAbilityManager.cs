@@ -125,7 +125,7 @@ public abstract class BaseAbilityManager
 			if (entity2invoke == null)
 				entity2invoke = Owner;
 
-			await invocation.Invoke(ability.abilityName, entity2invoke);
+			await invocation.Invoke(invoke, ability.abilityName, entity2invoke, null);
 
 			return;
 		}
@@ -452,27 +452,77 @@ public abstract class BaseAbilityManager
 			uint abilityHash;
 			if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out abilityHash))
 			{
-				// hk4e: when instancedAbilityId is not cached, find the first
-				// ability in this manager that has a modifier with the given
-				// config local id and bind it.
-				uint configLocalId = (uint)invoke.Head.ModifierConfigLocalId;
+				// Preferred hk4e-style path: use the parent ability name / override
+				// carried in AbilityMetaModifierChange to find the config, then
+				// bind this instancedAbilityId to that ability's hash.
+				uint parentHash = 0;
+				string? parentNameStr = null;
+				string? parentOverrideStr = null;
+
+				if (modifierChange.ParentAbilityOverride != null)
+				{
+					parentOverrideStr = modifierChange.ParentAbilityOverride.Str;
+					if (modifierChange.ParentAbilityOverride.Hash != 0)
+						parentHash = modifierChange.ParentAbilityOverride.Hash;
+					else if (!string.IsNullOrEmpty(parentOverrideStr))
+						parentHash = GameServer.Ability.Utils.AbilityHash(parentOverrideStr);
+				}
+
+				if (parentHash == 0 && modifierChange.ParentAbilityName != null)
+				{
+					parentNameStr = modifierChange.ParentAbilityName.Str;
+					if (modifierChange.ParentAbilityName.Hash != 0)
+						parentHash = modifierChange.ParentAbilityName.Hash;
+					else if (!string.IsNullOrEmpty(parentNameStr))
+						parentHash = GameServer.Ability.Utils.AbilityHash(parentNameStr);
+				}
+
 				ConfigAbility? matchedAbility = null;
 				uint matchedHash = 0;
 
-				foreach (var kv in ConfigAbilityHashMap)
+				// 1) If we could resolve a parent ability hash, prefer that.
+				if (parentHash != 0)
 				{
-					if (kv.Value?.ModifierList != null &&
-						kv.Value.ModifierList.ContainsKey(configLocalId))
+					// Try local map first.
+					if (!ConfigAbilityHashMap.TryGetValue(parentHash, out matchedAbility) || matchedAbility == null)
 					{
-						matchedHash = kv.Key;
-						matchedAbility = kv.Value;
-						break;
+						// Fallback to global config map.
+						if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
+							MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(parentHash, out var globalCfg) &&
+							globalCfg != null)
+						{
+							matchedAbility = globalCfg;
+							ConfigAbilityHashMap[parentHash] = globalCfg;
+						}
+					}
+
+					if (matchedAbility != null)
+					{
+						matchedHash = parentHash;
+					}
+				}
+
+				// 2) Fallback: scan abilities for one that has a modifier entry
+				// at this config local id, like hk4e does when only the index
+				// is known.
+				if (matchedHash == 0)
+				{
+					uint configLocalId = (uint)invoke.Head.ModifierConfigLocalId;
+					foreach (var kv in ConfigAbilityHashMap)
+					{
+						if (kv.Value?.ModifierList != null &&
+							kv.Value.ModifierList.ContainsKey(configLocalId))
+						{
+							matchedHash = kv.Key;
+							matchedAbility = kv.Value;
+							break;
+						}
 					}
 				}
 
 				if (matchedHash == 0)
 				{
-					logger.LogWarning($"No ability found with ModifierConfigLocalId={configLocalId} for instancedAbilityId {instancedAbilityId}");
+					logger.LogWarning($"No ability found for modifier (parentHash={parentHash:X}, ModifierConfigLocalId={invoke.Head.ModifierConfigLocalId}) instancedAbilityId {instancedAbilityId}");
 					return;
 				}
 

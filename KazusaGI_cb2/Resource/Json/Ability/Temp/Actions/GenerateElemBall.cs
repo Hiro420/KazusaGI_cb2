@@ -2,6 +2,7 @@
 using KazusaGI_cb2.GameServer;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.Protocol;
+using ProtoBuf;
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
 
@@ -13,11 +14,13 @@ public class GenerateElemBall : BaseAction
     [JsonProperty] public readonly object ratio;
     [JsonProperty] public readonly object baseEnergy;
 
-    public override async Task Invoke(string abilityName, Entity srcEntity, Entity? targetEntity = null)
+    public override async Task Invoke(AbilityInvokeEntry invoke, string abilityName, Entity srcEntity, Entity? targetEntity = null)
     {
         try
         {
-            if (srcEntity is GadgetEntity gadget && gadget.OwnerEntityId != 0)
+			AbilityActionGenerateElemBall generateElemBall = Serializer.Deserialize<AbilityActionGenerateElemBall>(new MemoryStream(invoke.AbilityData));
+
+			if (srcEntity is GadgetEntity gadget && gadget.OwnerEntityId != 0)
             {
                 Entity? ownerEntity = null;
                 gadget.session.player.Scene.EntityManager?.TryGet(gadget.OwnerEntityId, out ownerEntity);
@@ -35,7 +38,7 @@ public class GenerateElemBall : BaseAction
 
             logger.LogSuccess($"Generating Elem Ball for Avatar ID {avatar.DbInfo.AvatarId} using Ability {abilityName}");
 
-            avatar.GenerateElemBallByAbility(this);
+            avatar.GenerateElemBallByAbility(this, generateElemBall);
         }
         catch (Exception ex)
         {

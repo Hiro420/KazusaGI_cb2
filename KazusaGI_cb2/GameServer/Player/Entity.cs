@@ -149,6 +149,7 @@ namespace KazusaGI_cb2.GameServer
 				info.AnimatorParaMaps[kv.Key] = kv.Value;
 			if (CachedRendererChangedInfo != null)
 				info.RendererChangedInfo = CachedRendererChangedInfo;
+
 			return info;
 		}
 

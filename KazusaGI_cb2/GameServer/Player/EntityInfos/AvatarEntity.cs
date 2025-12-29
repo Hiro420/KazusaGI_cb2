@@ -49,7 +49,7 @@ namespace KazusaGI_cb2.GameServer
 		public SceneEntityInfo ToSceneEntityInfo(Session session) =>
 			base.ToSceneEntityInfo(session.player!.Pos, session.player!.Rot);
 
-		public void GenerateElemBallByAbility(GenerateElemBall info)
+		public void GenerateElemBallByAbility(GenerateElemBall info, AbilityActionGenerateElemBall generateElemBall)
 		{
 			// Default to an elementless particle.
 			int cfgId = Convert.ToInt32(info.configID);
@@ -80,8 +80,8 @@ namespace KazusaGI_cb2.GameServer
 			session.player.Scene.GenerateParticles(
 				gadgetId, 
 				amount, 
-				Session.Vector3ToVector(session.player!.Pos),
-				Session.Vector3ToVector(session.player!.Rot)
+				generateElemBall.Pos,
+				generateElemBall.Rot
 			);
 		}
 

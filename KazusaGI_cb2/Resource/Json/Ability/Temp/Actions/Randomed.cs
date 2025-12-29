@@ -29,7 +29,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 		[JsonProperty("failActions")]
 		public BaseAction[] FailActions { get; init; } = [];
 
-		public override async Task Invoke(string abilityName, Entity srcEntity, Entity? targetEntity = null)
+		public override async Task Invoke(AbilityInvokeEntry invoke, string abilityName, Entity srcEntity, Entity? targetEntity = null)
 		{
 			// Ensure chance is sane
 			var chance = Math.Clamp(Chance, 0f, 1f);
@@ -42,7 +42,7 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 			foreach (var action in actions)
 			{
 				if (action is null) continue;
-				await action.Invoke(abilityName, srcEntity, targetEntity).ConfigureAwait(false);
+				await action.Invoke(invoke, abilityName, srcEntity, targetEntity).ConfigureAwait(false);
 			}
 		}
 	}

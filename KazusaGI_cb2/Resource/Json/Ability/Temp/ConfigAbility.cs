@@ -137,13 +137,13 @@ public class ConfigAbility : BaseConfigAbility
         }
 
         ModifierList = new();
-        // The game indexes modifiers in a deterministic order
-        // (alphabetical by modifier name). To match the wire
-        // "modifier_local_id" values and hk4e's modifier_vec,
-        // sort by key and then process each modifier sequentially.
-        var modifierArray = modifiers
-            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
-            .ToArray();
+        // IMPORTANT: hk4e's modifier_config_local_id indexes the
+        // modifier array in the same order as defined in the
+        // compiled config (and thus in our JSON). Do NOT reorder
+        // by name here; preserve the original declaration order
+        // so that configLocalId -> modifier mapping stays 1:1
+        // with hk4e.
+        var modifierArray = modifiers.ToArray();
 
         ushort modifierIndex = 0;
         for (uint i = 0; i < modifierArray.Length; i++)

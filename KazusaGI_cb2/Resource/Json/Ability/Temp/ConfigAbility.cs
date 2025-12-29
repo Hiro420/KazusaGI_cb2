@@ -1,9 +1,14 @@
-﻿using System.Collections.Concurrent;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using KazusaGI_cb2.Resource;
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp;
 
+/// <summary>
+/// C# analogue of hk4e's ConfigAbilityImpl. This class is responsible for
+/// building the sequential invoke-site list (invoke_site_vec) and the
+/// modifier vector (modifier_vec) used by the runtime. The client-provided
+/// LocalId is treated purely as an index into InvokeSiteList.
+/// </summary>
 public class ConfigAbility : BaseConfigAbility
 {
     [JsonProperty] public readonly string abilityName;
@@ -20,178 +25,158 @@ public class ConfigAbility : BaseConfigAbility
     [JsonProperty] public readonly BaseAction[]? onDetach;
     [JsonProperty] public readonly BaseAction[]? onAvatarIn;
     [JsonProperty] public readonly BaseAction[]? onAvatarOut;
-    [JsonProperty] public readonly bool isDynamicAbility; // if true, disable this ability by default. Enable via ConfigTalent AddAbility     
+    [JsonProperty] public readonly bool isDynamicAbility; // if true, disable this ability by default. Enable via ConfigTalent AddAbility
 
-    [JsonIgnore] public ConcurrentDictionary<uint, IInvocation> LocalIdToInvocationMap;
-    [JsonIgnore] public SortedList<uint, AbilityModifier> ModifierList;
+    /// <summary>
+    /// modifier_config_local_id -&gt; modifier config. Index (0..N-1) is the
+    /// same ordering hk4e uses when building modifier_vec: modifiers are
+    /// sorted lexicographically by name.
+    /// </summary>
+    [JsonIgnore] public SortedList<uint, AbilityModifier> ModifierList { get; private set; } = new();
 
-    // Sequential invoke-site list mirroring hk4e's ConfigAbilityImpl::invoke_site_vec.
-    // Head.LocalId from the client is treated as an index into this list.
-    [JsonIgnore] public List<IInvocation> InvokeSiteList = new();
+    /// <summary>
+    /// Sequential invoke-site list (invoke_site_vec). For a given ability
+    /// instance, the client sends a LocalId which is an index into this list.
+    /// </summary>
+    [JsonIgnore] public List<IInvocation> InvokeSiteList { get; private set; } = new();
 
-    internal async Task Initialize()
+    internal Task Initialize()
     {
-        // DO NOT CHANGE THE ORDER OF HOW WE BUILD LOCAL IDS.
-        // LocalIdToInvocationMap is still populated for debugging and
-        // for modifier-related lookups, but the primary dispatch now
-        // uses InvokeSiteList with sequential indices to match hk4e's
-        // invoke_site_vec behavior.
+        // Rebuild invoke_site_vec and modifier_vec from scratch every time
+        // to keep this method idempotent.
+        InvokeSiteList.Clear();
+        ModifierList.Clear();
 
-        LocalIdToInvocationMap = new();
-        InvokeSiteList = new();
+        BuildAbilitySubActions();
+        BuildAbilitySubMixins();
+        BuildModifiers();
 
-        // Mirror hk4e's ConfigAbilityImpl initialization order:
-        // 1) ability sub-actions
-        // 2) ability sub-mixins
-        // 3) modifier sub-actions and sub-mixins
-        await InitializeActionIds();
-        await InitializeMixinIds();
-        await InitializeModifierIds();
+        return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Dumps the invoke_site_vec for debugging: shows index -&gt; invocation type.
+    /// </summary>
     public void DebugAbility(Logger logger)
     {
-		//Console.WriteLine(JsonConvert.SerializeObject(ModifierList, Formatting.Indented));
-		foreach (var kvp in LocalIdToInvocationMap)
-		{
-			uint localId = kvp.Key;
-			var (type, s3, s9, s15, s21) = LocalIdGenerator.DecodeLocalId(localId);
-
-			switch (type)
-			{
-				case ConfigAbilitySubContainerType.ACTION:
-					logger.LogWarning(
-						$"LocalId {localId} -> Action: ConfigIndex={s3} [{ConfigIndexAction.GetValueOrDefault(s3, "?")}] | ActionIndex={s9} | Invocation={kvp.Value.GetType().Name}");
-					break;
-
-				case ConfigAbilitySubContainerType.MIXIN:
-					logger.LogWarning(
-						$"LocalId {localId} -> Mixin: MixinIndex={s3} | ConfigIndex={s9} [?] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
-					break;
-
-				case ConfigAbilitySubContainerType.MODIFIER_ACTION:
-					logger.LogWarning(
-						$"LocalId {localId} -> ModifierAction: ModifierIndex={s3} | ConfigIndex={s9} [{ConfigIndexModifier.GetValueOrDefault(s9, "?")}] | ActionIndex={s15} | Invocation={kvp.Value.GetType().Name}");
-					break;
-
-				case ConfigAbilitySubContainerType.MODIFIER_MIXIN:
-					logger.LogWarning(
-						$"LocalId {localId} -> ModifierMixin: ModifierIndex={s3} | MixinIndex={s9} | ConfigIndex={s15} [?] | ActionIndex={s21} | Invocation={kvp.Value.GetType().Name}");
-					break;
-
-				default:
-					logger.LogWarning(
-						$"LocalId {localId} -> Unsupported type {(int)type}: s={(int)type}, s3={s3}, s9={s9}, s15={s15}, s21={s21}");
-					break;
-			}
-		}
-	}
-
-    private async Task InitializeActionIds()
-    {
-        await Task.Yield();
-        LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.ACTION);
-        idGenerator.InitializeActionLocalIds(onAdded, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onRemoved, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAbilityStart, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onKill, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onFieldEnter, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onFieldExit, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAttach, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onDetach, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAvatarIn, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onAvatarOut, LocalIdToInvocationMap, InvokeSiteList);
-        idGenerator.ConfigIndex++;
-    }
-
-    private async Task InitializeMixinIds()
-    {
-        if (abilityMixins == null)
+        logger.LogInfo($"Ability '{abilityName}' invoke sites (count={InvokeSiteList.Count}):");
+        for (int i = 0; i < InvokeSiteList.Count; i++)
         {
-            return;
+            var inv = InvokeSiteList[i];
+            logger.LogInfo($"  [{i}] {inv.GetType().Name}");
         }
 
-        LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.MIXIN);
-        for (uint i = 0; i < abilityMixins.Length; i++)
+        if (ModifierList.Count > 0)
         {
-            idGenerator.ConfigIndex = 0;
-            await abilityMixins[i].Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
-            idGenerator.MixinIndex++;
-        }
-    }
-
-    private async Task InitializeModifierIds()
-    {
-        if (modifiers == null)
-        {
-            return;
-        }
-
-        ModifierList = new();
-        // IMPORTANT: hk4e's modifier_config_local_id indexes the
-        // modifier array in the same order as defined in the
-        // compiled config (and thus in our JSON). Do NOT reorder
-        // by name here; preserve the original declaration order
-        // so that configLocalId -> modifier mapping stays 1:1
-        // with hk4e.
-        var modifierArray = modifiers.ToArray();
-
-        ushort modifierIndex = 0;
-        for (uint i = 0; i < modifierArray.Length; i++)
-        {
-            LocalIdGenerator idGenerator = new(ConfigAbilitySubContainerType.NONE)
+            logger.LogInfo($"Ability '{abilityName}' modifiers (modifier_config_local_id -&gt; name):");
+            foreach (var kv in ModifierList)
             {
-                ModifierIndex = modifierIndex
-            };
-
-            ModifierList[i] = modifierArray[i].Value;
-            await modifierArray[i].Value.Initialize(idGenerator, LocalIdToInvocationMap, InvokeSiteList);
-            modifierIndex++;
+                logger.LogInfo($"  [{kv.Key}] {kv.Value.modifierName}");
+            }
         }
     }
 
-    private static readonly Dictionary<int, string> ConfigIndexAction = new()
+    private void BuildAbilitySubActions()
     {
-        [0] = "onAdded",
-        [1] = "onRemoved",
-        [2] = "onAbilityStart",
-        [3] = "onKill",
-        [4] = "onFieldEnter",
-        [5] = "onFieldExit",
-        [6] = "onAttach",
-        [7] = "onDetach",
-        [8] = "onAvatarIn",
-        [9] = "onAvatarOut",
-    };
+        // Mirror hk4e's iterateAbilitySubActions ordering.
+        AddActionContainer(onAdded);
+        AddActionContainer(onRemoved);
+        AddActionContainer(onAbilityStart);
+        AddActionContainer(onKill);
+        AddActionContainer(onFieldEnter);
+        AddActionContainer(onFieldExit);
+        AddActionContainer(onAttach);
+        AddActionContainer(onDetach);
+        AddActionContainer(onAvatarIn);
+        AddActionContainer(onAvatarOut);
+    }
 
-    private static readonly Dictionary<int, string> ConfigIndexModifier = new()
+    private void BuildAbilitySubMixins()
     {
-        [0] = "onAdded",
-        [1] = "onRemoved",
-        [2] = "onBeingHit",
-        [3] = "onAttackLanded",
-        [4] = "onHittingOther",
-        [5] = "onThinkInterval",
-        [6] = "onKill",
-        [7] = "onCrash",
-        [8] = "onAvatarIn",
-        [9] = "onAvatarOut",
-        [10] = "onReconnect",
-        [11] = "onChangeAuthority",
-        [12] = "onVehicleIn",
-        [13] = "onVehicleOut",
-        [14] = "onZoneEnter",
-        [15] = "onZoneExit",
-        [16] = "onHeal",
-        [17] = "onBeingHealed"
-    };
+        if (abilityMixins == null || abilityMixins.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var mixin in abilityMixins)
+        {
+            if (mixin != null)
+            {
+                InvokeSiteList.Add(mixin);
+            }
+        }
+    }
+
+    private void BuildModifiers()
+    {
+        if (modifiers == null || modifiers.Count == 0)
+        {
+            return;
+        }
+
+        // Build the sorted modifier name vector like hk4e's onLoaded:
+        // take all keys, sort lexicographically, then map index -&gt; modifier.
+        var names = modifiers.Keys
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToArray();
+
+        for (uint i = 0; i < names.Length; i++)
+        {
+            var name = names[i];
+            if (!modifiers.TryGetValue(name, out var modifier) || modifier == null)
+            {
+                continue;
+            }
+
+            // Index i is the modifier_config_local_id.
+            ModifierList.Add(i, modifier);
+
+            AppendModifierInvokeSites(modifier);
+        }
+    }
+
+    private void AddActionContainer(BaseAction[]? actions)
+    {
+        if (actions == null || actions.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var action in actions)
+        {
+            if (action != null)
+            {
+                InvokeSiteList.Add(action);
+            }
+        }
+    }
+
+    private void AppendModifierInvokeSites(AbilityModifier modifier)
+    {
+        // Mirror hk4e's iterateModifierSubActions ordering.
+        AddActionContainer(modifier.onAdded);
+        AddActionContainer(modifier.onRemoved);
+        AddActionContainer(modifier.onBeingHit);
+        AddActionContainer(modifier.onAttackLanded);
+        AddActionContainer(modifier.onHittingOther);
+        AddActionContainer(modifier.onThinkInterval);
+        AddActionContainer(modifier.onKill);
+        AddActionContainer(modifier.onCrash);
+        AddActionContainer(modifier.onAvatarIn);
+        AddActionContainer(modifier.onAvatarOut);
+
+        // Then mixins (iterateModifierSubMixins).
+        if (modifier.modifierMixins == null || modifier.modifierMixins.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var mixin in modifier.modifierMixins)
+        {
+            if (mixin != null)
+            {
+                InvokeSiteList.Add(mixin);
+            }
+        }
+    }
 }

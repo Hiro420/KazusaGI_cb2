@@ -47,25 +47,20 @@ public abstract class BaseAbilityManager
 		}
 
 		// Ensure all config abilities used by this manager have their
-		// LocalIdToInvocationMap / ModifierList initialized, mirroring
-		// hk4e's creation of ConfigAbilityImpl & invoke_site_vec.
+		// invoke_site_vec (InvokeSiteList) and ModifierList built.
 		foreach (var kvp in ConfigAbilityHashMap)
 		{
 			var configAbility = kvp.Value;
 			if (configAbility == null)
 				continue;
 
-			// If initialization has not run (maps still null), run it now.
-			if (configAbility.LocalIdToInvocationMap == null || configAbility.ModifierList == null)
+			try
 			{
-				try
-				{
-					configAbility.Initialize().GetAwaiter().GetResult();
-				}
-				catch (Exception ex)
-				{
-					logger.LogError($"Failed to initialize ConfigAbility '{configAbility.abilityName}' for hash {kvp.Key}: {ex.Message}");
-				}
+				configAbility.Initialize().GetAwaiter().GetResult();
+			}
+			catch (Exception ex)
+			{
+				logger.LogError($"Failed to initialize ConfigAbility '{configAbility.abilityName}' for hash {kvp.Key}: {ex.Message}");
 			}
 		}
 	}
@@ -80,43 +75,25 @@ public abstract class BaseAbilityManager
 				$"ArgumentType={invoke.ArgumentType}, EntityId={invoke.EntityId}, TargetId={invoke.Head.TargetId}");
 
 			// Mirror hk4e's serverCommonInvokeHandler/commonInvokeEntryDispatch:
-			// resolve (ability, modifier) first, then dispatch by LocalId.
-			//
-			// Primary path: use the bit-packed LocalIdToInvocationMap that
-			// is built by LocalIdGenerator / ConfigAbility. This matches
-			// hk4e where the client sends packed ids.
-			//
-			// Fallback: for older/partial configs where only InvokeSiteList
-			// was relied on, treat LocalId as a simple index when in range.
+			// resolve (ability, modifier) first, then treat LocalId as a pure
+			// index into the ability's invoke_site_vec (InvokeSiteList).
 			if (!TryResolveAbilityForInvoke(invoke, out var ability, out var modifierController))
 			{
 				return;
 			}
+
 			int localId = invoke.Head.LocalId;
-			IInvocation? invocation = null;
-			bool resolved = false;
-			// 1) Try packed-id lookup first.
-			if (ability.LocalIdToInvocationMap != null &&
-				ability.LocalIdToInvocationMap.TryGetValue((uint)localId, out var mapped))
+			if (localId < 0 || localId >= ability.InvokeSiteList.Count)
 			{
-				invocation = mapped;
-				resolved = true;
-			}
-			// 2) Fallback: interpret LocalId as a simple index.
-			else if (ability.InvokeSiteList != null && localId >= 0 && localId < ability.InvokeSiteList.Count)
-			{
-				invocation = ability.InvokeSiteList[localId];
-				resolved = true;
-				logger.LogInfo($"HandleAbilityInvokeAsync: falling back to InvokeSiteList index for localId={localId} on ability {ability.abilityName}");
-			}
-			if (!resolved || invocation == null)
-			{
-				logger.LogWarning($"Invalid invoke-site localId={localId} for ability {ability.abilityName} (instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.InvokeSiteList?.Count ?? 0})");
+				logger.LogWarning($"Invalid invoke-site LocalId={localId} for ability {ability.abilityName} " +
+					$"(instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.InvokeSiteList.Count})");
 				ability.DebugAbility(logger);
 				return;
 			}
 
-			logger.LogSuccess($"Invoking ability: {ability.abilityName}, localId: {localId} | {invocation.GetType().Name}");
+			var invocation = ability.InvokeSiteList[localId];
+
+			logger.LogSuccess($"Invoking ability: {ability.abilityName}, LocalId: {localId} | {invocation.GetType().Name}");
 			Entity? entity2invoke = null;
 			EntityManager entityManager = Owner.session.player.Scene.EntityManager;
 
@@ -349,13 +326,10 @@ public abstract class BaseAbilityManager
 				return false;
 			}
 
-			// Ensure invoke/mixin/modifier indices are ready, then bind into this manager.
+			// Ensure invoke_site_vec and modifier indices are ready, then bind into this manager.
 			try
 			{
-				if (configAbility.LocalIdToInvocationMap == null || configAbility.ModifierList == null)
-				{
-					configAbility.Initialize().GetAwaiter().GetResult();
-				}
+				configAbility.Initialize().GetAwaiter().GetResult();
 				ConfigAbilityHashMap[abilityHash] = configAbility;
 				logger.LogInfo($"TryResolveAbilityForInvoke: bound global ConfigAbility '{configAbility.abilityName}' to hash {abilityHash} for instancedAbilityId {instancedAbilityId}.");
 			}
@@ -480,23 +454,13 @@ public abstract class BaseAbilityManager
 				ConfigAbility? matchedAbility = null;
 				uint matchedHash = 0;
 
-				// 1) If we could resolve a parent ability hash, prefer that.
+				// 1) If we could resolve a parent ability hash, prefer that, but only
+				// if this manager actually knows about that ability. We *do not*
+				// pull arbitrary configs from the global map here, to avoid binding
+				// avatar-only abilities (e.g. Avatar_Venti_WindBlade) to monsters.
 				if (parentHash != 0)
 				{
-					// Try local map first.
-					if (!ConfigAbilityHashMap.TryGetValue(parentHash, out matchedAbility) || matchedAbility == null)
-					{
-						// Fallback to global config map.
-						if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
-							MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(parentHash, out var globalCfg) &&
-							globalCfg != null)
-						{
-							matchedAbility = globalCfg;
-							ConfigAbilityHashMap[parentHash] = globalCfg;
-						}
-					}
-
-					if (matchedAbility != null)
+					if (ConfigAbilityHashMap.TryGetValue(parentHash, out matchedAbility) && matchedAbility != null)
 					{
 						matchedHash = parentHash;
 					}
@@ -543,13 +507,10 @@ public abstract class BaseAbilityManager
 					return;
 				}
 
-				// Ensure local invoke / modifier indices are initialized before use.
+				// Ensure local invoke_site_vec / modifier indices are initialized before use.
 				try
 				{
-					if (ability.LocalIdToInvocationMap == null || ability.ModifierList == null)
-					{
-						ability.Initialize().GetAwaiter().GetResult();
-					}
+					ability.Initialize().GetAwaiter().GetResult();
 					ConfigAbilityHashMap[abilityHash] = ability;
 				}
 				catch (Exception ex)
@@ -732,10 +693,7 @@ public abstract class BaseAbilityManager
 				try
 				{
 					// Make sure invoke/mixin/modifier indices are ready for this ability.
-					if (globalConfig.LocalIdToInvocationMap == null || globalConfig.ModifierList == null)
-					{
-						globalConfig.Initialize().GetAwaiter().GetResult();
-					}
+					globalConfig.Initialize().GetAwaiter().GetResult();
 
 					ConfigAbilityHashMap[hash] = globalConfig;
 					logger.LogInfo($"AddAbility: bound global ConfigAbility '{globalConfig.abilityName}' to hash {hash} for instancedId {instancedId}.");

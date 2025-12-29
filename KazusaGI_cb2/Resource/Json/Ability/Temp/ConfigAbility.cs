@@ -15,7 +15,7 @@ public class ConfigAbility : BaseConfigAbility
     [JsonProperty] public readonly BaseAction[]? onAbilityStart;
     [JsonProperty] public readonly BaseAction[]? onKill;
     [JsonProperty] public readonly BaseAction[]? onFieldEnter;
-    [JsonProperty] public readonly BaseAction[]? onExit;
+    [JsonProperty] public readonly BaseAction[]? onFieldExit;
     [JsonProperty] public readonly BaseAction[]? onAttach;
     [JsonProperty] public readonly BaseAction[]? onDetach;
     [JsonProperty] public readonly BaseAction[]? onAvatarIn;
@@ -101,7 +101,7 @@ public class ConfigAbility : BaseConfigAbility
         idGenerator.ConfigIndex++;
         idGenerator.InitializeActionLocalIds(onFieldEnter, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
-        idGenerator.InitializeActionLocalIds(onExit, LocalIdToInvocationMap, InvokeSiteList);
+        idGenerator.InitializeActionLocalIds(onFieldExit, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;
         idGenerator.InitializeActionLocalIds(onAttach, LocalIdToInvocationMap, InvokeSiteList);
         idGenerator.ConfigIndex++;

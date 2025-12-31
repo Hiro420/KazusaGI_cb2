@@ -35,18 +35,47 @@ public class ScriptLib
         Log("Called GetGroupMonsterCount");
         return currentSession.player.Scene.EntityManager.Entities.Values
             .Where(e => e is MonsterEntity monster &&
-                        monster._monsterInfo != null &&
-                        monster._monsterInfo.group_id == currentGroupId)
+                monster.Hp > 0 &&
+				monster._monsterInfo != null &&
+                monster._monsterInfo.group_id == currentGroupId)
             .Count();
     }
 
-    public int GetGatherConfigIdList(Session session)
+    public int GetContextGadgetConfigId(Session session)
+    {
+        Log("Called GetContextGadgetConfigId");
+        if (currentGadget == null || currentGadget._gadgetLua == null)
+        {
+            Log("GetContextGadgetConfigId called with no current gadget");
+            return -1;
+        }
+        return (int)currentGadget._gadgetLua.config_id;
+	}
+
+    public int GetContextGroupId(Session session)
+    {
+        Log("Called GetContextGroupId");
+        return currentGroupId;
+	}
+
+	public int GetGatherConfigIdList(Session session)
     {
         Log("Called GetGatherConfigIdList");
 
-        // todo: implement
+        foreach (GadgetEntity gadgetEntity in currentSession.player.Scene.EntityManager.Entities.Values
+            .Where(e => e is GadgetEntity g && g.gadgetExcel != null)
+            .Cast<GadgetEntity>())
+        {
+            GatherExcelConfig? gatherConfig = MainApp.resourceManager.GatherExcel.FirstOrDefault(i =>
+                i.Value.gadgetId == gadgetEntity._gadgetId
+            ).Value;
+            if (gatherConfig != null)
+            {
+                return (int)gatherConfig.id;
+            }
+		}
 
-        return 0;
+		return 0;
     }
 
     public int TowerMirrorTeamSetUp(Session session, int tower_team_id)
@@ -135,7 +164,14 @@ public class ScriptLib
         return (int)currentGadget._gadgetLua.state;
     }
 
-    public int SetGadgetState(Session session, int state)
+    public int PrintLog(Session session, string msg)
+    {
+        Log($"PrintLog: {msg}");
+        return 0;
+	}
+
+
+	public int SetGadgetState(Session session, int state)
     {
         if (currentGadget == null)
         {
@@ -448,7 +484,19 @@ public class ScriptLib
         return 0;
     }
 
-    public int SetGroupGadgetStateByConfigId(Session session, int group_id, int config_id, int _state)
+    public int SetGadgetEnableInteract(Session session, int group_id, int gadget_config_id, bool enable)
+    {
+        Log("Called SetGadgetEnableInteract");
+        IEnumerable<Entity> entities = currentSession.player.Scene.EntityManager.Entities.Values
+            .Where(e => e is GadgetEntity gadget &&
+                        gadget._gadgetLua != null &&
+                        gadget._gadgetLua.config_id == gadget_config_id);
+        foreach (GadgetEntity gadget in entities)
+            gadget.SetEnableInteract(enable);
+        return 0;
+	}
+
+	public int SetGroupGadgetStateByConfigId(Session session, int group_id, int config_id, int _state)
     {
         Log("Called SetGroupGadgetStateByConfigId");
         GadgetState state = (GadgetState)_state;
@@ -759,7 +807,82 @@ public class ScriptLib
         return 0;
     }
 
-    public int BeginCameraSceneLook(Session session, object _lookInfo)
+    public int KillEntityByConfigId(Session session, object _config)
+    {
+        Log("Called KillEntityByConfigId");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+        LuaTable? config = _config as LuaTable;
+        if (config == null)
+            return -1;
+        int configId;
+        try
+        {
+            configId = (int)(long)config["config_id"];
+        }
+        catch
+        {
+            return -1;
+        }
+        int groupId = currentGroupId;
+        try
+        {
+            if (config["group_id"] != null)
+            {
+                groupId = (int)(long)config["group_id"];
+            }
+        }
+        catch
+        {
+            // ignore, fall back to currentGroupId
+        }
+        var scene = player.Scene;
+        var entitiesToRemove = scene.EntityManager.Entities.Values
+            .Where(e =>
+                (e is MonsterEntity monster &&
+                 monster._monsterInfo != null &&
+                 monster._monsterInfo.group_id == groupId &&
+                 monster._monsterInfo.config_id == (uint)configId)
+                ||
+                (e is GadgetEntity gadget &&
+                 gadget._gadgetLua != null &&
+                 gadget._gadgetLua.group_id == groupId &&
+                 gadget._gadgetLua.config_id == configId))
+            .ToList();
+        foreach (var entity in entitiesToRemove)
+        {
+            entity.ForceKill();
+		}
+        return 0;
+	}
+
+    public int SetMonsterBattleByGroup(Session session, int is_alert, int config_id, int group_id)
+    {
+        Log("Called SetMonsterBattleByGroup");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+            return -1;
+        var scene = player.Scene;
+        var monsters = scene.EntityManager.Entities.Values
+            .Where(e => e is MonsterEntity monster &&
+                        monster._monsterInfo != null &&
+                        monster._monsterInfo.group_id == group_id &&
+                        monster._monsterInfo.config_id == config_id)
+            .Cast<MonsterEntity>()
+            .ToList();
+        foreach (var monster in monsters)
+        {
+            player.Session.SendPacket(new MonsterForceAlertNotify()
+            {
+                MonsterEntityId = monster._EntityId,
+                IsAlert = is_alert != 0
+			});
+		}
+        return 0;
+	}
+
+	public int BeginCameraSceneLook(Session session, object _lookInfo)
     {
         Log("Called BeginCameraSceneLook");
         // todo

@@ -83,6 +83,7 @@ class Handlers{
 ### Personal TODO List
 - fix all abilities to be tracked properly
 - improve ScriptLib (complex stuff like challenges)
+- StartPlatform, StopPlatform
 - tower (Spiral Abyss)
 - NOT load quest-related lua groups
 - add relics

@@ -23,6 +23,8 @@ namespace KazusaGI_cb2.GameServer
 		public ConfigGadget? configGadget;
 		public uint level;
 		public bool isLockHP => configGadget?.combat?.property?.isLockHP ?? false;
+		public bool isEnableInteract;
+
 		public uint StateBeginTime { get; private set; }
 
 		public float Hp { get; private set; } = 1f;
@@ -46,6 +48,7 @@ namespace KazusaGI_cb2.GameServer
 			_gadgetLua = gadgetInfo;
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
+			isEnableInteract = gadgetExcel.isInteractive;
 
 			if (_gadgetLua != null && _gadgetLua.owner != 0)
 			{
@@ -80,6 +83,17 @@ namespace KazusaGI_cb2.GameServer
 			abilityManager = new GadgetAbilityManager(this);
 			InitAbilityStuff();
 			abilityManager.Initialize();
+		}
+
+		public void SetEnableInteract(bool enable)
+		{
+			isEnableInteract = enable;
+			session.SendPacket(new GadgetStateNotify
+			{
+				GadgetEntityId = _EntityId,
+				GadgetState = (uint)state,
+				IsEnableInteract = isEnableInteract
+			});
 		}
 
 		protected override uint? GetLevel() => level;
@@ -172,7 +186,7 @@ namespace KazusaGI_cb2.GameServer
 			{
 				AuthorityPeerId = session.player!.PeerId,
 				GadgetState = (uint)state,
-				IsEnableInteract = state == GadgetState.Default,
+				IsEnableInteract = isEnableInteract,
 				ConfigId = _gadgetLua?.config_id ?? 0,
 				GroupId = _gadgetLua?.group_id ?? 0,
 				GadgetId = _gadgetId,
@@ -399,7 +413,7 @@ namespace KazusaGI_cb2.GameServer
 			{
 				GadgetEntityId = _EntityId,
 				GadgetState = (uint)newState,
-				IsEnableInteract = gadgetExcel.isInteractive
+				IsEnableInteract = isEnableInteract
 			});
 
 			var args = new ScriptArgs((int)_gadgetLua.group_id, (int)TriggerEventType.EVENT_GADGET_STATE_CHANGE, (int)this.state, (int)_gadgetLua.config_id)

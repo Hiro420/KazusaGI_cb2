@@ -608,7 +608,77 @@ public class Scene
         return 0;
     }
 
-    public void UpdateGroup(SceneGroupLua sceneGroupLua, SceneGroupLuaSuite? suite = null)
+    public int RemoveExtraGroupSuite(uint groupId, uint suiteIndex)
+    {
+        logger.LogInfo($"[Scene] RemoveExtraGroupSuite called: group {groupId}, suiteIndex {suiteIndex}");
+
+        var group = GetGroup((int)groupId);
+        if (group == null)
+        {
+            session.c.LogWarning($"[Scene] RemoveExtraGroupSuite failed: group {groupId} not found");
+            return -1;
+        }
+
+        if (group.suites == null || group.suites.Count == 0)
+        {
+            session.c.LogWarning($"[Scene] RemoveExtraGroupSuite failed: group {groupId} has no suites");
+            return -1;
+        }
+        if (suiteIndex == 0 || suiteIndex > group.suites.Count)
+        {
+            session.c.LogWarning($"[Scene] RemoveExtraGroupSuite failed: invalid suiteIndex {suiteIndex} for group {groupId}");
+            return -1;
+        }
+        var suite = group.suites[(int)(suiteIndex - 1)];
+        var membership = SuiteMembership.From(suite);
+        // Despawn entities in the target suite only
+        if (group.monsters != null)
+        {
+            for (int i = 0; i < group.monsters.Count; i++)
+            {
+                var m = group.monsters[i];
+                if (membership.Monsters.Contains(m.config_id) && alreadySpawnedMonsters.Contains(m))
+                {
+                    var ent = MonsterEntity2DespawnMonster(m);
+                    if (ent != null)
+                    {
+                        _tmpDisappearIds.Add(ent._EntityId);
+                        alreadySpawnedMonsters.Remove(m);
+                    }
+                }
+            }
+        }
+        if (group.gadgets != null)
+        {
+            for (int i = 0; i < group.gadgets.Count; i++)
+            {
+                var g = group.gadgets[i];
+                if (membership.Gadgets.Contains(g.config_id) && alreadySpawnedGadgets.Contains(g))
+                {
+                    var ent = GadgetEntity2DespawnGadget(g);
+                    if (ent != null)
+                    {
+                        _tmpDisappearIds.Add(ent._EntityId);
+                        alreadySpawnedGadgets.Remove(g);
+                    }
+                }
+            }
+        }
+        if (_tmpDisappearIds.Count > 0)
+        {
+            for (int i = 0; i < _tmpDisappearIds.Count; i++)
+            {
+                uint eid = _tmpDisappearIds[i];
+                EntityManager.Remove(eid, Protocol.VisionType.VisionMiss, notifyClients: true);
+            }
+            _tmpDisappearIds.Clear();
+        }
+
+		// Npcs are not controlled by suites, so we don't despawn them here
+        return 0;
+	}
+
+	public void UpdateGroup(SceneGroupLua sceneGroupLua, SceneGroupLuaSuite? suite = null)
     {
         SceneGroupLuaSuite baseSuite = suite != null ? suite : GetBaseSuite(sceneGroupLua);
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
@@ -1064,7 +1134,24 @@ public class Scene
         }
     }
 
-    public int BeginChallenge(uint groupId, uint challengeIndex, uint challengeId, IReadOnlyList<uint> paramList)
+    public int CreateGroupTimerEvent(uint groupId, string timerName, float delayMS)
+    {
+        var group = GetGroup((int)groupId);
+        if (group == null)
+        {
+            session.c.LogWarning($"[Scene] CreateGroupTimerEvent failed: group {groupId} not found");
+            return -1;
+        }
+        Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(delayMS));
+			LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_TIMER_EVENT));
+        });
+        return 0;
+	}
+
+
+	public int BeginChallenge(uint groupId, uint challengeIndex, uint challengeId, IReadOnlyList<uint> paramList)
     {
         var group = GetGroup((int)groupId);
         if (group == null)

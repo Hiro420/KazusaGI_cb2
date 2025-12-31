@@ -78,7 +78,13 @@ public class ScriptLib
 		return 0;
     }
 
-    public int TowerMirrorTeamSetUp(Session session, int tower_team_id)
+    public int MarkPlayerAction(Session session,uint param1, uint param2, uint param3)
+    {
+        Log($"Called MarkPlayerAction action_type={param1} action_param={param2} action_count={param3}");
+        return 0;
+    }
+
+	public int TowerMirrorTeamSetUp(Session session, int tower_team_id)
     {
         Log($"Called TowerMirrorTeamSetUp tower_team_id={tower_team_id}");
 
@@ -210,7 +216,47 @@ public class ScriptLib
         return player.Scene.AddExtraGroupSuite(gid, sid);
     }
 
-    public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
+    public int RemoveExtraGroupSuite(Session session, int group_id, int suite_index)
+    {
+        Log("Called RemoveExtraGroupSuite");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] RemoveExtraGroupSuite called with no active player/scene");
+            return -1;
+        }
+        uint gid = (uint)group_id;
+        uint sid = (uint)suite_index;
+        return player.Scene.RemoveExtraGroupSuite(gid, sid);
+	}
+
+    public int CreateGroupTimerEvent(Session session, uint group_id, string timer_name, float delay_time)
+    {
+        Log("Called CreateGroupTimerEvent");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CreateGroupTimerEvent called with no active player/scene");
+            return -1;
+        }
+        if (group_id == 0)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CreateGroupTimerEvent called with group_id = 0");
+            return -1;
+        }
+        var scene = player.Scene;
+        var group = scene.GetGroup((int)group_id);
+        if (group == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CreateGroupTimerEvent called but group not found in scene");
+            return -1;
+        }
+        float delay_time_ms = delay_time * 1000.0f;
+		return scene.CreateGroupTimerEvent(group_id, timer_name, delay_time_ms);
+	}
+
+
+	public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
     {
         Log("Called SetIsAllowUseSkill");
 

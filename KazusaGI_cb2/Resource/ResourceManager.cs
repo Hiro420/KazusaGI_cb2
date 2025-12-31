@@ -13,7 +13,7 @@ using KazusaGI_cb2.Resource.Json.Monster;
 using KazusaGI_cb2.Resource.Json.Preload;
 using KazusaGI_cb2.Resource.Json.Scene;
 using KazusaGI_cb2.Resource.Json.Talent;
-using KazusaGI_cb2.Utils;
+using KazusaGI_cb2.Resource.ServerExcel;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -65,8 +65,14 @@ public class ResourceManager
 
     public Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; set; } // ability hash
 
+    public List<AvatarRow> ServerAvatarRows { get; set; }
+    public List<GadgetRow> ServerGadgetRows { get; set; }
+    public List<MonsterRow> ServerMonsterRows { get; set; }
+    public List<MonsterAffixRow> ServerMonsterAffixRows { get; set; }
+    public List<MonsterDropRow> ServerMonsterDropRows { get; set; }
 
-	public ResourceManager(string baseResourcePath = "resources")
+
+    public ResourceManager(string baseResourcePath = "resources")
     {
         // Init Logger
         Logger c = new("ResourceLoader");

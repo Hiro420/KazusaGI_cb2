@@ -30,6 +30,7 @@ using System.Collections;
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.Json.Preload;
 using KazusaGI_cb2.Resource.Json.AbilityPath;
+using KazusaGI_cb2.Resource.ServerExcel;
 
 namespace KazusaGI_cb2.Resource;
 
@@ -38,6 +39,7 @@ public class ResourceLoader
     public static readonly string ExcelSubPath = "ExcelBinOutput";
     public static readonly string JsonSubPath = "BinOutput";
     public static readonly string LuaSubPath = "Lua";
+    public static readonly string ServerExcelSubPath = "ServerExcelBinOutput";
     public string _baseResourcePath;
     private ResourceManager _resourceManager;
     private static Logger logger1 = new("ResourceLoader");
@@ -721,6 +723,19 @@ public class ResourceLoader
         _resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
         _resourceManager.ConfigMonsterMap = this.LoadConfigMonsterMap().Result;
 
+        _resourceManager.ServerAvatarRows = this.LoadServerExcel<AvatarRow>("AvatarData");
+        _resourceManager.ServerMonsterRows = this.LoadServerExcel<MonsterRow>("MonsterData");
+        _resourceManager.ServerMonsterAffixRows = this.LoadServerExcel<MonsterAffixRow>("MonsterAffixData");
+        _resourceManager.ServerMonsterDropRows = this.LoadServerExcel<MonsterDropRow>("MonsterDropData");
+        _resourceManager.ServerGadgetRows = // Load (GadgetData_Avatar | GadgetData_Equip | GadgetData_Level | GadgetData_Monster | GadgetData_Quest) all as one List<GadgetRow>
+            this.LoadServerExcelCombined<GadgetRow>(new string[] {
+                "GadgetData_Avatar",
+                "GadgetData_Equip",
+                "GadgetData_Level",
+                "GadgetData_Monster",
+                "GadgetData_Quest"
+            });
+
         _resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
             k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),
             k => k.Value.Default as ConfigAbility
@@ -836,6 +851,20 @@ public class ResourceLoader
                 }
         }
     };
+
+    public List<T> LoadServerExcel<T>(string excelName, TsvParserOptions? options = null) where T : class, new()
+    {
+        string excelPath = Path.Combine(_baseResourcePath, ServerExcelSubPath, $"{excelName}.txt");
+        return TsvReader.ReadFile<T>(excelPath, options);
+    }
+
+    public List<T> LoadServerExcelCombined<T>(string[] excelNames, TsvParserOptions? options = null) where T : class, new()
+    {
+        List<T> combinedList = new List<T>();
+        foreach (string excelName in excelNames)
+            combinedList.AddRange(LoadServerExcel<T>(excelName, options));
+        return combinedList;
+    }
 
     public class KnownTypesBinder : ISerializationBinder
     {

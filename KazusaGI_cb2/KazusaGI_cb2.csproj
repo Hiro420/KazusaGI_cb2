@@ -32,6 +32,7 @@
   <ItemGroup>
     <Folder Include="GameServer\Handlers\Send\" />
     <Folder Include="Resource\Json\Talent\" />
+    <Folder Include="Resource\ServerExcel\Defs\" />
   </ItemGroup>
 
 </Project>

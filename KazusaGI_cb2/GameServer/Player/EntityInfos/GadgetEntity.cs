@@ -397,13 +397,16 @@ namespace KazusaGI_cb2.GameServer
 				group,
 				new Lua.ScriptArgs(
 					(int)_gadgetLua.group_id,
-					(int)Lua.TriggerEventType.EVENT_ANY_GADGET_DIE,
+					(int)Lua.EventType.EVENT_ANY_GADGET_DIE,
 					(int)_gadgetLua.config_id));
 		}
 
 		public void ChangeState(GadgetState newState)
 		{
 			if (_gadgetLua == null) return;
+
+			if (newState == _gadgetLua.state)
+				return;
 
 			var old = _gadgetLua.state;
 			_gadgetLua.state = newState;
@@ -416,7 +419,7 @@ namespace KazusaGI_cb2.GameServer
 				IsEnableInteract = isEnableInteract
 			});
 
-			var args = new ScriptArgs((int)_gadgetLua.group_id, (int)TriggerEventType.EVENT_GADGET_STATE_CHANGE, (int)this.state, (int)_gadgetLua.config_id)
+			var args = new ScriptArgs((int)_gadgetLua.group_id, (int)EventType.EVENT_GADGET_STATE_CHANGE, (int)this.state, (int)_gadgetLua.config_id)
 			{
 				param3 = (int)old
 			};

@@ -113,7 +113,7 @@ internal class HandleGadgetInteractReq
                     var group = scene.GetGroup((int)gadget._gadgetLua.group_id);
                     if (group != null)
                     {
-                        var args = new ScriptArgs((int)gadget._gadgetLua.group_id, (int)TriggerEventType.EVENT_GATHER, (int)gadget._gadgetLua.config_id)
+                        var args = new ScriptArgs((int)gadget._gadgetLua.group_id, (int)EventType.EVENT_GATHER, (int)gadget._gadgetLua.config_id)
                         {
                             source_eid = (int)gadget._EntityId
                         };

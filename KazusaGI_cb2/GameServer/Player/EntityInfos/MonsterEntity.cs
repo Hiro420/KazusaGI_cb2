@@ -167,7 +167,7 @@ namespace KazusaGI_cb2.GameServer
 				session.player!.Scene.GetGroup((int)_monsterInfo.group_id)!,
 				new Lua.ScriptArgs(
 					(int)_monsterInfo.group_id,
-					(int)Lua.TriggerEventType.EVENT_ANY_MONSTER_DIE,
+					(int)Lua.EventType.EVENT_ANY_MONSTER_DIE,
 					(int)_monsterInfo.config_id));
 		}
 	}

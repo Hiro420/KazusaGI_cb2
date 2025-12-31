@@ -11,6 +11,7 @@ namespace KazusaGI_cb2.GameServer;
 
 public class Scene
 {
+    public int currentTriggerCount { get; set; } = 0;
     public uint SceneId => player.SceneId;
     public Session session { get; private set; }
     public Player player { get; private set; }
@@ -30,6 +31,8 @@ public class Scene
 
     private readonly Dictionary<(SceneGroupLua Group, uint SuiteId), SuiteMembership> _suiteCache = new(64);
     private readonly Dictionary<SceneGroupLua, uint> _groupActiveSuite = new();
+    private readonly Dictionary<(uint GroupId, string TriggerName), int> _triggerInvokeCounts = new();
+    private readonly Stack<int> _triggerCountStack = new();
     private readonly Random _random = new();
 
     // hk4e-style per-scene entity index used by Scene::genNewEntityId.
@@ -464,13 +467,19 @@ public class Scene
         session.c.LogWarning($"[Scene] Region {(enter ? "enter" : "leave")} event: group {groupId}, region {region.config_id}");
 
         var args = new ScriptArgs((int)groupId,
-            enter ? (int)TriggerEventType.EVENT_ENTER_REGION : (int)TriggerEventType.EVENT_LEAVE_REGION,
+            enter ? (int)EventType.EVENT_ENTER_REGION : (int)EventType.EVENT_LEAVE_REGION,
             (int)region.config_id)
         {
             // In hk4e, evt.source_eid for region events carries the
             // region's config_id so ScriptLib.GetRegionEntityCount can
             // use it as region_eid. We mirror that here.
-            source_eid = (int)region.config_id
+            source_eid = (int)region.config_id,
+            // For region events, hk4e's Group::isRegionEventMatch
+            // compares evt.param2 against a ProtEntityType derived
+            // from the trigger's source string (or Avatar by default).
+            // We only support Avatar-triggered region events for now,
+            // so we set param2 to EntityType.Avatar.
+            param2 = (int)EntityType.Avatar
         };
         LuaManager.executeTriggersLua(session, group, args);
     }
@@ -510,6 +519,122 @@ public class Scene
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Mirror hk4e's ScriptLib::GetCurTriggerCount behavior by tracking the
+    /// number of times each trigger (identified by group id + trigger name)
+    /// has been executed in this scene. During a trigger's execution,
+    /// currentTriggerCount exposes the *pre-increment* value so that Lua
+    /// sees 0 on the first execution, 1 on the second, etc. Nested
+    /// trigger invocations (e.g. a trigger that causes another event
+    /// which fires more triggers) are handled via an internal stack so
+    /// that ScriptLib.GetCurTriggerCount always sees the count for the
+    /// currently executing trigger, mirroring hk4e's ScriptContext.
+    /// </summary>
+    public int BeginTriggerExecution(SceneGroupLua group, SceneTriggerLua trigger)
+    {
+        if (group == null || trigger == null)
+        {
+            currentTriggerCount = 0;
+            _triggerCountStack.Push(0);
+            return currentTriggerCount;
+        }
+
+        uint groupId = GetGroupIdFromGroupInfo(group);
+        if (groupId == 0)
+        {
+            currentTriggerCount = 0;
+            _triggerCountStack.Push(0);
+            return currentTriggerCount;
+        }
+
+        string triggerName = trigger.name ?? string.Empty;
+        var key = (GroupId: groupId, TriggerName: triggerName);
+
+        if (!_triggerInvokeCounts.TryGetValue(key, out var count))
+        {
+            count = 0;
+        }
+
+        // Expose the current (pre-increment) value to ScriptLib and
+        // push it on the stack so nested triggers don't overwrite it.
+        _triggerCountStack.Push(count);
+        currentTriggerCount = count;
+        return count;
+    }
+
+    public void EndTriggerExecution(SceneGroupLua group, SceneTriggerLua trigger)
+    {
+        if (group == null || trigger == null)
+            return;
+
+        uint groupId = GetGroupIdFromGroupInfo(group);
+        if (groupId == 0)
+            return;
+
+        string triggerName = trigger.name ?? string.Empty;
+        var key = (GroupId: groupId, TriggerName: triggerName);
+
+        if (!_triggerInvokeCounts.TryGetValue(key, out var count))
+        {
+            count = 0;
+        }
+
+		count++;
+		_triggerInvokeCounts[key] = count;
+		//logger.LogWarning($"[Scene] Trigger execution ended: group {groupId}, trigger '{triggerName}', count={count}");
+
+		// Pop this trigger's view of trigger_count_ and restore the
+		// previous one (if any) so outer triggers see their own
+		// counts, just like hk4e restores ScriptContext::trigger_ptr
+		// when nested internalHandleEvent calls return.
+		if (_triggerCountStack.Count > 0)
+        {
+            _triggerCountStack.Pop();
+        }
+        currentTriggerCount = _triggerCountStack.Count > 0 ? _triggerCountStack.Peek() : 0;
+    }
+
+    /// <summary>
+    /// Abort the current trigger execution due to an error. This rolls
+    /// back only the stack state, without incrementing the stored
+    /// trigger execution count.
+    /// </summary>
+    public void AbortTriggerExecution()
+    {
+        if (_triggerCountStack.Count > 0)
+        {
+            _triggerCountStack.Pop();
+        }
+        currentTriggerCount = _triggerCountStack.Count > 0 ? _triggerCountStack.Peek() : 0;
+    }
+
+    /// <summary>
+    /// Return how many times the given trigger (group id + trigger
+    /// name) has already fired in this Scene. This mirrors
+    /// trigger_ptr->trigger_count in hk4e's Group logic and is used
+    /// both by ScriptLib.GetCurTriggerCount (via currentTriggerCount)
+    /// and by max trigger count checks.
+    /// </summary>
+    public int GetTriggerExecutionCount(SceneGroupLua group, SceneTriggerLua trigger)
+    {
+        if (group == null || trigger == null)
+            return 0;
+
+        uint groupId = GetGroupIdFromGroupInfo(group);
+        if (groupId == 0)
+            return 0;
+
+        string triggerName = trigger.name ?? string.Empty;
+        var key = (GroupId: groupId, TriggerName: triggerName);
+
+        if (_triggerInvokeCounts.TryGetValue(key, out var count))
+        {
+            return count;
+        }
+
+        return 0;
     }
 
     public int AddExtraGroupSuite(uint groupId, uint suiteIndex)
@@ -567,7 +692,7 @@ public class Scene
                         currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                     }
 
-                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
+                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)EventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
                 }
             }
         }
@@ -594,7 +719,7 @@ public class Scene
                         currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                     }
 
-                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
+                    LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)EventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
                 }
             }
         }
@@ -717,7 +842,7 @@ public class Scene
                             appearBatches.Add(currentNtf);
                             currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                         }
-                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
+                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)EventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
                     }
                 }
                 else
@@ -799,7 +924,7 @@ public class Scene
                             appearBatches.Add(currentNtf);
                             currentNtf = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                         }
-                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
+                        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)EventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
                     }
                 }
                 else
@@ -878,6 +1003,7 @@ public class Scene
 
     public void LoadSceneGroup(SceneGroupLua sceneGroupLua)
     {
+        uint groupId = GetGroupIdFromGroupInfo(sceneGroupLua);
         SceneGroupLuaSuite baseSuite = GetBaseSuite(sceneGroupLua);
         var membership = GetOrBuildSuiteMembership(sceneGroupLua, baseSuite);
 
@@ -902,7 +1028,7 @@ public class Scene
                     appearBatches.Add(current);
                     current = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                 }
-                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
+                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)EventType.EVENT_ANY_MONSTER_LIVE, (int)ent._monsterInfo!.config_id));
             }
         }
 
@@ -949,13 +1075,20 @@ public class Scene
                     appearBatches.Add(current);
                     current = new SceneEntityAppearNotify { AppearType = Protocol.VisionType.VisionMeet };
                 }
-                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)TriggerEventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
+                LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)GetGroupIdFromGroupInfo(sceneGroupLua), (int)EventType.EVENT_GADGET_CREATE, (int)ent._gadgetLua!.config_id));
             }
         }
 
         if (current.EntityLists.Count > 0) appearBatches.Add(current);
         for (int i = 0; i < appearBatches.Count; i++)
             session.SendPacket(appearBatches[i]);
+
+        // After the group's base entities are created, fire the
+        // GROUP_LOAD triggers so scripts like the riddle gadgets can
+        // initialize their variables from actual gadget states. This
+        // mirrors hk4e's behavior where EVENT_GROUP_LOAD runs when a
+        // group is first loaded/refreshed into a scene.
+        LuaManager.executeTriggersLua(session, sceneGroupLua, new ScriptArgs((int)groupId, (int)EventType.EVENT_GROUP_LOAD));
     }
 
     public void UnloadSceneGroup(SceneGroupLua sceneGroupLua)
@@ -1145,7 +1278,12 @@ public class Scene
         Task.Run(async () =>
         {
             await Task.Delay(TimeSpan.FromMilliseconds(delayMS));
-			LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)TriggerEventType.EVENT_TIMER_EVENT));
+			LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)EventType.EVENT_TIMER_EVENT)
+			{
+				// hk4e sets evt.source_name to the timer name so that
+				// only triggers whose source matches this name fire.
+				source = timerName
+			});
         });
         return 0;
 	}
@@ -1443,7 +1581,7 @@ public class Scene
 
         if (challenge.Group != null)
         {
-            var evtType = isSuccess ? TriggerEventType.EVENT_CHALLENGE_SUCCESS : TriggerEventType.EVENT_CHALLENGE_FAIL;
+            var evtType = isSuccess ? EventType.EVENT_CHALLENGE_SUCCESS : EventType.EVENT_CHALLENGE_FAIL;
             var args = new ScriptArgs((int)groupId, (int)evtType, (int)challenge.ChallengeIndex, (int)finish.CurrentValue);
             LuaManager.executeTriggersLua(session, challenge.Group, args);
         }

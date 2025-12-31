@@ -51,7 +51,7 @@ internal class HandleSelectWorktopOptionReq
             return;
 
         var args = new ScriptArgs(groupId,
-            (int)TriggerEventType.EVENT_SELECT_OPTION,
+            (int)EventType.EVENT_SELECT_OPTION,
             (int)gadget._gadgetLua.config_id,
             (int)optionId)
         {

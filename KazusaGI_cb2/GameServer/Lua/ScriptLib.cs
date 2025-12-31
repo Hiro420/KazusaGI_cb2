@@ -230,6 +230,27 @@ public class ScriptLib
         return player.Scene.RemoveExtraGroupSuite(gid, sid);
 	}
 
+    public int GetCurTriggerCount(Session session)
+    {
+        Log("Called GetCurTriggerCount");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] GetCurTriggerCount called with no active player/scene");
+            return 0;
+        }
+
+        // In hk4e, this reads ScriptContext::trigger_ptr->trigger_count.
+        // We mirror that by having Scene track a per-trigger execution
+        // counter and exposing the active trigger's count via
+        // Scene.currentTriggerCount, which is updated by LuaManager
+        // right before executing the trigger's Lua.
+
+        Log($"GetCurTriggerCount returning {player.Scene.currentTriggerCount}");
+
+		return player.Scene.currentTriggerCount;
+    }
+
     public int CreateGroupTimerEvent(Session session, uint group_id, string timer_name, float delay_time)
     {
         Log("Called CreateGroupTimerEvent");
@@ -252,8 +273,8 @@ public class ScriptLib
             return -1;
         }
         float delay_time_ms = delay_time * 1000.0f;
-		return scene.CreateGroupTimerEvent(group_id, timer_name, delay_time_ms);
-	}
+	    return scene.CreateGroupTimerEvent(group_id, timer_name, delay_time_ms);
+    }
 
 
 	public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
@@ -432,12 +453,15 @@ public class ScriptLib
         group.variables[var_name] = value;
 
         // Fire VARIABLE_CHANGE event like hk4e when a variable changes.
+        // In hk4e, evt.param1 is the *new* value and evt.param2 is the
+        // *old* value; Lua scripts (including the riddle gadgets) rely
+        // on evt.param1 to reflect the updated variable state.
         if (currentEventArgs != null)
         {
-            var args = new ScriptArgs(currentGroupId, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+            var args = new ScriptArgs(currentGroupId, (int)EventType.EVENT_VARIABLE_CHANGE)
             {
-                param1 = oldValue,
-                param2 = value,
+                param1 = value,    // new value
+                param2 = oldValue, // old value
                 source = var_name
             };
 
@@ -460,12 +484,14 @@ public class ScriptLib
 
         group.variables[var_name] = newValue;
 
+        // Mirror hk4e's EVENT_VARIABLE_CHANGE semantics: param1 is the
+        // new value, param2 is the old value.
         if (currentEventArgs != null)
         {
-            var args = new ScriptArgs(currentGroupId, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+            var args = new ScriptArgs(currentGroupId, (int)EventType.EVENT_VARIABLE_CHANGE)
             {
-                param1 = oldValue,
-                param2 = newValue,
+                param1 = newValue, // new value
+                param2 = oldValue, // old value
                 source = var_name
             };
 
@@ -495,11 +521,12 @@ public class ScriptLib
         group.variables[var_name] = value;
 
         // Fire VARIABLE_CHANGE for the target group so that dependent
-        // triggers behave like hk4e.
-        var args = new ScriptArgs(group_id, (int)TriggerEventType.EVENT_VARIABLE_CHANGE)
+        // triggers behave like hk4e. evt.param1 is the new value and
+        // evt.param2 is the old value.
+        var args = new ScriptArgs(group_id, (int)EventType.EVENT_VARIABLE_CHANGE)
         {
-            param1 = oldValue,
-            param2 = value,
+            param1 = value,    // new value
+            param2 = oldValue, // old value
             source = var_name
         };
 
@@ -744,7 +771,7 @@ public class ScriptLib
         appear.EntityLists.Add(ent.ToSceneEntityInfo());
         currentSession.SendPacket(appear);
 
-        var args = new ScriptArgs(groupId, (int)TriggerEventType.EVENT_ANY_MONSTER_LIVE, (int)monsterInfo.config_id);
+        var args = new ScriptArgs(groupId, (int)EventType.EVENT_ANY_MONSTER_LIVE, (int)monsterInfo.config_id);
         LuaManager.executeTriggersLua(currentSession, group, args);
 
         return;
@@ -847,7 +874,7 @@ public class ScriptLib
         appear.EntityLists.Add(ent.ToSceneEntityInfo());
         currentSession.SendPacket(appear);
 
-        var args = new ScriptArgs(groupId, (int)TriggerEventType.EVENT_GADGET_CREATE, (int)gadgetInfo.config_id);
+        var args = new ScriptArgs(groupId, (int)EventType.EVENT_GADGET_CREATE, (int)gadgetInfo.config_id);
         LuaManager.executeTriggersLua(currentSession, group, args);
 
         return 0;

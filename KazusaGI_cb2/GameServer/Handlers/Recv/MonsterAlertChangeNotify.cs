@@ -33,7 +33,7 @@ internal class HandleMonsterAlertChangeNotify
 				continue;
 			ScriptArgs args = new ScriptArgs(
 				(int)monsterEntity._monsterInfo.group_id, 
-				(int)Lua.TriggerEventType.EVENT_MONSTER_BATTLE, 
+				(int)Lua.EventType.EVENT_MONSTER_BATTLE, 
 				(int)monsterEntity._monsterInfo.config_id
 			);
 			// todo: executeTrigger

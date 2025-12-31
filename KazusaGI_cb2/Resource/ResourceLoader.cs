@@ -532,12 +532,36 @@ public class ResourceLoader
                     name = Convert.ToString(trigger["name"])!,
                     action = Convert.ToString(trigger["action"])!,
                     condition = Convert.ToString(trigger["condition"])!,
+                    // Lua trigger field: source = "...". hk4e uses this
+                    // together with the event type to decide whether a
+                    // trigger matches a given Event (see
+                    // Group::isTriggerEventMatch). We mirror it so that
+                    // ScriptArgs.source can be compared against it.
+                    source = Convert.ToString(trigger["source"]) ?? string.Empty,
                 };
 
                 if (trigger["event"] != null)
                 {
-                    triggerLua._event = (EventTriggerType)Convert.ToUInt32(trigger["event"]);
+                    triggerLua._event = (EventType)Convert.ToUInt32(trigger["event"]);
                 }
+
+                // Lua trigger field: trigger_count = N. In hk4e this is a
+                // "max trigger count" cap: 0 means unlimited, positive
+                // values are the maximum number of times the trigger is
+                // allowed to fire.
+                var maxCountObj = trigger["trigger_count"];
+                if (maxCountObj != null)
+                {
+                    try
+                    {
+                        triggerLua.trigger_count = Convert.ToUInt32(maxCountObj);
+                    }
+                    catch
+                    {
+                        triggerLua.trigger_count = 0;
+                    }
+                }
+
                 sceneGroupLua_.triggers.Add(triggerLua);
             }
 

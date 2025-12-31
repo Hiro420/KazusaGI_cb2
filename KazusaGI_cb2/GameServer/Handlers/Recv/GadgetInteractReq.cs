@@ -1,6 +1,7 @@
 using System.Numerics;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.Resource.Excel;
 
 namespace KazusaGI_cb2.GameServer.Handlers.Recv;
 

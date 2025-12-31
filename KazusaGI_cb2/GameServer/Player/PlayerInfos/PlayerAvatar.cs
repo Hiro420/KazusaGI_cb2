@@ -7,6 +7,7 @@ using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Avatar;
 using KazusaGI_cb2.Resource.Json.Talent;
+using KazusaGI_cb2.Resource.ServerExcel;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,7 +22,8 @@ public class PlayerAvatar
     private static ResourceManager resourceManager = MainApp.resourceManager;
     private Session Session { get; set; }
     public AvatarExcelConfig avatarExcel { get; set; }
-	public AvatarSkillDepotExcelConfig avatarSkillDepotExcel { get; set; }
+    public AvatarRow serverAvatarExcel { get; set; }
+    public AvatarSkillDepotExcelConfig avatarSkillDepotExcel { get; set; }
     public ulong Guid { get; set; } // critical
     public uint AvatarId { get; set; } // critical
     public uint Level { get; set; }
@@ -56,6 +58,7 @@ public class PlayerAvatar
     {
         this.Session = session;
         this.avatarExcel = resourceManager.AvatarExcel[AvatarId];
+        this.serverAvatarExcel = resourceManager.ServerAvatarRows.First(av => av.Id == AvatarId)!;
         this.SkillDepotId = this.isTraveler() ? avatarExcel.candSkillDepotIds[3] : avatarExcel.skillDepotId;
         this.avatarSkillDepotExcel = resourceManager.AvatarSkillDepotExcel[this.SkillDepotId];
         this.UltSkillId = avatarSkillDepotExcel.energySkill;
@@ -109,10 +112,10 @@ public class PlayerAvatar
 		}
         foreach (AvatarSkillDepotExcelConfig depot in resourceManager.AvatarSkillDepotExcel.Values)
         {
-			string name = $"Avatar_{AvatarName}";
-			if (!resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{AvatarName}", out ConfigAvatar? configAvatar))
+			if (!resourceManager.ConfigAvatarMap.TryGetValue(serverAvatarExcel.CombatConfig, out ConfigAvatar? configAvatar))
 			{
-				continue;
+                session.c.LogWarning($"ConfigAvatar not found for AvatarId {AvatarId} with CombatConfig {serverAvatarExcel.CombatConfig}");
+                continue;
 			}
             var configContainers = new List<ConfigAbilityContainer>();
             configAvatar.abilities.ForEach(t => configContainers.Add(resourceManager.ConfigAbilityMap[t.abilityName]));
@@ -131,10 +134,14 @@ public class PlayerAvatar
 					ProudSkillData[(int)depot.id][proud.Key] = proud.Value;
 				}
 			}
-			if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
-				ConfigTalentMap[(int)depot.id] = configTalents;
+            foreach (var talent in dictionary7.Values)
+            {
+                var configTalents = resourceManager.AvatarTalentConfigDataMap
+                    .Where(kv => kv.Key == talent.openConfig);
+                ConfigTalentMap[(int)depot.id] = configTalents.ToDictionary();
+            }
 			Dictionary<uint, ConfigAbility> abilityHashMap = new();
-			foreach (TargetAbility ability in resourceManager.ConfigAvatarMap[$"ConfigAvatar_{AvatarName}"].abilities)
+			foreach (TargetAbility ability in configAvatar.abilities)
 			{
 				ConfigAbility? config = null;
 				foreach (var container in AbilityConfigMap[(int)depot.id])

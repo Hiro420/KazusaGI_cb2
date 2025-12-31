@@ -4,6 +4,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.Resource.ServerExcel;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -11,6 +12,7 @@ namespace KazusaGI_cb2.GameServer
 	{
 		public MonsterLua? _monsterInfo { get; }
 		public MonsterExcelConfig excelConfig { get; }
+		public MonsterRow serverExcelConfig { get; }
 		public uint _monsterId { get; }
 		public uint level { get; }
 		public float Hp { get; private set; }
@@ -26,6 +28,7 @@ namespace KazusaGI_cb2.GameServer
 
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			excelConfig = MainApp.resourceManager.MonsterExcel[monsterId];
+			serverExcelConfig = MainApp.resourceManager.ServerMonsterRows.First(row => row.Id == monsterId);
 
 			Hp = MaxHp = excelConfig.hpBase;
 			Atk = excelConfig.attackBase;

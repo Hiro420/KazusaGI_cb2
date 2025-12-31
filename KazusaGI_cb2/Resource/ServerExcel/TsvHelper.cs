@@ -109,93 +109,123 @@ internal sealed class TsvTypeMap<T> where T : new()
         Type targetType,
         CultureInfo culture)
     {
-        var stringIsNullOrEmpty = typeof(string).GetMethod(
-            nameof(string.IsNullOrEmpty),
-            new[] { typeof(string) })!;
+        // Delegate actual conversion (including handling of "" and "?" and TryParse fallbacks)
+        // to a strongly-typed helper so we don't need complex expression trees per type.
+        var helper = typeof(TsvTypeMap<T>)
+            .GetMethod(nameof(ConvertValue), BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(targetType);
 
+        return Expression.Call(helper, valueParam, Expression.Constant(culture));
+    }
+
+    private static TTarget ConvertValue<TTarget>(string? value, CultureInfo culture)
+    {
+        var targetType = typeof(TTarget);
         var underlying = Nullable.GetUnderlyingType(targetType);
-        var isNullable = underlying != null || !targetType.IsValueType;
         var nonNullType = underlying ?? targetType;
 
-        var returnTarget = Expression.Label(targetType);
-        var bodyExpressions = new List<Expression>();
+        // Treat empty / whitespace / "?" as default(TTarget) for non-string types
+        if (string.IsNullOrWhiteSpace(value))
+            return default!;
 
-        if (isNullable)
-        {
-            // if (string.IsNullOrEmpty(value)) return default;
-            bodyExpressions.Add(
-                Expression.IfThen(
-                    Expression.Call(stringIsNullOrEmpty, valueParam),
-                    Expression.Return(returnTarget, Expression.Default(targetType))
-                )
-            );
-        }
+        if (nonNullType != typeof(string) && value == "?")
+            return default!;
 
-        Expression converted;
-
+        // Strings: just pass through
         if (nonNullType == typeof(string))
-        {
-            converted = valueParam;
-        }
-        else if (nonNullType.IsEnum)
-        {
-            var parseEnum = typeof(Enum).GetMethod(
-                nameof(Enum.Parse),
-                new[] { typeof(Type), typeof(string), typeof(bool) })!;
+            return (TTarget)(object)value!;
 
-            var callParse = Expression.Call(
-                parseEnum,
-                Expression.Constant(nonNullType),
-                valueParam,
-                Expression.Constant(true));
+        object? converted;
 
-            converted = Expression.Convert(callParse, nonNullType);
-        }
-        else
+        // Enums
+        if (nonNullType.IsEnum)
         {
-            var parseMethod = GetParseMethod(nonNullType);
-            if (parseMethod == null)
+            if (System.Enum.TryParse(nonNullType, value, true, out var enumObj))
             {
-                // Convert.ChangeType(value, type, culture)
-                var changeType = typeof(Convert).GetMethod(
-                    nameof(Convert.ChangeType),
-                    new[] { typeof(object), typeof(Type), typeof(IFormatProvider) })!;
-
-                var call = Expression.Call(
-                    changeType,
-                    Expression.Convert(valueParam, typeof(object)),
-                    Expression.Constant(nonNullType),
-                    Expression.Constant(culture, typeof(IFormatProvider)));
-
-                converted = Expression.Convert(call, nonNullType);
+                converted = enumObj;
             }
             else
             {
-                var call = Expression.Call(
-                    parseMethod,
-                    valueParam,
-                    Expression.Constant(culture));
-
-                converted = call;
+                return default!;
+            }
+        }
+        // Common numeric and primitive types with TryParse
+        else if (nonNullType == typeof(int))
+        {
+            if (int.TryParse(value, NumberStyles.Integer, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(decimal))
+        {
+            if (decimal.TryParse(value, NumberStyles.Number, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(double))
+        {
+            if (double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(float))
+        {
+            if (float.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(long))
+        {
+            if (long.TryParse(value, NumberStyles.Integer, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(short))
+        {
+            if (short.TryParse(value, NumberStyles.Integer, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(byte))
+        {
+            if (byte.TryParse(value, NumberStyles.Integer, culture, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else if (nonNullType == typeof(bool))
+        {
+            if (bool.TryParse(value, out var v))
+                converted = v;
+            else
+                return default!;
+        }
+        else
+        {
+            try
+            {
+                converted = Convert.ChangeType(value, nonNullType, culture);
+            }
+            catch
+            {
+                return default!;
             }
         }
 
         if (underlying != null)
         {
-            converted = Expression.Convert(converted, targetType);
+            // converted is already of the non-nullable underlying type;
+            // just box it and cast to Nullable<TUnderlying>.
+            return (TTarget)(object)converted!;
         }
 
-        bodyExpressions.Add(Expression.Label(returnTarget, converted));
-        return Expression.Block(bodyExpressions);
-    }
-
-    private static MethodInfo? GetParseMethod(Type type)
-    {
-        // Look for static T Parse(string, IFormatProvider)
-        return type.GetMethod(
-            "Parse",
-            BindingFlags.Public | BindingFlags.Static,
-            new[] { typeof(string), typeof(IFormatProvider) });
+        return (TTarget)converted!;
     }
 
     public T Create(string[] fields)

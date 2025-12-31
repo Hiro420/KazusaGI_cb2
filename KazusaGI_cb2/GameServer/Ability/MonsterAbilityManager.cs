@@ -1,6 +1,7 @@
 ﻿using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -70,7 +71,7 @@ public class MonsterAbilityManager : BaseAbilityManager
 		if (!string.IsNullOrWhiteSpace(monsterName) &&
 			resourceManager.ConfigMonsterMap != null)
 		{
-			var key = $"ConfigMonster_{monsterName}";
+			var key = _monster.serverExcelConfig!.CombatConfig!;
 			if (resourceManager.ConfigMonsterMap.TryGetValue(key, out var configMonster) &&
 				configMonster.abilities != null)
 			{
@@ -83,7 +84,14 @@ public class MonsterAbilityManager : BaseAbilityManager
 					}
 				}
 			}
-		}
+			foreach (uint affixId in _monster.excelConfig.affix)
+			{
+				if (!resourceManager.MonsterAffixExcel.TryGetValue(affixId, out MonsterAffixExcelConfig? affix))
+					continue;
+				if (!string.IsNullOrWhiteSpace(affix.abilityName))
+					abilityNames.Add(affix.abilityName);
+            }
+        }
 
 
 		// 4. Resolve ability names to ConfigAbility using ResourceManager.ConfigAbilityMap.

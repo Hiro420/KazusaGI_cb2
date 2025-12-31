@@ -49,6 +49,7 @@ public class ResourceManager
     public Dictionary<uint, TowerFloorExcelConfig> TowerFloorExcel { get; set; }
     public Dictionary<uint, TowerScheduleExcelConfig> TowerScheduleExcel { get; set; }
     public Dictionary<uint, TowerLevelExcelConfig> TowerLevelExcel { get; set; }
+    public Dictionary<uint, MonsterAffixExcelConfig> MonsterAffixExcel { get; set; }
     public Dictionary<uint, Dictionary<uint, WeaponPromoteExcelConfig>> WeaponPromoteExcel { get; set; }
     public Dictionary<uint, string> GadgetLuaConfig { get; set; }
     public GlobalCombatData GlobalCombatData { get; set; }
@@ -57,7 +58,7 @@ public class ResourceManager
     public AbilityPathData AbilityPathData { get; set; } // ability name
 
 
-	public ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> AvatarTalentConfigDataMap { get; set; } // file name
+	public ConcurrentDictionary<string, BaseConfigTalent[]> AvatarTalentConfigDataMap { get; set; } // file name
 	public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
 	public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
 	public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }

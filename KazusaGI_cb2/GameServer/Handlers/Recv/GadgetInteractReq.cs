@@ -75,11 +75,11 @@ internal class HandleGadgetInteractReq
 
         return type switch
         {
-            Resource.Excel.GadgetType_Excel.Chest => InteractType.InteractOpenChest,
-            Resource.Excel.GadgetType_Excel.GatherPoint => InteractType.InteractGather,
-            Resource.Excel.GadgetType_Excel.GatherObject => InteractType.InteractGather,
-            Resource.Excel.GadgetType_Excel.DropItem => InteractType.InteractPickItem,
-            Resource.Excel.GadgetType_Excel.RewardStatue => InteractType.InteractOpenStatue,
+            GadgetType_Excel.Chest => InteractType.InteractOpenChest,
+            GadgetType_Excel.GatherPoint => InteractType.InteractGather,
+            GadgetType_Excel.GatherObject => InteractType.InteractGather,
+            GadgetType_Excel.DropItem => InteractType.InteractPickItem,
+            GadgetType_Excel.RewardStatue => InteractType.InteractOpenStatue,
             _ => InteractType.InteractConsum,
         };
     }

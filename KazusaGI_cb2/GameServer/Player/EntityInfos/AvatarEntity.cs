@@ -1,17 +1,13 @@
 ﻿// AvatarEntity.cs (update)
-using KazusaGI_cb2.GameServer.PlayerInfos;
-using System.Collections.Generic;
-using System.Numerics;
-using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.GameServer.Ability;
-using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using KazusaGI_cb2.Resource;
-using System.Linq;
-using System.Text.RegularExpressions;
-using KazusaGI_cb2.Resource.Json.Talent;
+using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Systems.Ability;
-using KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
+using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.Talent;
+using KazusaGI_cb2.Resource.Excel;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -61,7 +57,7 @@ namespace KazusaGI_cb2.GameServer
 			// Build AbilityConfigMap using TargetAbilities from ConfigAvatarMap
 			List<ConfigAbilityContainer> configContainerList = new();
 			
-			if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatar))
+			if (resourceManager.ConfigAvatarMap.TryGetValue(DbInfo.serverAvatarExcel.CombatConfig, out var configAvatar))
 			{
 				foreach (TargetAbility targetAbility in configAvatar.abilities)
 				{
@@ -98,6 +94,9 @@ namespace KazusaGI_cb2.GameServer
 			foreach (var i in talentList)
 			{
 				DbInfo.TalentData[CurDepotId][i.Key] = i.Value;
+				if (resourceManager.AvatarTalentConfigDataMap.TryGetValue(i.Value.openConfig, out BaseConfigTalent[]? configTalents))
+					//DbInfo.ConfigTalentMap[(int)DbInfo.SkillDepotId] = configTalents.ToDictionary(i.Value.openConfig, x => x);
+					DbInfo.ConfigTalentMap[CurDepotId][i.Value.openConfig] = configTalents;
 			}
 
 			var dict1 = resourceManager.ProudSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.inherentProudSkillOpens.Exists(y => y.proudSkillGroupId == w.Value.proudSkillGroupId)).ToDictionary(x => x.Key, x => x.Value);
@@ -116,14 +115,14 @@ namespace KazusaGI_cb2.GameServer
 				}
 			}
 
-			if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
-				DbInfo.ConfigTalentMap[(int)DbInfo.SkillDepotId] = configTalents;
+			//if (resourceManager.AvatarTalentConfigDataMap.TryGetValue($"ConfigTalent_{Regex.Replace(name, "Avatar_", "")}", out Dictionary<string, BaseConfigTalent[]>? configTalents))
+			//	DbInfo.ConfigTalentMap[(int)DbInfo.SkillDepotId] = configTalents;
 
 			Dictionary<uint, ConfigAbility> abilityHashMap = new();
 
 			// add abilityGroup abilities (if player skill depot ability group)
 			if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatarForHash) && 
-			    DbInfo.AbilityConfigMap.ContainsKey((int)DbInfo.SkillDepotId))
+				DbInfo.AbilityConfigMap.ContainsKey((int)DbInfo.SkillDepotId))
 			{
 				foreach (TargetAbility ability in configAvatarForHash.abilities)
 				{

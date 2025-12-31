@@ -39,7 +39,7 @@ public class ResourceLoader
     public static readonly string ExcelSubPath = "ExcelBinOutput";
     public static readonly string JsonSubPath = "BinOutput";
     public static readonly string LuaSubPath = "Lua";
-    public static readonly string ServerExcelSubPath = "ServerExcelBinOutput";
+    public static readonly string ServerExcelSubPath = "ServerExcelOutput";
     public string _baseResourcePath;
     private ResourceManager _resourceManager;
     private static Logger logger1 = new("ResourceLoader");
@@ -192,6 +192,11 @@ public class ResourceLoader
             group => group.ToDictionary(data => data.promoteLevel)
         );
 
+    private Dictionary<uint, MonsterAffixExcelConfig> LoadMonsterAffixExcel() =>
+        JsonConvert.DeserializeObject<List<MonsterAffixExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterAffixExcelConfigData.json"))
+        )!.ToDictionary(data => data.id);
+
     private GlobalCombatData LoadGlobalCombatData() =>
         JsonConvert.DeserializeObject<GlobalCombatData>(
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
@@ -207,9 +212,9 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "AbilityPath", "AbilityPathData.json"))
         )!;
 
-	private ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> LoadTalentConfigs()
+	private ConcurrentDictionary<string, BaseConfigTalent[]> LoadTalentConfigs()
     {
-        ConcurrentDictionary<string, Dictionary<string, BaseConfigTalent[]>> ret = new();
+        ConcurrentDictionary<string, BaseConfigTalent[]> ret = new();
 
         string[] filePaths = Directory.GetFiles(
             Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"), 
@@ -221,10 +226,11 @@ public class ResourceLoader
             var filePath = new FileInfo(file);
             using var sr = new StringReader(await File.ReadAllTextAsync(filePath.FullName));
             using var jr = new JsonTextReader(sr);
-            var fileData = Serializer.Deserialize<Dictionary<string, BaseConfigTalent[]>>(jr);
-            // Use the name (without ".json") of the file as the key
-            //Console.WriteLine(Regex.Replace(filePath.Name, "\\.json", ""));
-            ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+            var fileData = Serializer.Deserialize<Dictionary<string, BaseConfigTalent[]>>(jr) ?? new();
+            foreach (var kv in fileData)
+            {
+                ret[kv.Key] = kv.Value;
+            }
         });
 
         return ret;
@@ -712,6 +718,7 @@ public class ResourceLoader
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
+        _resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
         _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
         _resourceManager.ConfigPreload = this.LoadConfigPreload();

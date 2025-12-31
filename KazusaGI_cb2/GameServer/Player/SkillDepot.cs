@@ -1,9 +1,9 @@
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Systems.Ability;
-using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Talent;
+using KazusaGI_cb2.Resource.Excel;
 using System.Collections.Generic;
 using System.Linq;
 

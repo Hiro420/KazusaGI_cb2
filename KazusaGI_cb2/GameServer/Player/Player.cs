@@ -536,21 +536,32 @@ public class Player
         return avatarEntities.FirstOrDefault(c => c.DbInfo == playerAvatar);
     }
 
-    public void SendPlayerEnterSceneInfoNotify(Session session)
+    /// <summary>
+    /// Ensure there is a single TeamEntity instance for the current lineup
+    /// and that it is registered in the active Scene's EntityManager.
+    /// This keeps the TeamEntityId (and its ability state) stable across
+    /// scene changes instead of recreating a fresh entity on each enter.
+    /// </summary>
+    private void EnsureTeamEntityInCurrentScene(Session session)
     {
-        // team entity
-        if (GetCurrentLineup().teamEntity == null)
+        var team = GetCurrentLineup();
+
+        if (team.teamEntity == null)
         {
-            GetCurrentLineup().teamEntity = new TeamEntity(session);
-            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
+            team.teamEntity = new TeamEntity(session);
         }
 
-        // Ensure team entity exists and keep its entity id stable across scene loads
-        if (GetCurrentLineup().teamEntity == null)
+        var entityManager = session.player.Scene.EntityManager;
+        if (!entityManager.Entities.ContainsKey(team.teamEntity._EntityId))
         {
-            GetCurrentLineup().teamEntity = new TeamEntity(session);
-            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
+            entityManager.Add(team.teamEntity);
         }
+    }
+
+    public void SendPlayerEnterSceneInfoNotify(Session session)
+    {
+        // Ensure team entity exists and is registered in the current scene
+        EnsureTeamEntityInCurrentScene(session);
 
         // MP level entity must be a single static entity per player
         if (this.MpLevelEntity == null)
@@ -567,7 +578,7 @@ public class Player
             TeamEnterInfo = new TeamEnterSceneInfo()
             {
                 TeamAbilityInfo = new(),
-                TeamEntityId = session.GetEntityId(ProtEntityType.ProtEntityTeam)// GetCurrentLineup().teamEntity._EntityId
+                TeamEntityId = GetCurrentLineup().teamEntity._EntityId
             },
             MpLevelEntityInfo = new()
             {
@@ -594,12 +605,12 @@ public class Player
 
     public void SendSyncTeamEntityNotify(Session session)
     {
-        // team entity
-        if (GetCurrentLineup().teamEntity == null)
-        {
-            GetCurrentLineup().teamEntity = new TeamEntity(session);
-            session.player.Scene.EntityManager.Add(GetCurrentLineup().teamEntity!);
-        }
+        // only in MP
+        if (!session.isMpSession)
+            return;
+
+        // Ensure team entity exists and is registered in the current scene
+        EnsureTeamEntityInCurrentScene(session);
 
         SyncTeamEntityNotify notify = new SyncTeamEntityNotify()
         {
@@ -743,6 +754,10 @@ public class Player
         }
         MpLevelEntity.Position = newPos;
         Scene.EntityManager.Add(MpLevelEntity);
+
+        // 4) Team entity: keep one instance per lineup and re-attach it to the
+        // new scene so its entity id and ability state are not reset.
+        EnsureTeamEntityInCurrentScene(session);
         // Generate a new non-zero enter-scene token for this transition,
         // mirroring hk4e's monotonic PlayerSceneComp::enter_scene_token_.
         EnterSceneToken = EnterSceneToken != 0 ? EnterSceneToken + 1 : 1;

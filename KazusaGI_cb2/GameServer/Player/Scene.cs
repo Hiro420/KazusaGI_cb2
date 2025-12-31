@@ -111,7 +111,7 @@ public class Scene
                 _nextEntityIndex = 1;
             }
 
-            return ((uint)type << 24) | _nextEntityIndex;
+            return _nextEntityIndex | ((uint)type << 24);
         }
     }
 

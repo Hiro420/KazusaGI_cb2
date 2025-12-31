@@ -32,6 +32,7 @@ public class Session
         "ScenePlayerLocationNotify"
     };
     private JsonSerializer _JsonConverter;
+    public bool isMpSession = false;           // todo: change when multiplayer is implemented
 
 
     public Session(ENetClient client, IntPtr peer)

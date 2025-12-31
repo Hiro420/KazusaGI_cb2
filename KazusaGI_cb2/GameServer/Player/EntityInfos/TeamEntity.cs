@@ -15,7 +15,7 @@ namespace KazusaGI_cb2.GameServer
 		{
 			AbilityManager = new TeamAbilityManager(this);
 			AbilityManager.Initialize();
-		}
+        }
 
 		protected override void BuildKindSpecific(SceneEntityInfo info)
 		{
@@ -27,5 +27,6 @@ namespace KazusaGI_cb2.GameServer
 		{
 			// Do nothing to prevent removal from entityMap
 		}
-	}
+
+    }
 }

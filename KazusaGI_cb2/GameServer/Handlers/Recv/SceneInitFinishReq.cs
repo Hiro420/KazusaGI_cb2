@@ -82,6 +82,19 @@ internal class HandleSceneInitFinishReq
                 }
             }
         });
+
+
+
+        SceneEntityAppearNotify info = new SceneEntityAppearNotify()
+        {
+            AppearType = Protocol.VisionType.VisionReplace,
+            EntityLists =
+            {
+                session.player.GetCurrentLineup().teamEntity!.ToSceneEntityInfo()
+            }
+        };
+        session.SendPacket(info);
+
         session.player.SendSceneTeamUpdateNotify(session);
         session.player.SendSyncTeamEntityNotify(session);
         session.player.SendPlayerEnterSceneInfoNotify(session);

@@ -5,6 +5,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Scene;
+using KazusaGI_cb2.Resource.ServerExcel;
 using System;
 using System.Numerics;
 using static System.Collections.Specialized.BitVector32;
@@ -412,7 +413,8 @@ public class Player
     {
         foreach (KeyValuePair<uint, AvatarExcelConfig> avatarExcelRow in MainApp.resourceManager.AvatarExcel)
         {
-            if (avatarExcelRow.Key >= 11000000 || avatarExcelRow.Key == 10000007  || avatarExcelRow.Key == 10000005) continue;
+            AvatarRow serverExcel = MainApp.resourceManager.ServerAvatarRows.First(r => r.Id == avatarExcelRow.Key);
+            if ((serverExcel.VersionBegin != null && serverExcel.VersionBegin == "0.2") || avatarExcelRow.Key == 10000007  || avatarExcelRow.Key == 10000005) continue;
             PlayerAvatar playerAvatar = new(session, avatarExcelRow.Key);
             session.player!.avatarDict.Add(playerAvatar.Guid, playerAvatar);
             AvatarAddNotify addNotify = new()

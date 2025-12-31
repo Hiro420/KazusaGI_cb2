@@ -167,7 +167,7 @@ public sealed class AvatarRow
     public string DescriptionTextMap { get; set; } = string.Empty;
 
     [TsvColumn("$#VersionBegin", Required = false)]
-    public decimal? VersionBegin { get; set; }
+    public string? VersionBegin { get; set; }
 
     [TsvColumn("$#VersionEnd", Required = false)]
     public decimal? VersionEnd { get; set; }

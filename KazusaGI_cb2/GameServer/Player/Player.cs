@@ -756,8 +756,9 @@ public class Player
             Type = enterType,
             PrevPos = Session.Vector3ToVector(oldPos),
             EnterSceneToken = EnterSceneToken,
-            WorldLevel = 1,
-            TargetUid = this.Uid
+            WorldLevel = session.player.WorldLevel,
+            TargetUid = this.Uid,
+            DungeonId = resourceManager.DungeonExcel.Values.FirstOrDefault(d => d.sceneId == sceneId)?.id ?? 0
         };
         session.SendPacket(enterSceneNotify);
     }

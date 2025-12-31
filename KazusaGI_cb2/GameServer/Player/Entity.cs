@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Numerics;
+﻿using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.GameServer.PlayerInfos;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.GameServer.PlayerInfos;
-using KazusaGI_cb2.GameServer.Ability;
-using KazusaGI_cb2.GameServer.Systems.Ability;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.Actions;
+using System.Collections.Generic;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -181,7 +182,43 @@ namespace KazusaGI_cb2.GameServer
 
 		}
 
-		public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);
+        public void GenerateElemBallByAbility(GenerateElemBall info, AbilityActionGenerateElemBall generateElemBall)
+        {
+            // Default to an elementless particle.
+            int cfgId = Convert.ToInt32(info.configID);
+            int itemId = cfgId != 0 ? cfgId : 2024;
+
+			// Generate 2 particles by default. todo: use info.ratio and info.baseEnergy?
+			int amount = info.GetBaseEnergy();
+
+            int gadgetId = MainApp.resourceManager.MaterialExcel.Values.FirstOrDefault(m => m.id == itemId)?.gadgetId is uint gid ? (int)gid : 70610008; // no element by default
+
+            new Logger("GenerateElemBall").LogInfo($"Generating {amount} element balls of item ID {itemId} (gadget ID {gadgetId}) for entity ID {_EntityId}");
+
+            session.player.Scene.GenerateParticles(
+                gadgetId,
+                amount,
+                generateElemBall.Pos,
+                generateElemBall.Rot
+            );
+        }
+
+        private int getBallIdForElement(Resource.ElementType element)
+        {
+            return element switch
+            {
+                Resource.ElementType.Fire => 2017,
+                Resource.ElementType.Water => 2018,
+                Resource.ElementType.Grass => 2019,
+                Resource.ElementType.Electric => 2020,
+                Resource.ElementType.Wind => 2021,
+                Resource.ElementType.Ice => 2022,
+                Resource.ElementType.Rock => 2023,
+                _ => 2024
+            };
+        }
+
+        public SceneGroupLua? GetEntityGroup(uint groupId) => session.player!.Scene.GetGroup((int)groupId);
 
 		//public virtual void GenerateElemBall(AbilityActionGenerateElemBall info) { }
 	}

@@ -48,62 +48,6 @@ namespace KazusaGI_cb2.GameServer
 
 		public SceneEntityInfo ToSceneEntityInfo(Session session) =>
 			base.ToSceneEntityInfo(session.player!.Pos, session.player!.Rot);
-
-		public void GenerateElemBallByAbility(GenerateElemBall info, AbilityActionGenerateElemBall generateElemBall)
-		{
-			// Default to an elementless particle.
-			int cfgId = Convert.ToInt32(info.configID);
-			int itemId = cfgId != 0 ? cfgId : 2024;
-
-			// Generate 2 particles by default. todo: use info.ratio and info.baseEnergy?
-			int amount = 2;
-
-			int avatarId = (int)this.DbInfo.AvatarId;
-
-			var skillDepotData = this.DbInfo.avatarSkillDepotExcel;
-
-			// Determine how many particles we need to create for this avatar. (todo)
-			amount = this.getBallCountForAvatar(avatarId);
-
-			// Determine the avatar's element, and based on that the ID of the
-			// particles we have to generate.
-			//if (skillDepotData != null)
-			//{
-			//	Resource.ElementType element = skillDepotData.Element != null ? skillDepotData.Element.Type : Resource.ElementType.None;
-			//	itemId = this.getBallIdForElement(element);
-			//}
-
-			int gadgetId = MainApp.resourceManager.MaterialExcel.Values.FirstOrDefault(m => m.id == itemId)?.gadgetId is uint gid ? (int)gid : 70610008; // no element by default
-
-			new Logger("GenerateElemBall").LogInfo($"Generating {amount} element balls of item ID {itemId} (gadget ID {gadgetId}) for avatar ID {avatarId}");
-
-			session.player.Scene.GenerateParticles(
-				gadgetId, 
-				amount, 
-				generateElemBall.Pos,
-				generateElemBall.Rot
-			);
-		}
-
-		private int getBallCountForAvatar(int avatarId)
-		{
-			return 2; // todo: read from ability configs
-		}
-
-		private int getBallIdForElement(Resource.ElementType element)
-		{
-			return element switch
-			{
-				Resource.ElementType.Fire => 2017,
-				Resource.ElementType.Water => 2018,
-				Resource.ElementType.Grass => 2019,
-				Resource.ElementType.Electric => 2020,
-				Resource.ElementType.Wind => 2021,
-				Resource.ElementType.Ice => 2022,
-				Resource.ElementType.Rock => 2023,
-				_ => 2024
-			};
-		}
 		
 		/// <summary>
 		/// Initialize ability system for this avatar entity

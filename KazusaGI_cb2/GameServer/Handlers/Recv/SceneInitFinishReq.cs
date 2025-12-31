@@ -39,11 +39,14 @@ internal class HandleSceneInitFinishReq
         worldDataNotify.WorldPropMaps.Add(1, new PropValue() { Type = 8, Ival = 8 });
         worldDataNotify.WorldPropMaps.Add(2, new PropValue() { Type = 2, Ival = 0 });
 
-        session.SendPacket(worldDataNotify);
-        session.SendPacket(new SceneDataNotify()
+        SceneDataNotify sceneDataNotify = new SceneDataNotify();
+        if (MainApp.resourceManager.SceneExcel.TryGetValue(session.player.SceneId, out var sceneExcelConfig))
         {
-            LevelConfigNameLists = { "Level_BigWorld" }
-        });
+            sceneDataNotify.LevelConfigNameLists.Add(sceneExcelConfig.levelEntityConfig);
+        }
+
+        session.SendPacket(worldDataNotify);
+        session.SendPacket(sceneDataNotify);
         session.SendPacket(new HostPlayerNotify()
         {
             HostPeerId = session.player!.PeerId,

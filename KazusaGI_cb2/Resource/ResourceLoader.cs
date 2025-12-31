@@ -197,6 +197,11 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterAffixExcelConfigData.json"))
         )!.ToDictionary(data => data.id);
 
+    private Dictionary<uint, SceneExcelConfig> LoadSceneExcel() =>
+        JsonConvert.DeserializeObject<List<SceneExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "SceneExcelConfigData.json"))
+        )!.ToDictionary(data => data.id);
+
     private GlobalCombatData LoadGlobalCombatData() =>
         JsonConvert.DeserializeObject<GlobalCombatData>(
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
@@ -719,6 +724,7 @@ public class ResourceLoader
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
         _resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
+        _resourceManager.SceneExcel = this.LoadSceneExcel();
         _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
         _resourceManager.ConfigPreload = this.LoadConfigPreload();

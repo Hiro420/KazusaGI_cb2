@@ -28,8 +28,8 @@ namespace KazusaGI_cb2.GameServer
 		public bool isEnableInteract;
 		public ItemType itemType;
 
-		public DropItemEntity(Session session, uint gadgetId, uint trifleItemId, ItemType itemTypem, uint? count)
-		: base(session, null, null, ProtEntityType.ProtEntityGadget, null)
+		public DropItemEntity(Session session, uint gadgetId, uint trifleItemId, ItemType itemTypem, uint? count, Vector3? position)
+		: base(session, position, null, ProtEntityType.ProtEntityGadget, null)
 		{
 			_trifleItemId = trifleItemId;
 			_trifleItemCount = count ?? 1;

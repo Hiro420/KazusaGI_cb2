@@ -348,6 +348,29 @@ public class ScriptLib
 	    return scene.CreateGroupTimerEvent(group_id, timer_name, delay_time_ms);
     }
 
+    public int CancelGroupTimerEvent(Session session, uint group_id, string name)
+    {
+        Log("Called CancelGroupTimerEvent");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CancelGroupTimerEvent called with no active player/scene");
+            return -1;
+        }
+        if (group_id == 0)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CancelGroupTimerEvent called with group_id = 0");
+            return -1;
+        }
+        var scene = player.Scene;
+        var group = scene.GetGroup((int)group_id);
+        if (group == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] CancelGroupTimerEvent called but group not found in scene");
+            return -1;
+        }
+        return scene.CancelGroupTimerEvent(group_id, name);
+	}
 
 	public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
     {

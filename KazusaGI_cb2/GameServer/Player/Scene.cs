@@ -3,6 +3,7 @@ using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -42,7 +43,11 @@ public class Scene
     private uint _nextEntityIndex = 0;
     private readonly object _entityIdLock = new();
 
-    private class SceneChallenge
+	// ongoing tasks per GroupTimerEvent
+	private readonly ConcurrentDictionary<(uint groupId, string timerName), CancellationTokenSource> _groupTimers
+		= new();
+
+	private class SceneChallenge
     {
         public uint GroupId;
         public SceneGroupLua? Group;
@@ -1267,27 +1272,79 @@ public class Scene
         }
     }
 
-    public int CreateGroupTimerEvent(uint groupId, string timerName, float delayMS)
-    {
-        var group = GetGroup((int)groupId);
-        if (group == null)
-        {
-            session.c.LogWarning($"[Scene] CreateGroupTimerEvent failed: group {groupId} not found");
-            return -1;
-        }
-        Task.Run(async () =>
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(delayMS));
-			LuaManager.executeTriggersLua(session, group, new ScriptArgs((int)groupId, (int)EventType.EVENT_TIMER_EVENT)
-			{
-				// hk4e sets evt.source_name to the timer name so that
-				// only triggers whose source matches this name fire.
-				source = timerName
-			});
-        });
-        return 0;
+	public int CreateGroupTimerEvent(uint groupId, string timerName, float delayMS)
+	{
+		if (string.IsNullOrWhiteSpace(timerName))
+			return -1;
+
+		if (float.IsNaN(delayMS) || float.IsInfinity(delayMS) || delayMS < 0)
+			delayMS = 0;
+
+		// Replace/reset behavior: cancel existing timer with same key.
+		var key = (groupId, timerName);
+		if (_groupTimers.TryRemove(key, out var oldCts))
+		{
+			oldCts.Cancel();
+			oldCts.Dispose();
+		}
+
+		var cts = new CancellationTokenSource();
+		if (!_groupTimers.TryAdd(key, cts))
+		{
+			cts.Dispose();
+			return -1;
+		}
+
+		_ = RunGroupTimerAsync(groupId, timerName, delayMS, cts.Token);
+
+		return 0;
 	}
 
+	private async Task RunGroupTimerAsync(uint groupId, string timerName, float delayMS, CancellationToken token)
+	{
+		var key = (groupId, timerName);
+		try
+		{
+			await Task.Delay(TimeSpan.FromMilliseconds(delayMS), token).ConfigureAwait(false);
+
+			// Re-fetch in case it changed/unloaded during the delay
+			var group = GetGroup((int)groupId);
+			if (group == null || token.IsCancellationRequested)
+				return;
+
+			LuaManager.executeTriggersLua(
+				session,
+				group,
+				new ScriptArgs((int)groupId, (int)EventType.EVENT_TIMER_EVENT)
+				{
+					source = timerName
+				});
+		}
+		catch (OperationCanceledException)
+		{
+			// expected when canceled
+		}
+		catch (Exception ex)
+		{
+			session.c.LogError($"[Scene] GroupTimerEvent {groupId}:{timerName} failed: {ex}");
+		}
+		finally
+		{
+			if (_groupTimers.TryRemove(key, out var cts))
+				cts.Dispose();
+		}
+	}
+
+	public int CancelGroupTimerEvent(uint groupId, string timerName)
+    {
+		var key = (groupId, timerName);
+		if (_groupTimers.TryRemove(key, out var cts))
+		{
+			cts.Cancel();
+			cts.Dispose();
+		}
+		return 0;
+	}
 
 	public int BeginChallenge(uint groupId, uint challengeIndex, uint challengeId, IReadOnlyList<uint> paramList)
     {

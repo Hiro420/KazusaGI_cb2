@@ -94,7 +94,8 @@ internal class DropManager
 				gadgetId,
 				dropId,
 				itemType,
-				count
+				count,
+				gadget.Position
 			);
 			session.player.Scene.EntityManager.Add(gadgetEntity);
 
@@ -353,7 +354,8 @@ internal class DropManager
 				gadgetId: materialConfig.gadgetId,
 				trifleItemId: matId,
 				itemTypem: materialConfig.itemType,
-				count: (uint)dropCount
+				count: (uint)dropCount,
+				position: entity.Position
 			);
 			session.player!.Scene.EntityManager.Add(gadgetEntity);
 			droppedGadgets.Add(gadgetEntity);

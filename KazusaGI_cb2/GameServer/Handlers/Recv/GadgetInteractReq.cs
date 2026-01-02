@@ -1,7 +1,8 @@
-using System.Numerics;
-using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.GameServer.Lua;
+using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
+using SharpCompress.Common;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer.Handlers.Recv;
 
@@ -35,20 +36,13 @@ internal class HandleGadgetInteractReq
         }
 
         // Resolve entity
-        if (!player.Scene.EntityManager.TryGet(req.GadgetEntityId, out var entity))
+        if (!player.Scene.EntityManager.TryGet(req.GadgetEntityId, out var ientity) || ientity is not GadgetEntity entity)
         {
             // Match hk4e: entity not found -> RET_ENTITY_NOT_EXIST (504)
             rsp.Retcode = (int)Retcode.RetEntityNotExist;
             session.SendPacket(rsp);
             return;
         }
-        if (entity is not GadgetEntity && entity is not DropItemEntity)
-        {
-            // Match hk4e: entity is not a gadget or drop item -> RET_ENTITY_NOT_EXIST (504)
-            rsp.Retcode = (int)Retcode.RetEntityNotExist;
-            session.SendPacket(rsp);
-            return;
-		}
 
 		// Distance check (hk4e uses a configurable radius; we approximate with a fixed one)
 		const float interactRange = 6.0f; // reasonably close to hk4e behavior
@@ -94,32 +88,26 @@ internal class HandleGadgetInteractReq
         };
     }
 
-    private static void HandleFinishInteraction(Session session, Entity entity, InteractType interactType)
+    private static void HandleFinishInteraction(Session session, GadgetEntity gadget, InteractType interactType)
     {
         // Approximate hk4e behavior for the most common cases.
         switch (interactType)
         {
             case InteractType.InteractOpenChest:
                 {
-                    if (entity is not GadgetEntity gadget1)
+					if (gadget.state == Resource.GadgetState.ChestLocked || gadget.state == Resource.GadgetState.Default)
+						gadget.ChangeState(Resource.GadgetState.ChestOpened);
+
+                    if (gadget._gadgetLua != null && !string.IsNullOrEmpty(gadget._gadgetLua.drop_tag))
                     {
-                        session.c.LogError("GadgetInteractReq: InteractOpenChest on non-gadget entity");
-                        break;
+                        DropManager.DropGadgetLoot(session, gadget);
                     }
 
-					if (gadget1.state == Resource.GadgetState.ChestLocked || gadget1.state == Resource.GadgetState.Default)
-                        gadget1.ChangeState(Resource.GadgetState.ChestOpened);
-
-                    if (gadget1._gadgetLua != null && !string.IsNullOrEmpty(gadget1._gadgetLua.drop_tag))
-                    {
-                        DropManager.DropGadgetLoot(session, gadget1);
-                    }
-
-					gadget1.ForceKill();
+					gadget.ForceKill();
 
 					// Record one-off/persistent gadget consumption so it won't respawn
 					// for this player in future sessions, mirroring hk4e gadget state.
-					var lua = gadget1._gadgetLua;
+					var lua = gadget._gadgetLua;
 					if (session.player != null && lua != null && (lua.isOneoff || lua.persistent))
 					{
 						session.player.OpenedGadgets.Add((session.player.SceneId, lua.group_id, lua.config_id));
@@ -130,36 +118,29 @@ internal class HandleGadgetInteractReq
 
             case InteractType.InteractGather:
 
-                // Gather points / gather objects: despawn the gadget and fire EVENT_GATHER
-                // so Lua group scripts can react (e.g. KillEntityByConfigId, refresh, etc.).
-
-                if (entity is GadgetEntity gadget)
-                {
-                    if (gadget._gadgetLua != null && session.player?.Scene != null)
-                    {
-                        var scene = session.player.Scene;
-
-                        // Despawn with a specific gather vision reason.
-                        scene.EntityManager.Remove(gadget._EntityId, VisionType.VisionGatherEscape);
-
-                        // Notify Lua triggers listening for EVENT_GATHER.
-                        var group = scene.GetGroup((int)gadget._gadgetLua.group_id);
-                        if (group != null)
-                        {
-                            var args = new ScriptArgs((int)gadget._gadgetLua.group_id, (int)EventType.EVENT_GATHER, (int)gadget._gadgetLua.config_id)
-                            {
-                                source_eid = (int)gadget._EntityId
-                            };
-                            LuaManager.executeTriggersLua(session, group, args);
-                        }
-                    }
-                }
-                else if (entity is DropItemEntity)
+				// Gather points / gather objects: despawn the gadget and fire EVENT_GATHER
+				// so Lua group scripts can react (e.g. KillEntityByConfigId, refresh, etc.).
+				// same as InteractPickItem
+				if (gadget is DropItemEntity entity && session.player?.Scene != null)
 				{
-					// same as InteractPickItem
-					if (session.player?.Scene != null)
-                    {
-                        session.player.Scene.EntityManager.Remove(entity._EntityId, VisionType.VisionGatherEscape);
+					session.player.Scene.EntityManager.Remove(entity._EntityId, VisionType.VisionGatherEscape);
+				}
+				else if (gadget._gadgetLua != null && session.player?.Scene != null)
+				{
+					var scene = session.player.Scene;
+
+					// Despawn with a specific gather vision reason.
+					scene.EntityManager.Remove(gadget._EntityId, VisionType.VisionGatherEscape);
+
+					// Notify Lua triggers listening for EVENT_GATHER.
+					var group = scene.GetGroup((int)gadget._gadgetLua.group_id);
+					if (group != null)
+					{
+						var args = new ScriptArgs((int)gadget._gadgetLua.group_id, (int)EventType.EVENT_GATHER, (int)gadget._gadgetLua.config_id)
+						{
+							source_eid = (int)gadget._EntityId
+						};
+						LuaManager.executeTriggersLua(session, group, args);
 					}
 				}
                 else
@@ -172,7 +153,7 @@ internal class HandleGadgetInteractReq
                 // Drop item gadgets: at minimum, despawn on successful pickup.
                 if (session.player?.Scene != null)
                 {
-                    session.player.Scene.EntityManager.Remove(entity._EntityId, VisionType.VisionGatherEscape);
+                    session.player.Scene.EntityManager.Remove(gadget._EntityId, VisionType.VisionGatherEscape);
 					// todo: fire EVENT_GATHER for Lua triggers and handle actual item granting
 				}
 				break;

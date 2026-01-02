@@ -17,7 +17,7 @@ internal class HandleEvtCreateGadgetNotify
         uint entityId = req.EntityId;
         uint gadgetId = req.ConfigId;
         Protocol.Vector pos = req.InitPos;
-        GadgetEntity gadgetEntity = new GadgetEntity(session, gadgetId, null, Session.VectorProto2Vector3(pos), Vector3.Zero, entityId);
+        ClientGadgetEntity gadgetEntity = new ClientGadgetEntity(session, gadgetId, req, Session.VectorProto2Vector3(pos), Vector3.Zero, entityId);
 
         if (req.OwnerEntityId != 0)
             gadgetEntity.OwnerEntityId = req.OwnerEntityId;

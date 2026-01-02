@@ -13,14 +13,12 @@ internal class HandleExecuteGadgetLuaReq
     public static void OnPacket(Session session, Packet packet)
     {
         ExecuteGadgetLuaReq req = packet.GetDecodedBody<ExecuteGadgetLuaReq>();
-        // todo: handle
         GameServer.Entity? targetEntity = session.player!.Scene.FindEntityByEntityId(req.SourceEntityId);
-        if (targetEntity == null || targetEntity is not GameServer.GadgetEntity)
+        if (targetEntity == null || targetEntity is not GameServer.GadgetEntity gadgetEntity)
         {
             session.c.LogWarning($"[FUCKED EXECUTE GADGET LUA] Entity {req.SourceEntityId} not found for ExecuteGadgetLuaReq, or is not a gadget");
             return;
-        }
-        GadgetEntity gadgetEntity = (GameServer.GadgetEntity)targetEntity;
+        };
         Retcode ret = gadgetEntity.onClientExecuteRequest(req.Param1, req.Param2, req.Param3);
         session.SendPacket(new ExecuteGadgetLuaRsp() { Retcode = (int)ret });
     }

@@ -69,10 +69,7 @@ public class ResourceLoader
             group => group.Key,
             group => group.ToList()
         );
-    public Dictionary<uint, string> LoadGadgetLuaConfig() =>
-        JsonConvert.DeserializeObject<Dictionary<string, string>>(
-            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "GadgetLuaConfig.json"))
-        )!.ToDictionary(data => uint.Parse(data.Key), data => data.Value);
+
     private Dictionary<uint, TowerLevelExcelConfig> LoadTowerLevelExcelConfig() =>
         JsonConvert.DeserializeObject<List<TowerLevelExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "TowerLevelExcelConfigData.json"))
@@ -749,7 +746,6 @@ public class ResourceLoader
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
         _resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
         _resourceManager.SceneExcel = this.LoadSceneExcel();
-        _resourceManager.GadgetLuaConfig = this.LoadGadgetLuaConfig();
         _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
         _resourceManager.ConfigPreload = this.LoadConfigPreload();
         _resourceManager.AbilityPathData = this.LoadAbilityPathData();

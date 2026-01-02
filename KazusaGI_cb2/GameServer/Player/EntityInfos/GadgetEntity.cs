@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes;
+using KazusaGI_cb2.Resource.ServerExcel;
 
 namespace KazusaGI_cb2.GameServer
 {
@@ -21,6 +22,7 @@ namespace KazusaGI_cb2.GameServer
 		public uint _gadgetId;
 		public GadgetExcelConfig gadgetExcel;
 		public ConfigGadget? configGadget;
+		public GadgetRow serverExcelConfig;
 		public uint level;
 		public bool isLockHP => configGadget?.combat?.property?.isLockHP ?? false;
 		public bool isEnableInteract;
@@ -48,6 +50,7 @@ namespace KazusaGI_cb2.GameServer
 			_gadgetLua = gadgetInfo;
 			level = MainApp.resourceManager.WorldLevelExcel[session.player!.WorldLevel].monsterLevel;
 			gadgetExcel = MainApp.resourceManager.GadgetExcel[gadgetId];
+			serverExcelConfig = MainApp.resourceManager.ServerGadgetRows.First(i => i.Id == gadgetId)!;
 			isEnableInteract = gadgetExcel.isInteractive;
 
 			if (_gadgetLua != null && _gadgetLua.owner != 0)
@@ -111,13 +114,18 @@ namespace KazusaGI_cb2.GameServer
 
 		public Retcode onClientExecuteRequest(int param1, int param2, int param3)
 		{
-			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
-			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+			if (!string.IsNullOrEmpty(serverExcelConfig.ServerScript))
 			{
 				session.c.LogError($"GadgetLua for gadgetId {_gadgetId} not found");
-				return Retcode.RetSvrError;
+				return Retcode.RetGadgetNotExist;
 			}
-			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "Gadget", serverExcelConfig.ServerScript + ".lua");
+
+			if (!File.Exists(luaPath))
+			{
+				session.c.LogError($"GadgetLua file for gadgetId {_gadgetId} not found at path {luaPath}");
+				return Retcode.RetGadgetNotExist;
+			}
 
 			using (NLua.Lua tGadgetLua = new NLua.Lua())
 			{
@@ -276,11 +284,10 @@ namespace KazusaGI_cb2.GameServer
 
 		public void OnDie(AttackResult attack)
 		{
-			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
-			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+			if (string.IsNullOrEmpty(serverExcelConfig.ServerScript))
 				return;
 
-			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "Gadget", serverExcelConfig.ServerScript + ".lua");
 
 			using (NLua.Lua tGadgetLua = new NLua.Lua())
 			{
@@ -311,11 +318,10 @@ namespace KazusaGI_cb2.GameServer
 
 		public void OnBeHurt(AttackResult attack, bool isHost)
 		{
-			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
-			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+			if (string.IsNullOrEmpty(serverExcelConfig.ServerScript))
 				return;
 
-			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "Gadget", serverExcelConfig.ServerScript + ".lua");
 
 			using (NLua.Lua tGadgetLua = new NLua.Lua())
 			{
@@ -346,11 +352,10 @@ namespace KazusaGI_cb2.GameServer
 
 		public void OnTimer(uint now)
 		{
-			Dictionary<uint, string> gadgetLuas = MainApp.resourceManager.GadgetLuaConfig;
-			if (!gadgetLuas.TryGetValue(_gadgetId, out string? luaFile) || string.IsNullOrEmpty(luaFile))
+			if (string.IsNullOrEmpty(serverExcelConfig.ServerScript))
 				return;
 
-			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "gadget", luaFile + ".lua");
+			string luaPath = Path.Combine(MainApp.resourceManager.loader.LuaPath, "Gadget", serverExcelConfig.ServerScript + ".lua");
 
 			using (NLua.Lua tGadgetLua = new NLua.Lua())
 			{

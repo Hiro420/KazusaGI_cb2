@@ -114,7 +114,7 @@ namespace KazusaGI_cb2.GameServer
 
 		public Retcode onClientExecuteRequest(int param1, int param2, int param3)
 		{
-			if (!string.IsNullOrEmpty(serverExcelConfig.ServerScript))
+			if (string.IsNullOrEmpty(serverExcelConfig.ServerScript))
 			{
 				session.c.LogError($"GadgetLua for gadgetId {_gadgetId} not found");
 				return Retcode.RetGadgetNotExist;

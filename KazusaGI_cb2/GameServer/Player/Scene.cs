@@ -1272,6 +1272,24 @@ public class Scene
         }
     }
 
+    public int GoToGroupSuite(uint groupId, uint suiteId)
+    {
+        var group = GetGroup((int)groupId);
+        if (group == null)
+        {
+            session.c.LogWarning($"[Scene] GoToGroupSuite failed: group {groupId} not found");
+            return 1;
+        }
+        if (suiteId == 0 || suiteId > group.suites.Count)
+        {
+            session.c.LogWarning($"[Scene] GoToGroupSuite failed: invalid suiteId {suiteId} for group {groupId}");
+            return 1;
+        }
+        _groupActiveSuite[group] = suiteId;
+        UpdateGroup(group, group.suites[(int)(suiteId - 1)]);
+        return 0;
+	}
+
 	public int CreateGroupTimerEvent(uint groupId, string timerName, float delayMS)
 	{
 		if (string.IsNullOrWhiteSpace(timerName))

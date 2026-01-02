@@ -372,6 +372,25 @@ public class ScriptLib
         return scene.CancelGroupTimerEvent(group_id, name);
 	}
 
+    public int GoToGroupSuite(Session session, int group_id, int suite_index)
+    {
+        Log("Called GoToGroupSuite");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] GoToGroupSuite called with no active player/scene");
+            return -1;
+        }
+        var scene = player.Scene;
+        var group = scene.GetGroup(group_id);
+        if (group == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] GoToGroupSuite called but group not found in scene");
+            return -1;
+        }
+        return scene.GoToGroupSuite((uint)group_id, (uint)suite_index);
+	}
+
 	public int SetIsAllowUseSkill(Session session, int is_allow_use_skill)
     {
         Log("Called SetIsAllowUseSkill");

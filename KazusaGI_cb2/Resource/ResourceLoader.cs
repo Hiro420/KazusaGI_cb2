@@ -189,6 +189,11 @@ public class ResourceLoader
             group => group.ToDictionary(data => data.promoteLevel)
         );
 
+    private Dictionary<uint, EquipAffixExcelConfig> LoadEquipAffixExcel() =>
+        JsonConvert.DeserializeObject<List<EquipAffixExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "EquipAffixExcelConfigData.json"))
+        )!.ToDictionary(data => data.AffixId);
+
     private Dictionary<uint, MonsterAffixExcelConfig> LoadMonsterAffixExcel() =>
         JsonConvert.DeserializeObject<List<MonsterAffixExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "MonsterAffixExcelConfigData.json"))
@@ -746,7 +751,8 @@ public class ResourceLoader
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
         _resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
         _resourceManager.SceneExcel = this.LoadSceneExcel();
-        _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
+        _resourceManager.EquipAffixExcel = this.LoadEquipAffixExcel();
+		_resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
         _resourceManager.ConfigPreload = this.LoadConfigPreload();
         _resourceManager.AbilityPathData = this.LoadAbilityPathData();
 

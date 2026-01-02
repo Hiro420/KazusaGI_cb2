@@ -102,7 +102,7 @@ namespace KazusaGI_cb2.GameServer
 				BornType = MonsterBornType.MonsterBornDefault,
 				PoseId = _monsterInfo?.pose_id ?? 0,
 				BlockId = _monsterInfo?.block_id ?? 0,
-				GroupId = _monsterInfo?.group_id ?? 0
+				GroupId = _monsterInfo?.group_id ?? 0,
 			};
 
 			// Attach weapons (if any)
@@ -116,9 +116,20 @@ namespace KazusaGI_cb2.GameServer
 					{
 						EntityId = weaponEntity._EntityId,
 						GadgetId = equipId,
+						Level = 1,
+						AbilityInfo = new()
 					});
+					foreach (var kv in weaponEntity.GetAffixMap())
+					{
+						sceneMonsterInfo.WeaponLists[^1].AffixMaps[kv.Key] = kv.Value;
+					}
 					session.player!.Scene.EntityManager.Add(weaponEntity);
 				}
+			}
+
+			foreach (uint affix in _monsterInfo?.affix ?? new List<uint>())
+			{
+				sceneMonsterInfo.AffixLists.Add(affix);
 			}
 
 			ret.Monster = sceneMonsterInfo;

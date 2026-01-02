@@ -81,6 +81,20 @@ public class PlayerWeapon
             PromoteLevel = this.PromoteLevel,
             AbilityInfo = new AbilitySyncStateInfo()
         };
-        return info;
+        if (session.player!.Scene.EntityManager.TryGet(this.WeaponEntityId, out Entity entity))
+		{
+		    WeaponEntity weaponEntity = (WeaponEntity)entity;
+            foreach (uint affixId in weaponEntity.GetAffixMap().Keys)
+            {
+                if (affixId == 0) continue;
+                List<EquipAffixExcelConfig>? affixConfigs = resourceManager.EquipAffixExcel.Values.Where(e => e.AffixId == affixId).ToList();
+                foreach (var affixConfig in affixConfigs)
+                {
+                    // todo: actually handle it properly later
+                    info.AffixMaps[affixConfig.Id] = affixConfig.Level;
+                }
+            }
+		}
+		return info;
     }
 }

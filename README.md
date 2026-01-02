@@ -6,7 +6,7 @@
 # Usage
 - Download [MongoDB 4.0+](https://www.mongodb.com/try/download/community)
 - Compile via Visual Studio 2022
-- Download `BinOutput`, `Lua` and `ExcelBinOutput` from [the resources repo](https://github.com/Hiro420/KazusaGI_Data) and place them in `resources` folder, next to the executable
+- Download `BinOutput`, `Lua`, `ExcelBinOutput` and `ServerExcelOutput` from [the resources repo](https://github.com/Hiro420/KazusaGI_Data) and place them in `resources` folder, next to the executable
 - Download [0.7.1](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.1.zip) or [0.7.0](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.0.zip) version of a certain anime game 
 - Place a patched [mhyprot2.Sys](https://drive.google.com/file/d/13JllxRsyZSb4rfATNJXNoKHWApcpD7Kn/view?usp=drive_link) in the game folder, next to the executable
 - [Download](https://api.getfiddler.com/fc/latest) and [configure](#Configure-Fiddler) Fiddler

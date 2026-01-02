@@ -19,6 +19,7 @@ namespace KazusaGI_cb2.GameServer
 		public float MaxHp { get; private set; }
 		public float Atk { get; private set; }
 		public float Def { get; private set; }
+		public HashSet<uint> DroppedPercents { get; private set; } = new();
 
 		public MonsterEntity(Session session, uint monsterId, MonsterLua? monsterInfo = null, Vector3? position = null, Vector3? rotation = null)
 			: base(session, position, rotation, ProtEntityType.ProtEntityMonster)
@@ -124,6 +125,13 @@ namespace KazusaGI_cb2.GameServer
 						sceneMonsterInfo.WeaponLists[^1].AffixMaps[kv.Key] = kv.Value;
 					}
 					session.player!.Scene.EntityManager.Add(weaponEntity);
+
+					SceneEntityAppearNotify appearNotify = new SceneEntityAppearNotify
+					{
+						AppearType = Protocol.VisionType.VisionMeet,
+						EntityLists = { weaponEntity.ToSceneEntityInfo() }
+					};
+					session.SendPacket(appearNotify);
 				}
 			}
 
@@ -143,6 +151,8 @@ namespace KazusaGI_cb2.GameServer
 			Hp -= dmg;
 			if (Hp < 0)
 				Hp = 0;
+
+			CheckForDrop();
 
 			var update = new EntityFightPropUpdateNotify
 			{
@@ -180,6 +190,22 @@ namespace KazusaGI_cb2.GameServer
 					(int)_monsterInfo.group_id,
 					(int)Lua.EventType.EVENT_ANY_MONSTER_DIE,
 					(int)_monsterInfo.config_id));
+		}
+
+		private void CheckForDrop()
+		{
+			foreach (var hpDrop in excelConfig.hpDrops)
+			{
+				if (Hp / MaxHp <= hpDrop.hpPercent / 100f && !DroppedPercents.Contains(hpDrop.hpPercent))
+				{
+					DropManager.DropLoot(session, hpDrop.dropId, this);
+					DroppedPercents.Add(hpDrop.hpPercent);
+				}
+			}
+			if (Hp <= 0)
+			{
+				DropManager.DropLoot(session, excelConfig.killDropId, this);
+			}
 		}
 	}
 }

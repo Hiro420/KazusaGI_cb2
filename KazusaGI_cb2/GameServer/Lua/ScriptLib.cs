@@ -1,6 +1,7 @@
 ﻿using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
+using KazusaGI_cb2.Resource.ServerExcel;
 using NLua;
 using System;
 using System.Collections.Generic;
@@ -123,8 +124,79 @@ public class ScriptLib
 
         Log($"Called DropSubfield subfield_name={subfield_name}");
 
-	    // todo: implement subfield dropping logic
-        return 0;
+        ResourceManager rm = MainApp.resourceManager;
+
+        if (rm == null)
+            return 1;
+
+        // we use reflection to find the subfield by name
+        EntityDropSubfieldRow? subfieldRow = null;
+        int foundIndex = -1;
+
+		foreach (EntityDropSubfieldRow row in rm.ServerEntityDropSubfieldRows)
+        {
+			for (int i = 1; i < 8; i++)
+			{
+				string propName = $"Branch{i}Type";
+				var prop = typeof(EntityDropSubfieldRow).GetProperty(propName);
+				if (prop == null)
+					continue;
+				if (prop.GetValue(row) as string == subfield_name)
+				{
+					subfieldRow = row;
+					foundIndex = i;
+					break;
+				}
+			}
+		}
+
+		if (foundIndex == -1 || subfieldRow == null)
+        {
+            Log($"DropSubfield: subfield_name {subfield_name} not found for entity {currentEventArgs!.param1}");
+            return 1;
+		}
+
+		// Get the pool ID for the found subfield
+        var poolIdProp = typeof(EntityDropSubfieldRow).GetProperty($"Branch{foundIndex}PoolId");
+        if (poolIdProp == null)
+        {
+            Log($"DropSubfield: could not find pool ID property for subfield {subfield_name}");
+            return 1;
+        }
+        int value = poolIdProp.GetValue(subfieldRow) as int? ?? 0;
+        Log($"DropSubfield: found pool ID {value} for subfield {subfield_name}");
+
+        DropSubfieldRow? dropSubfieldRow = rm.ServerDropSubfieldRows
+            .FirstOrDefault(ds => ds.SubfieldPoolId == value);
+
+        if (dropSubfieldRow == null)
+        {
+            Log($"DropSubfield: no DropSubfieldRow found for pool ID {value}");
+            return 1;
+		}
+
+        DropTreeRow? dropTreeRow = rm.ServerDropTreeRows
+            .FirstOrDefault(dt => dt.Id == dropSubfieldRow.DropId);
+
+        if (dropTreeRow == null)
+        {
+            Log($"DropSubfield: no DropTreeRow found for drop ID {dropSubfieldRow.DropId}");
+            return 1;
+        }
+
+        if (currentGadget == null)
+        {
+            Log("DropSubfield: currentGadget is null, dropping loot failed");
+            return 1;
+		}
+
+		DropManager.DropLoot(
+			currentSession,
+			(uint)dropSubfieldRow.DropId,
+			currentGadget
+		);
+
+		return 0;
     }
 
     public int GetRegionEntityCount(Session session, object _table)

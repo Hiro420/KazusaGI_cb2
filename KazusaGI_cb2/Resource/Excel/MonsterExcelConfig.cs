@@ -15,8 +15,8 @@ public class MonsterExcelConfig
     public string ai;
     public List<uint> equips;
     // killExpCurve
-    // hpDrops
-    // killDropId
+    public List<HpDrop> hpDrops;
+    public uint killDropId;
     // excludeWeathers
     public uint featureTagGroupID;
     public uint mpPropID;

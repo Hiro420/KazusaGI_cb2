@@ -23,8 +23,8 @@ public class ResourceManager
     public Dictionary<uint, AvatarExcelConfig> AvatarExcel { get; set; }
     public Dictionary<uint, AvatarSkillDepotExcelConfig> AvatarSkillDepotExcel { get; set; }
     public Dictionary<uint, AvatarSkillExcelConfig> AvatarSkillExcel { get; set; }
-	public Dictionary<uint, AvatarTalentExcelConfig> AvatarTalentExcel { get; set; }
-	public Dictionary<uint, ProudSkillExcelConfig> ProudSkillExcel { get; set; }
+    public Dictionary<uint, AvatarTalentExcelConfig> AvatarTalentExcel { get; set; }
+    public Dictionary<uint, ProudSkillExcelConfig> ProudSkillExcel { get; set; }
     public Dictionary<uint, WeaponExcelConfig> WeaponExcel { get; set; }
     public Dictionary<uint, MonsterExcelConfig> MonsterExcel { get; set; }
     public Dictionary<uint, GadgetExcelConfig> GadgetExcel { get; set; }
@@ -52,29 +52,36 @@ public class ResourceManager
     public Dictionary<uint, MonsterAffixExcelConfig> MonsterAffixExcel { get; set; }
     public Dictionary<uint, SceneExcelConfig> SceneExcel { get; set; }
     public Dictionary<uint, EquipAffixExcelConfig> EquipAffixExcel { get; set; }
+    public Dictionary<uint, ReliquaryExcelConfig> ReliquaryExcel { get; set; }
+    public Dictionary<uint, ReliquaryMainPropExcelConfig> ReliquaryMainPropExcel { get; set; }
+    public Dictionary<uint, ReliquaryAffixExcelConfig> ReliquaryAffixExcel { get; set; }
 	public Dictionary<uint, Dictionary<uint, WeaponPromoteExcelConfig>> WeaponPromoteExcel { get; set; }
     public GlobalCombatData GlobalCombatData { get; set; }
     public Dictionary<uint, DungeonChallengeConfig> DungeonChallengeConfig { get; set; }
-	public ConfigPreload ConfigPreload { get; set; }
+    public ConfigPreload ConfigPreload { get; set; }
     public AbilityPathData AbilityPathData { get; set; } // ability name
 
 
-	public ConcurrentDictionary<string, BaseConfigTalent[]> AvatarTalentConfigDataMap { get; set; } // file name
-	public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
-	public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
-	public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }
+    public ConcurrentDictionary<string, BaseConfigTalent[]> AvatarTalentConfigDataMap { get; set; } // file name
+    public Dictionary<string, ConfigAbilityContainer> ConfigAbilityMap { get; set; } // ability name
+    public Dictionary<string, ConfigAvatar> ConfigAvatarMap { get; set; }
+    public Dictionary<string, ConfigGadget> ConfigGadgetMap { get; set; }
     public Dictionary<string, ConfigMonster> ConfigMonsterMap { get; set; }
 
     public Dictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; set; } // ability hash
 
     public List<AvatarRow> ServerAvatarRows { get; set; }
+    public List<ChestDropRow> ServerChestDropRows { get; set; }
     public List<GadgetRow> ServerGadgetRows { get; set; }
     public List<MonsterRow> ServerMonsterRows { get; set; }
     public List<MonsterAffixRow> ServerMonsterAffixRows { get; set; }
     public List<MonsterDropRow> ServerMonsterDropRows { get; set; }
+    public List<DropTreeRow> ServerDropTreeRows { get; set; }
+    public List<DropLeafRow> ServerDropLeafRows { get; set; }
+    public List<DropSubfieldRow> ServerDropSubfieldRows { get; set; }
+    public List<EntityDropSubfieldRow> ServerEntityDropSubfieldRows { get; set; }
 
-
-    public ResourceManager(string baseResourcePath = "resources")
+	public ResourceManager(string baseResourcePath = "resources")
     {
         // Init Logger
         Logger c = new("ResourceLoader");
@@ -100,7 +107,7 @@ public class ResourceManager
 
         // Log SUCCESS
         c.LogSuccess("Loaded Resources");
-	}
+    }
 
     public string GetLuaStringFromGroupId(uint groupId)
     {

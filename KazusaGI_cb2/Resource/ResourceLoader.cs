@@ -189,7 +189,22 @@ public class ResourceLoader
             group => group.ToDictionary(data => data.promoteLevel)
         );
 
-    private Dictionary<uint, EquipAffixExcelConfig> LoadEquipAffixExcel() =>
+    private Dictionary<uint, ReliquaryMainPropExcelConfig> LoadReliquaryMainPropExcelConfig() =>
+        JsonConvert.DeserializeObject<List<ReliquaryMainPropExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ReliquaryMainPropExcelConfigData.json"))
+		)!.ToDictionary(data => data.id);
+
+    private Dictionary<uint, ReliquaryAffixExcelConfig> LoadReliquaryAffixExcelConfig() =>
+        JsonConvert.DeserializeObject<List<ReliquaryAffixExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ReliquaryAffixExcelConfigData.json"))
+        )!.ToDictionary(data => data.id);
+
+	private Dictionary<uint, ReliquaryExcelConfig> LoadReliquaryExcelConfig() =>
+        JsonConvert.DeserializeObject<List<ReliquaryExcelConfig>>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "ReliquaryExcelConfigData.json"))
+        )!.ToDictionary(data => data.id);
+
+	private Dictionary<uint, EquipAffixExcelConfig> LoadEquipAffixExcel() =>
         JsonConvert.DeserializeObject<List<EquipAffixExcelConfig>>(
             File.ReadAllText(Path.Combine(_baseResourcePath, ExcelSubPath, "EquipAffixExcelConfigData.json"))
         )!.ToDictionary(data => data.AffixId);
@@ -209,17 +224,17 @@ public class ResourceLoader
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Common", "ConfigGlobalCombat.json"))
         )!;
 
-	private ConfigPreload LoadConfigPreload() =>
-	    JsonConvert.DeserializeObject<ConfigPreload>(
-		    File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Preload", "ConfigPreload.json"))
-	    )!;
+    private ConfigPreload LoadConfigPreload() =>
+        JsonConvert.DeserializeObject<ConfigPreload>(
+            File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "Preload", "ConfigPreload.json"))
+        )!;
 
     private AbilityPathData LoadAbilityPathData() =>
         JsonConvert.DeserializeObject<AbilityPathData>(
             File.ReadAllText(Path.Combine(_baseResourcePath, JsonSubPath, "AbilityPath", "AbilityPathData.json"))
         )!;
 
-	private ConcurrentDictionary<string, BaseConfigTalent[]> LoadTalentConfigs()
+    private ConcurrentDictionary<string, BaseConfigTalent[]> LoadTalentConfigs()
     {
         ConcurrentDictionary<string, BaseConfigTalent[]> ret = new();
 
@@ -373,7 +388,7 @@ public class ResourceLoader
         filePaths.AsParallel().ForAll(async file =>
         {
             var filePath = new FileInfo(file);
-            var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName));
+            var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName))!;
             ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
         });
 
@@ -385,7 +400,11 @@ public class ResourceLoader
         string luaPath = Path.Combine(sceneDir, $"scene{sceneId}.lua");
         using (Lua luaContent = new Lua())
         {
-            luaContent.DoString(File.ReadAllText(luaPath));
+            // Ensure NLua uses UTF-8 so non-ASCII characters (e.g. Chinese drop tags)
+            // round-trip correctly between C# and Lua.
+            luaContent.State.Encoding = UTF8Encoding.UTF8;
+
+            luaContent.DoString(File.ReadAllText(luaPath, UTF8Encoding.UTF8));
             SceneLua sceneLuaConfig = new SceneLua();
             LuaTable blocks = (LuaTable)luaContent["blocks"];
             LuaTable scene_config = (LuaTable)luaContent["scene_config"];
@@ -458,7 +477,11 @@ public class ResourceLoader
             string blockLuaPath = Path.Combine(sceneDir, $"scene{sceneId}_block{blockId}.lua");
             using (Lua blockLua = new())
             {
-                blockLua.DoString(File.ReadAllText(blockLuaPath));
+                // Use UTF-8 when executing block Lua so any non-ASCII content
+                // is preserved inside the Lua VM.
+                blockLua.State.Encoding = System.Text.Encoding.UTF8;
+
+                blockLua.DoString(File.ReadAllText(blockLuaPath, blockLua.State.Encoding));
                 sceneBlockLua.groups = new List<SceneGroupBasicLua>();
                 sceneBlockLua.scene_groups = new Dictionary<uint, SceneGroupLua>();
                 LuaTable groups = (LuaTable)blockLua["groups"];
@@ -479,7 +502,7 @@ public class ResourceLoader
                     string mainLuaString = LuaManager.GetCommonScriptConfigAsLua() + "\n"
                         + LuaManager.GetConfigEntityTypeEnumAsLua() + "\n"
                         + LuaManager.GetConfigEntityEnumAsLua() + "\n"
-                        + File.ReadAllText(groupLuaPath);
+                        + File.ReadAllText(groupLuaPath, blockLua.State.Encoding);
 
                     sceneBlockLua.scene_groups.Add(sceneGroupBasicLua.id, LoadSceneGroup(mainLuaString, blockId, groupId));
                 }
@@ -493,6 +516,10 @@ public class ResourceLoader
         SceneGroupLua sceneGroupLua_ = new SceneGroupLua();
         using (Lua sceneGroupLua = new Lua())
         {
+            // Group scripts define gadget drop_tag strings and other localized
+            // content; force UTF-8 so these are not collapsed to question marks.
+            sceneGroupLua.State.Encoding = System.Text.Encoding.UTF8;
+
             sceneGroupLua.DoString(LuaFileContents);
             LuaTable monstersList = (LuaTable)sceneGroupLua["monsters"];
             LuaTable gadgetsList = (LuaTable)sceneGroupLua["gadgets"];
@@ -629,7 +656,7 @@ public class ResourceLoader
                     point_type = gadget["point_type"] != null ? Convert.ToUInt32(gadget["point_type"]) : 0u,
                     owner = gadget["owner"] != null ? Convert.ToUInt32(gadget["owner"]) : 0u
                 });
-            }
+			}
 
             sceneGroupLua_.init_config.suite = Convert.ToUInt32(initConfig["suite"]);
 
@@ -749,14 +776,17 @@ public class ResourceLoader
         _resourceManager.TowerScheduleExcel = this.LoadTowerScheduleExcelConfig();
         _resourceManager.TowerLevelExcel = this.LoadTowerLevelExcelConfig();
         _resourceManager.WeaponPromoteExcel = this.LoadWeaponPromoteExcelConfig();
-        _resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
+        _resourceManager.ReliquaryExcel = this.LoadReliquaryExcelConfig();
+		_resourceManager.MonsterAffixExcel = this.LoadMonsterAffixExcel();
         _resourceManager.SceneExcel = this.LoadSceneExcel();
-        _resourceManager.EquipAffixExcel = this.LoadEquipAffixExcel();
-		_resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
+        _resourceManager.ReliquaryMainPropExcel = this.LoadReliquaryMainPropExcelConfig();
+        _resourceManager.ReliquaryAffixExcel = this.LoadReliquaryAffixExcelConfig();
+		_resourceManager.EquipAffixExcel = this.LoadEquipAffixExcel();
+        _resourceManager.GlobalCombatData = this.LoadGlobalCombatData();
         _resourceManager.ConfigPreload = this.LoadConfigPreload();
         _resourceManager.AbilityPathData = this.LoadAbilityPathData();
 
-		_resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
+        _resourceManager.AvatarTalentConfigDataMap = this.LoadTalentConfigs();
         _resourceManager.ConfigAvatarMap = this.LoadConfigAvatarMap();
         _resourceManager.ConfigAbilityMap = this.LoadConfigAbilityMap();
         _resourceManager.ConfigGadgetMap = this.LoadConfigGadgetMap().Result;
@@ -764,8 +794,13 @@ public class ResourceLoader
 
         _resourceManager.ServerAvatarRows = this.LoadServerExcel<AvatarRow>("AvatarData");
         _resourceManager.ServerMonsterRows = this.LoadServerExcel<MonsterRow>("MonsterData");
+        _resourceManager.ServerChestDropRows = this.LoadServerExcel<ChestDropRow>("ChestDropData");
         _resourceManager.ServerMonsterAffixRows = this.LoadServerExcel<MonsterAffixRow>("MonsterAffixData");
-        _resourceManager.ServerMonsterDropRows = this.LoadServerExcel<MonsterDropRow>("MonsterDropData");
+        _resourceManager.ServerDropTreeRows = this.LoadServerExcel<DropTreeRow>("DropTreeData");
+        _resourceManager.ServerDropLeafRows = this.LoadServerExcel<DropLeafRow>("DropLeafData");
+        _resourceManager.ServerDropSubfieldRows = this.LoadServerExcel<DropSubfieldRow>("DropSubfieldData");
+        _resourceManager.ServerEntityDropSubfieldRows = this.LoadServerExcel<EntityDropSubfieldRow>("EntityDropSubfieldData");
+		_resourceManager.ServerMonsterDropRows = this.LoadServerExcel<MonsterDropRow>("MonsterDropData");
         _resourceManager.ServerGadgetRows = // Load (GadgetData_Avatar | GadgetData_Equip | GadgetData_Level | GadgetData_Monster | GadgetData_Quest) all as one List<GadgetRow>
             this.LoadServerExcelCombined<GadgetRow>(new string[] {
                 "GadgetData_Avatar",

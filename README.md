@@ -1,5 +1,5 @@
 # KazusaGI_cb2
- Server sofware reimplementaion for an old version of a certain anime game
+ Server sofware reimplementation for an old version of a certain anime game
 
 ## Please note: the project is still WIP and is in its very early stages, and many features might not work as intended. Same with the code quality, it will go through many rewrites and refactoring in the future, so please don't judge :\)
 
@@ -9,6 +9,7 @@
 - Download `BinOutput`, `Lua`, `ExcelBinOutput` and `ServerExcelOutput` from [the resources repo](https://github.com/Hiro420/KazusaGI_Data) and place them in `resources` folder, next to the executable
 - Download [0.7.1](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.1.zip) or [0.7.0](https://autopatchhk.yuanshen.com/client_app/pc_plus19/Genshin_0.7.0.zip) version of a certain anime game 
 - Place a patched [mhyprot2.Sys](https://drive.google.com/file/d/13JllxRsyZSb4rfATNJXNoKHWApcpD7Kn/view?usp=drive_link) in the game folder, next to the executable
+- (For windows 11 use [mhynot2](https://github.com/khang06/mhynot2)) 
 - [Download](https://api.getfiddler.com/fc/latest) and [configure](#Configure-Fiddler) Fiddler
 - Profit
 

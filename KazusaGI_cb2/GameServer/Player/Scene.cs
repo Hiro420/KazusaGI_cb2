@@ -1657,7 +1657,17 @@ public class Scene
         if (challenge.Group != null)
         {
             var evtType = isSuccess ? EventType.EVENT_CHALLENGE_SUCCESS : EventType.EVENT_CHALLENGE_FAIL;
-            var args = new ScriptArgs((int)groupId, (int)evtType, (int)challenge.ChallengeIndex, (int)finish.CurrentValue);
+
+            // Match hk4e semantics for challenge triggers:
+            //  - trigger.source stores the Lua-side "challenge identifier" passed
+            //    as the first parameter to ActiveChallenge (source_name).
+            //  - evt.source must be the same string for Group::isTriggerEventMatch
+            //    to consider the trigger a match.
+            var args = new ScriptArgs((int)groupId, (int)evtType, (int)challenge.ChallengeIndex, (int)finish.CurrentValue)
+            {
+                source = challenge.ChallengeIndex.ToString()
+            };
+
             LuaManager.executeTriggersLua(session, challenge.Group, args);
         }
 

@@ -34,7 +34,7 @@ public class CreateGadget : BaseAction
 		else
 			bornPos = GadgetEntity.ResolveBornPosition(srcEntity, born);
 
-		AbilityGadgetEntity gadget = new AbilityGadgetEntity(srcEntity.session, (uint)gadgetID, srcEntity, null, bornPos, null);
+		AbilityGadgetEntity gadget = new AbilityGadgetEntity(srcEntity.session, (uint)gadgetID, srcEntity, position: bornPos, rotation: null);
 		if (targetEntity != null)
 		{
 			gadget.OwnerEntityId = targetEntity._EntityId;

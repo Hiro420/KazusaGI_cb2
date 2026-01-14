@@ -90,7 +90,7 @@ namespace KazusaGI_cb2.GameServer
                 {
                     if (configContainer?.Default is ConfigAbility config)
                     {
-                        AbilitySpecials[config.abilityName] = config.abilitySpecials;
+                        AbilitySpecials[config.abilityName] = new();
                     }
                 }
             }

@@ -460,7 +460,7 @@ public class GadgetEntity : Entity, IDamageable
 					if (!AbilitySpecials.TryGetValue(ability.abilityName, out var specials) || specials == null)
 					{
 						specials = ability.abilitySpecials != null
-							? new Dictionary<string, float>(ability.abilitySpecials)
+							? new Dictionary<string, float>()
 							: new Dictionary<string, float>();
 						AbilitySpecials[ability.abilityName] = specials;
 					}

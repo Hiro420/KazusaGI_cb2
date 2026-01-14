@@ -32,36 +32,33 @@ public abstract class BaseAbilityManager
 
 	public virtual void Initialize()
 	{
-		foreach (var ability in AbilitySpecials)
+		// Process abilitySpecials and build hash maps
+		if (AbilitySpecials != null)
 		{
-			uint ablHash = GameServer.Ability.Utils.AbilityHash(ability.Key);
-			AbilitySpecialOverrideMap[ablHash] = new();
-			if (ability.Value != null)
+			foreach (var ability in AbilitySpecials)
 			{
-				foreach (var special in ability.Value)
+				uint ablHash = GameServer.Ability.Utils.AbilityHash(ability.Key);
+				AbilitySpecialOverrideMap[ablHash] = new();
+				if (ability.Value != null)
 				{
-					AbilitySpecialOverrideMap[ablHash][GameServer.Ability.Utils.AbilityHash(special.Key)] = special.Value;
-					AbilitySpecialHashMap[GameServer.Ability.Utils.AbilityHash(special.Key)] = special.Key;
+					foreach (var special in ability.Value)
+					{
+						AbilitySpecialOverrideMap[ablHash][GameServer.Ability.Utils.AbilityHash(special.Key)] = special.Value;
+						AbilitySpecialHashMap[GameServer.Ability.Utils.AbilityHash(special.Key)] = special.Key;
+					}
 				}
 			}
 		}
 
-		// Ensure all config abilities used by this manager have their
-		// invoke_site_vec (InvokeSiteList) and ModifierList built.
+		// ConfigAbility.Initialize() already calls OnBakeLoaded() during resource loading
+		// Just log the ability info here for debugging
 		foreach (var kvp in ConfigAbilityHashMap)
 		{
 			var configAbility = kvp.Value;
 			if (configAbility == null)
 				continue;
 
-			try
-			{
-				configAbility.Initialize().GetAwaiter().GetResult();
-			}
-			catch (Exception ex)
-			{
-				logger.LogError($"Failed to initialize ConfigAbility '{configAbility.abilityName}' for hash {kvp.Key}: {ex.Message}");
-			}
+			//logger.LogSuccess($"Using ConfigAbility '{configAbility.abilityName}' - {configAbility.invokeSites.Count} invoke sites, {configAbility.modifierIDMap.Count} modifiers");
 		}
 	}
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
@@ -76,22 +73,22 @@ public abstract class BaseAbilityManager
 
 			// Mirror hk4e's serverCommonInvokeHandler/commonInvokeEntryDispatch:
 			// resolve (ability, modifier) first, then treat LocalId as a pure
-			// index into the ability's invoke_site_vec (InvokeSiteList).
+			// index into the ability's invokeSites list.
 			if (!TryResolveAbilityForInvoke(invoke, out var ability, out var modifierController))
 			{
 				return;
 			}
 
 			int localId = invoke.Head.LocalId;
-			if (localId < 0 || localId >= ability.InvokeSiteList.Count)
+			if (localId < 0 || localId >= ability.invokeSites.Count)
 			{
 				logger.LogWarning($"Invalid invoke-site LocalId={localId} for ability {ability.abilityName} " +
-					$"(instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.InvokeSiteList.Count})");
+					$"(instancedAbilityId={invoke.Head.InstancedAbilityId}, invokeSiteCount={ability.invokeSites.Count})");
 				ability.DebugAbility(logger);
 				return;
 			}
 
-			var invocation = ability.InvokeSiteList[localId];
+			var invocation = ability.invokeSites[localId];
 
 			logger.LogSuccess($"Invoking ability: {ability.abilityName}, LocalId: {localId} | {invocation.GetType().Name}");
 			Entity? entity2invoke = null;
@@ -314,7 +311,7 @@ public abstract class BaseAbilityManager
 		}
 
 		// Try to get the config from this manager first.
-		if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out var configAbility) || configAbility == null)
+		if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? configAbility) || configAbility == null)
 		{
 			// Fallback: pull from global ConfigAbilityHashMap if available,
 			// similar to how AddAbility and ProcessAddModifier behave.
@@ -474,8 +471,8 @@ public abstract class BaseAbilityManager
 					uint configLocalId = (uint)invoke.Head.ModifierConfigLocalId;
 					foreach (var kv in ConfigAbilityHashMap)
 					{
-						if (kv.Value?.ModifierList != null &&
-							kv.Value.ModifierList.ContainsKey(configLocalId))
+						if (kv.Value?.modifierIDMap != null &&
+							configLocalId < kv.Value.modifierIDMap.Count)
 						{
 							matchedHash = kv.Key;
 							matchedAbility = kv.Value;
@@ -523,12 +520,14 @@ public abstract class BaseAbilityManager
 			// hk4e: modifier config is addressed by modifier_config_local_id
 			uint configLocalId2 = (uint)invoke.Head.ModifierConfigLocalId;
 			AbilityModifier? modifierConfig = null!;
-			if (ability.ModifierList == null ||
-				!ability.ModifierList.TryGetValue(configLocalId2, out modifierConfig))
+			if (ability.modifierIDMap == null ||
+				configLocalId2 >= ability.modifierIDMap.Count)
 			{
-				logger.LogWarning($"No modifier config for configLocalId={configLocalId2} in ability {ability.abilityName}");
+				logger.LogWarning($"No modifier config for configLocalId={configLocalId2} in ability {ability.abilityName} (modifier count={ability.modifierIDMap?.Count ?? 0})");
 				return;
 			}
+
+			modifierConfig = ability.modifierIDMap[(int)configLocalId2];
 
 			// create the controller ("AbilityModifierController" like in GC)
 			var controller2 = new AbilityModifierController(

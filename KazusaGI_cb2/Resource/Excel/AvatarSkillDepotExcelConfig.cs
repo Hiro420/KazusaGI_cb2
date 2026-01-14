@@ -79,7 +79,7 @@ public class AvatarSkillDepotExcelConfig
 		foreach (var configAbility in data.AbilityConfigMap[DepotId])
 		{
 			if (configAbility.Default is ConfigAbility config)
-				AbilitySpecials.Add(config.abilityName, config.abilitySpecials);
+				AbilitySpecials.Add(config.abilityName, new());
 		}
 		if (data.AbilityHashMap.TryGetValue(DepotId, out Dictionary<uint, ConfigAbility>? hashMap))
 			Abilities = hashMap;

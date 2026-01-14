@@ -25,6 +25,8 @@ public abstract class BaseAbilityManager
 
 	// <instancedModifierId, AbilityModifierController>
 	protected readonly Dictionary<uint, AbilityModifierController> InstancedModifierMap = new();
+	public bool _isInitialized { get; private set; } = false;
+
 	protected BaseAbilityManager(Entity owner)
 	{
 		Owner = owner;
@@ -60,7 +62,10 @@ public abstract class BaseAbilityManager
 
 			//logger.LogSuccess($"Using ConfigAbility '{configAbility.abilityName}' - {configAbility.invokeSites.Count} invoke sites, {configAbility.modifierIDMap.Count} modifiers");
 		}
+		_isInitialized = true;
+
 	}
+
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
 		MemoryStream data = new MemoryStream(invoke.AbilityData);

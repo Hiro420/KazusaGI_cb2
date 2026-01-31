@@ -19,7 +19,16 @@ public class SceneEntity : Entity
 
     protected override void BuildKindSpecific(SceneEntityInfo info)
     {
-        // Currently no need
+        // Attach weather info via SceneGadgetInfo to mirror hk4e scene entity.
+        var weather = new WeatherInfo
+        {
+            WeatherAreaId = 0
+        };
+
+        info.Gadget = new SceneGadgetInfo
+        {
+            Weather = weather
+        };
     }
 
     // Override ForceKill to prevent SceneEntity from being removed from entityMap

@@ -94,7 +94,7 @@ public partial class DefaultAbilities
 	public List<string> levelElementAbilities { get; set; }
 	public List<string> levelItemAbilities { get; set; }
 	public List<string> levelSBuffAbilities { get; set; }
-	public List<object> dungeonAbilities { get; set; }
+	// public List<object> dungeonAbilities { get; set; }
 	public List<string> defaultTeamAbilities { get; set; }
 	public List<string> defaultMPLevelAbilities { get; set; }
 	public List<string> defaultAvatarAbilities { get; set; }

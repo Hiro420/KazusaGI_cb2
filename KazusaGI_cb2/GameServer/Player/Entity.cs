@@ -80,6 +80,36 @@ namespace KazusaGI_cb2.GameServer
 			return 1u;
 		}
 
+		public AbilitySyncStateInfo BuildAbilityInfo()
+		{
+			var abilityInfo = new Protocol.AbilitySyncStateInfo
+			{
+				IsInited = abilityManager?._isInitialized ?? false
+			};
+
+			// Populate AppliedAbilities from InstancedAbilities list
+			if (InstancedAbilities.Count > 0)
+			{
+				uint instancedIdCounter = 1; // Start from 1 for instanced ability IDs
+				foreach (var ability in InstancedAbilities)
+				{
+					var appliedAbility = new Protocol.AbilityAppliedAbility
+					{
+						// Use hash for efficiency (mirrors hk4e network optimization)
+						AbilityName = new Protocol.AbilityString
+						{
+							Hash = GameServer.Ability.Utils.AbilityHash(ability.Data.abilityName)
+						},
+						InstancedAbilityId = instancedIdCounter++
+					};
+
+					abilityInfo.AppliedAbilities.Add(appliedAbility);
+				}
+			}
+
+			return abilityInfo;
+		}
+
 		protected virtual Dictionary<uint, float> GetFightProps() => new();
 
 		protected abstract void BuildKindSpecific(SceneEntityInfo info);
@@ -141,7 +171,7 @@ namespace KazusaGI_cb2.GameServer
 				EntityId = this._EntityId,
 				MotionInfo = MakeMotion(luaPos, luaRot),
 				AiInfo = MakeAi(luaPos),
-				AbilityInfo = new()
+				AbilityInfo = BuildAbilityInfo()
 			};
 
 			BuildKindSpecific(info);
@@ -222,4 +252,6 @@ namespace KazusaGI_cb2.GameServer
 
 		//public virtual void GenerateElemBall(AbilityActionGenerateElemBall info) { }
 	}
+
+
 }

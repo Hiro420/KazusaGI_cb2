@@ -27,6 +27,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public GadgetAbilityManager(Entity owner) : base(owner)
 	{
+		InitAbilities();
 	}
 
 	public override async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
@@ -35,11 +36,8 @@ public class GadgetAbilityManager : BaseAbilityManager
 		await base.HandleAbilityInvokeAsync(invoke);
 	}
 
-	public override void Initialize()
+	private void InitAbilities()
 	{
-		// Initialize monster abilities in a Grasscutter-like way by
-		// collecting ability names from global combat config and
-		// per-monster configuration, then resolving them to ConfigAbility.
 		var resourceManager = MainApp.resourceManager;
 		var abilityNames = new HashSet<string>();
 

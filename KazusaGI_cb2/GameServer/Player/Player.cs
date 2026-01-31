@@ -346,6 +346,8 @@ public class Player
             foreach (var w in record.Weapons)
             {
                 // Try to find an existing weapon instance for this weaponId.
+                // If the avatar constructor already created this weapon (via initialWeapon),
+                // we'll reuse that instance rather than creating a duplicate.
                 var weapon = weaponDict.Values.FirstOrDefault(x => x.WeaponId == w.WeaponId);
 
                 // If not present (e.g. weapons granted via commands and
@@ -360,15 +362,22 @@ public class Player
                 weapon.Exp = w.Exp;
                 weapon.PromoteLevel = w.PromoteLevel;
                 weapon.GadgetId = w.GadgetId;
-                weapon.EquipGuid = w.EquipGuid;
 
+                // Restore the bidirectional equipment link if this weapon was equipped
                 if (w.EquipGuid.HasValue)
                 {
                     var avatar = avatarDict.Values.FirstOrDefault(x => x.Guid == w.EquipGuid.Value);
                     if (avatar != null)
                     {
+                        // Set both sides of the equipment relationship
+                        weapon.EquipGuid = avatar.Guid;
                         avatar.EquipGuid = weapon.Guid;
                     }
+                }
+                else
+                {
+                    // Weapon is not equipped to anyone
+                    weapon.EquipGuid = null;
                 }
             }
         }
@@ -579,27 +588,35 @@ public class Player
             CurAvatarEntityId = FindEntityByPlayerAvatar(session, GetCurrentLineup().Leader)!._EntityId,
             TeamEnterInfo = new TeamEnterSceneInfo()
             {
-                TeamAbilityInfo = new(),
+                TeamAbilityInfo = GetCurrentLineup().teamEntity.BuildAbilityInfo(),
                 TeamEntityId = GetCurrentLineup().teamEntity._EntityId
             },
             MpLevelEntityInfo = new()
             {
                 EntityId = this.MpLevelEntity._EntityId,
                 AuthorityPeerId = this.PeerId,
-                AbilityInfo = new()
+                AbilityInfo = this.MpLevelEntity.BuildAbilityInfo()
             }
         };
         foreach (PlayerAvatar playerAvatar in GetCurrentLineup().Avatars)
         {
             AvatarEntity avatarentity = FindEntityByPlayerAvatar(session, playerAvatar)!;
+            
+            // Get weapon entity for ability info
+            Protocol.AbilitySyncStateInfo weaponAbilityInfo = new();
+            if (session.player.Scene.EntityManager.TryGet(weaponDict[playerAvatar.EquipGuid].WeaponEntityId, out Entity weaponEntity))
+            {
+                weaponAbilityInfo = weaponEntity.BuildAbilityInfo();
+            }
+            
             notify.AvatarEnterInfoes.Add(new AvatarEnterSceneInfo()
             {
                 AvatarGuid = playerAvatar.Guid,
                 AvatarEntityId = avatarentity._EntityId,
                 WeaponGuid = playerAvatar.EquipGuid,
                 WeaponEntityId = weaponDict[playerAvatar.EquipGuid].WeaponEntityId,
-                AvatarAbilityInfo = new(),
-                WeaponAbilityInfo = new()
+                AvatarAbilityInfo = avatarentity.BuildAbilityInfo(),
+                WeaponAbilityInfo = weaponAbilityInfo
             });
         }
         session.SendPacket(notify);
@@ -623,7 +640,7 @@ public class Player
                 {
                     AuthorityPeerId = this.PeerId,
                     TeamEntityId = GetCurrentLineup().teamEntity._EntityId,
-                    TeamAbilityInfo = new() // todo
+                    TeamAbilityInfo = GetCurrentLineup().teamEntity.BuildAbilityInfo()
                 }
             }
         };

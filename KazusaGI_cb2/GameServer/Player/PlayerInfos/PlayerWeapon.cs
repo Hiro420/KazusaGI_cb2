@@ -84,6 +84,9 @@ public class PlayerWeapon
         if (session.player!.Scene.EntityManager.TryGet(this.WeaponEntityId, out Entity entity))
 		{
 		    WeaponEntity weaponEntity = (WeaponEntity)entity;
+            // Populate ability info from weapon entity
+            info.AbilityInfo = weaponEntity.BuildAbilityInfo();
+            
             foreach (uint affixId in weaponEntity.GetAffixMap().Keys)
             {
                 if (affixId == 0) continue;

@@ -31,15 +31,22 @@ public class SceneAbilityManager : BaseAbilityManager
 
 	private void InitAbilities()
 	{
-		// Initialize scene-specific abilities here if needed
-		/*
-			for (var ability :
-				GameData.getConfigGlobalCombat().getDefaultAbilities().getLevelElementAbilities()) {
-			AbilityData data = GameData.getAbilityData(ability);
-			if (data != null)
-				getScene().getWorld().getHost().getAbilityManager().addAbilityToEntity(this, data);
+		// Load levelDefaultAbilities first (base scene/level abilities)
+		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.levelDefaultAbilities!)
+		{
+			if (!string.IsNullOrWhiteSpace(abilityName))
+			{
+				var abilityData = MainApp.resourceManager.ConfigAbilityMap[abilityName];
+				if (abilityData != null)
+				{
+					var config = (ConfigAbility)abilityData.Default!;
+					ConfigAbilityHashMap[Utils.AbilityHash(abilityName)] = config;
+					AddAbilityToEntity(Owner, config);
+				}
+			}
 		}
-		*/
+
+		// Load levelElementAbilities (element-specific level abilities)
 		foreach (string abilityName in MainApp.resourceManager.GlobalCombatData!.defaultAbilities!.levelElementAbilities!)
 		{
 			if (!string.IsNullOrWhiteSpace(abilityName))

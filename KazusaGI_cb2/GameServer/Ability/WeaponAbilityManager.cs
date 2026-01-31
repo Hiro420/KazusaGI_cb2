@@ -26,15 +26,15 @@ public class WeaponAbilityManager : BaseAbilityManager
 
 	public WeaponAbilityManager(Entity owner) : base(owner)
 	{
-    }
+		InitAbilities();
+	}
 
 	public override async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
-		// Use the base implementation for gadget ability handling
 		await base.HandleAbilityInvokeAsync(invoke);
 	}
 
-	public override void Initialize()
+	private void InitAbilities()
 	{
 		// Initialize weapon-specific ability behavior
 
@@ -66,8 +66,6 @@ public class WeaponAbilityManager : BaseAbilityManager
 				}
 			}
 		}
-
-		base.Initialize();
 	}
 
 }

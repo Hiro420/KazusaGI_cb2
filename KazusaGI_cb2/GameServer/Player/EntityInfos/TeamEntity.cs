@@ -28,4 +28,4 @@ public class TeamEntity : Entity
 		// Do nothing to prevent removal from entityMap
 	}
 
-    }
+}

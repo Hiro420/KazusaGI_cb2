@@ -85,15 +85,27 @@ internal class HandleSceneInitFinishReq
 
 
 
-        SceneEntityAppearNotify info = new SceneEntityAppearNotify()
+        // Scene-level entity (weather etc.) appears first on init finish.
+        var sceneEntity = session.player.Scene.EntityManager.Entities.Values
+            .OfType<SceneEntity>()
+            .FirstOrDefault();
+        if (sceneEntity != null)
+        {
+            var sceneAppear = new SceneEntityAppearNotify
+            {
+                AppearType = Protocol.VisionType.VisionReplace
+            };
+            sceneAppear.EntityLists.Add(sceneEntity.ToSceneEntityInfo());
+            session.SendPacket(sceneAppear);
+        }
+
+        // Team entity appear mirrors hk4e VisionReplace semantics on init finish.
+        var teamAppear = new SceneEntityAppearNotify()
         {
             AppearType = Protocol.VisionType.VisionReplace,
-            EntityLists =
-            {
-                session.player.GetCurrentLineup().teamEntity!.ToSceneEntityInfo()
-            }
         };
-        session.SendPacket(info);
+        teamAppear.EntityLists.Add(session.player.GetCurrentLineup().teamEntity!.ToSceneEntityInfo());
+        session.SendPacket(teamAppear);
 
         session.player.SendSceneTeamUpdateNotify(session);
         session.player.SendSyncTeamEntityNotify(session);

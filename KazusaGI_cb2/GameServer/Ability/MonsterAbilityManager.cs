@@ -29,6 +29,7 @@ public class MonsterAbilityManager : BaseAbilityManager
 	public MonsterAbilityManager(MonsterEntity owner) : base(owner)
 	{
 		_monster = owner;
+		InitAbilities();
 	}
 
 	public override Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
@@ -38,7 +39,7 @@ public class MonsterAbilityManager : BaseAbilityManager
 		return base.HandleAbilityInvokeAsync(invoke);
 	}
 
-	public override void Initialize()
+	private void InitAbilities()
 	{
 		// Initialize monster abilities in a Grasscutter-like way by
 		// collecting ability names from global combat config and
@@ -122,19 +123,5 @@ public class MonsterAbilityManager : BaseAbilityManager
 			}
 		}
 
-		// Let the base manager build AbilitySpecialOverrideMap / AbilitySpecialHashMap
-		// from the populated AbilitySpecials.
-		base.Initialize();
-
-		// Finally, mirror hk4e's Monster::initAbility by attaching all
-		// resolved config abilities to the monster entity's AbilityComp.
-		foreach (var kvp in ConfigAbilityHashMap)
-		{
-			var ability = kvp.Value;
-			if (ability != null)
-			{
-				AddAbilityToEntity(_monster, ability);
-			}
-		}
 	}
 }

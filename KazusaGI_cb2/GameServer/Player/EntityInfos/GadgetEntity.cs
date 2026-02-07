@@ -37,7 +37,7 @@ public class GadgetEntity : Entity, IDamageable
 	public HashSet<uint> WorktopOptions { get; } = new();
 
 	// Ability-related properties for gadgets
-	public Dictionary<uint, ConfigAbility> AbilityHashMap = new();
+	public SortedDictionary<uint, ConfigAbility> AbilityHashMap = new();
 	public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();
 	public HashSet<string> ActiveDynamicAbilities = new();
 	public Dictionary<string, HashSet<string>> UnlockedTalentParams = new();
@@ -84,7 +84,6 @@ public class GadgetEntity : Entity, IDamageable
 		StateBeginTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
 		abilityManager = new GadgetAbilityManager(this);
-		InitAbilityStuff();
 		abilityManager.Initialize();
 	}
 
@@ -431,48 +430,7 @@ public class GadgetEntity : Entity, IDamageable
 		LuaManager.executeTriggersLua(session, GetEntityGroup(_gadgetLua.group_id)!, args);
 	}
 	
-	/// <summary>
-	/// Initialize ability system for this gadget entity
-	/// </summary>
-	public void InitAbilityStuff()
-	{
-		if (configGadget?.abilities == null)
-			// no abilities
-			return;
-		foreach (TargetAbility targetAbility in configGadget.abilities)
-		{
-			if (!MainApp.resourceManager.ConfigAbilityMap.TryGetValue(targetAbility.abilityName, out ConfigAbilityContainer? container))
-			{
-				session.c.LogError($"gadget ability {targetAbility.abilityName} not found in binoutput");
-				continue;
-			}
-
-			if (container.Default is ConfigAbility ability)
-			{
-				uint abilityHash = (uint)Ability.Utils.AbilityHash(ability.abilityName);
-				AbilityHashMap[abilityHash] = ability;
-
-				// Seed AbilitySpecials for this gadget ability from the
-				// underlying ConfigAbility so BaseAbilityManager can
-				// build override maps just like for avatars/monsters.
-				if (AbilitySpecials != null)
-				{
-					if (!AbilitySpecials.TryGetValue(ability.abilityName, out var specials) || specials == null)
-					{
-						specials = ability.abilitySpecials != null
-							? new Dictionary<string, float>()
-							: new Dictionary<string, float>();
-						AbilitySpecials[ability.abilityName] = specials;
-					}
-				}
-			}
-		}
-
-
-		// Directory.CreateDirectory("Test");
-		// File.WriteAllText($"Test/{gadgetExcel.jsonName}.json", JsonConvert.SerializeObject(AbilityHashMap, Formatting.Indented));
-
-	}
+	// Ability initialization handled by GadgetAbilityManager.
 
 	public static System.Numerics.Vector3 ResolveBornPosition(Entity entity, BaseBornType bornType)
 	{

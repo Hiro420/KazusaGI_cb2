@@ -23,7 +23,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 	public override Dictionary<string, HashSet<string>> UnlockedTalentParams => _gadget.UnlockedTalentParams;
 
-	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap => new(_gadget.AbilityHashMap);
+	public override SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap => _gadget.AbilityHashMap;
 
 	public GadgetAbilityManager(Entity owner) : base(owner)
 	{
@@ -41,20 +41,33 @@ public class GadgetAbilityManager : BaseAbilityManager
 		var resourceManager = MainApp.resourceManager;
 		var abilityNames = new HashSet<string>();
 
-		// 1. Global default non-humanoid move abilities.
+		// Only add if gadget has specific move types (ConfigSimpleMove, ConfigRigidBodyMove, ConfigAnimatorMove, ConfigMixinDriveMove)
 		var defaultAbilities = resourceManager.GlobalCombatData?.defaultAbilities;
 		if (defaultAbilities?.nonHumanoidMoveAbilities != null)
 		{
-			foreach (var abilityName in defaultAbilities.nonHumanoidMoveAbilities)
+			// Check if gadget has a valid non-humanoid move config
+			var gadgetJsonName = _gadget.gadgetExcel.jsonName;
+			bool hasNonHumanoidMove = false;
+			if (!string.IsNullOrWhiteSpace(gadgetJsonName) &&
+			    resourceManager.ConfigGadgetMap != null)
 			{
-				if (!string.IsNullOrWhiteSpace(abilityName))
-					abilityNames.Add(abilityName);
+				var configKey = _gadget.serverExcelConfig!.JsonName!;
+				if (resourceManager.ConfigGadgetMap.TryGetValue(configKey, out var gadgetConfig))
+				{
+					hasNonHumanoidMove = gadgetConfig.HasNonHumanoidMove();
+				}
+			}
+			
+			if (hasNonHumanoidMove)
+			{
+				foreach (var abilityName in defaultAbilities.nonHumanoidMoveAbilities)
+				{
+					if (!string.IsNullOrWhiteSpace(abilityName))
+						abilityNames.Add(abilityName);
+				}
 			}
 		}
 
-		// 2. Per-gadget abilities from ConfigGadget, mirroring
-		//    hk4e's Gadget::initAbility which pulls from the
-		//    gadget's config abilities list.
 		var gadgetName = _gadget.gadgetExcel.jsonName;
 		if (!string.IsNullOrWhiteSpace(gadgetName) &&
 			resourceManager.ConfigGadgetMap != null)
@@ -117,20 +130,15 @@ public class GadgetAbilityManager : BaseAbilityManager
 				uint hash = Utils.AbilityHash(abilityName);
 				ConfigAbilityHashMap[hash] = configAbility;
 
-				// Ensure we have a specials map entry for this ability name so that
-				// BaseAbilityManager.Initialize can build override maps.
+				// Seed ability specials from config defaults.
 				if (!_gadget.AbilitySpecials.ContainsKey(abilityName))
 				{
-					_gadget.AbilitySpecials[abilityName] = new Dictionary<string, float>();
+					_gadget.AbilitySpecials[abilityName] = BuildAbilitySpecials(configAbility);
 				}
 			}
 		}
 
-		// Let the base manager build AbilitySpecialOverrideMap / AbilitySpecialHashMap
-		// from the populated AbilitySpecials.
-		base.Initialize();
-
-		// Finally, mirror hk4e's Monster::initAbility by attaching all
+		// Finally, mirror hk4e's Gadget::initAbility by attaching all
 		// resolved config abilities to the monster entity's AbilityComp.
 		foreach (var kvp in ConfigAbilityHashMap)
 		{
@@ -139,6 +147,50 @@ public class GadgetAbilityManager : BaseAbilityManager
 			{
 				AddAbilityToEntity(_gadget, ability);
 			}
+		}
+	}
+
+	private static Dictionary<string, float> BuildAbilitySpecials(ConfigAbility config)
+	{
+		var specials = new Dictionary<string, float>();
+		if (config.abilitySpecials == null)
+			return specials;
+
+		foreach (var kvp in config.abilitySpecials)
+		{
+			if (TryReadSpecialValue(kvp.Value, out var value))
+				specials[kvp.Key] = value;
+		}
+		return specials;
+	}
+
+	private static bool TryReadSpecialValue(object? valueObj, out float value)
+	{
+		switch (valueObj)
+		{
+			case null:
+				value = 0f;
+				return false;
+			case float floatValue:
+				value = floatValue;
+				return true;
+			case int intValue:
+				value = intValue;
+				return true;
+			case long longValue:
+				value = longValue;
+				return true;
+			case double doubleValue:
+				value = (float)doubleValue;
+				return true;
+			case decimal decimalValue:
+				value = (float)decimalValue;
+				return true;
+			case string stringValue:
+				return float.TryParse(stringValue, out value);
+			default:
+				value = 0f;
+				return false;
 		}
 	}
 

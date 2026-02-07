@@ -34,6 +34,8 @@ public class ConfigAbility : BaseConfigAbility
 	[JsonIgnore] public List<IInvocation> invokeSites { get; private set; } = new();
 	[JsonIgnore] public List<AbilityModifier> modifierIDMap { get; private set; } = new();
 	[JsonIgnore] public string? overrideName { get; set; }
+	[JsonIgnore] public int fullNameHashCode { get; private set; }
+	[JsonIgnore] public List<AbilitySpecialEntry> abilitySpecialVec { get; private set; } = new();
 
 	private const string DEFAULT_MODIFIER_NAME = "__DEFAULT_MODIFIER";
 
@@ -55,84 +57,130 @@ public class ConfigAbility : BaseConfigAbility
 	{
 		invokeSites = new List<IInvocation>();
 		modifierIDMap = new List<AbilityModifier>();
+		abilitySpecialVec = new List<AbilitySpecialEntry>();
 
-		// 1. Process abilitySpecials (lines 35-66 in pseudocode)
-		// The game does hash processing here but we'll keep strings for now
+		fullNameHashCode = (abilityName + "::" + (overrideName ?? string.Empty)).GetHashCode();
 
-		// 2. Add defaultModifier to modifiers dictionary if it exists
+		Dictionary<string, AbilityModifier>? modifiersMap = modifiers;
 		if (defaultModifier != null)
 		{
-			var modDict = modifiers != null 
-				? new Dictionary<string, AbilityModifier>(modifiers) 
-				: new Dictionary<string, AbilityModifier>();
-			
-			modDict[DEFAULT_MODIFIER_NAME] = defaultModifier;
-			
-			// Replace the readonly field via reflection (hack but necessary for exact match)
-			var field = typeof(ConfigAbility).GetField("modifiers", 
-				System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-			field?.SetValue(this, modDict);
+			var modifiersField = typeof(ConfigAbility).GetField(
+				"modifiers",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+
+			if (modifiersMap == null)
+			{
+				modifiersMap = new Dictionary<string, AbilityModifier>();
+				modifiersField?.SetValue(this, modifiersMap);
+			}
+
+			var modifierNameField = typeof(AbilityModifier).GetField(
+				"modifierName",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+			modifierNameField?.SetValue(defaultModifier, DEFAULT_MODIFIER_NAME);
+			modifiersMap.Add(DEFAULT_MODIFIER_NAME, defaultModifier);
+
+			var applyModifier = new KazusaGI_cb2.Resource.Json.Ability.Temp.Actions.ApplyModifier();
+			var applyModifierNameField = applyModifier.GetType().GetField(
+				"modifierName",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+			applyModifierNameField?.SetValue(applyModifier, DEFAULT_MODIFIER_NAME);
+			var applyTargetField = applyModifier.GetType().GetField(
+				"target",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+			applyTargetField?.SetValue(applyModifier, "Self");
+
+			var onAddedList = onAdded != null ? new List<BaseAction>(onAdded) : new List<BaseAction>();
+			onAddedList.Insert(0, applyModifier);
+			var onAddedField = typeof(ConfigAbility).GetField(
+				"onAdded",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+			onAddedField?.SetValue(this, onAddedList.ToArray());
 		}
 
-		// 3. Call ResolveModifierMPBehavior on each modifier
-		if (modifiers != null)
+		if (modifiersMap != null)
 		{
-			foreach (var kvp in modifiers)
+			var modifierNameField = typeof(AbilityModifier).GetField(
+				"modifierName",
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+			);
+
+			foreach (var kvp in modifiersMap)
 			{
-				ResolveModifierMPBehavior(kvp.Value);
+				if (kvp.Value == null)
+					continue;
+				modifierNameField?.SetValue(kvp.Value, kvp.Key);
 			}
 		}
 
-		// 4. Build sorted list of modifier names (lexicographical order)
-		string[]? sortedModifierNames = null;
-		if (modifiers != null && modifiers.Count > 0)
-		{
-			sortedModifierNames = modifiers.Keys.ToArray();
-			Array.Sort(sortedModifierNames, StringComparer.Ordinal);
-
-			// Build modifierIDMap in sorted order
-			foreach (var name in sortedModifierNames)
-			{
-				if (modifiers.TryGetValue(name, out var modifier))
-				{
-					modifierIDMap.Add(modifier);
-				}
-			}
-		}
-
-		// 5. Iterate ability sub-actions (adds to invokeSites)
-		// Note: This happens BEFORE modifier iteration in the game
 		IterateAbilitySubActions(this, AddSubAction);
-
-		// 6. Iterate ability sub-mixins (adds to invokeSites)
-		// Note: This also happens BEFORE modifier iteration
 		IterateAbilitySubMixins(this, AddSubMixin);
 
-		// 7. Iterate modifier sub-actions and sub-mixins
-		// The game iterates these AFTER ability actions/mixins
-		if (sortedModifierNames != null && modifiers != null)
+		if (modifiersMap != null && modifiersMap.Count > 0)
 		{
-			int debugCount = 0;
-			foreach (var name in sortedModifierNames)
-			{
-				if (!modifiers.TryGetValue(name, out var modifier))
-					continue;
+			var sortedModifierNames = modifiersMap.Keys.ToArray();
+			Array.Sort(sortedModifierNames, StringComparer.Ordinal);
+			modifierIDMap = new List<AbilityModifier>(sortedModifierNames.Length);
 
-				int beforeCount = invokeSites.Count;
+			for (int i = 0; i < sortedModifierNames.Length; i++)
+			{
+				if (!modifiersMap.TryGetValue(sortedModifierNames[i], out var modifier) || modifier == null)
+				{
+					modifierIDMap.Add(modifier);
+					continue;
+				}
+
+				modifier.configLocalID = i;
+				modifier.fullNameHashCode = (abilityName + "::" + (overrideName ?? string.Empty) + "::" + modifier.modifierName).GetHashCode();
+				modifierIDMap.Add(modifier);
+
 				IterateModifierSubActions(modifier, AddSubAction);
 				IterateModifierSubMixins(modifier, AddSubMixin);
-				int afterCount = invokeSites.Count;
-				
-				if (afterCount > beforeCount)
-				{
-					debugCount++;
-				}
+				ResolveModifierMPBehavior(modifier);
 			}
-			
-			//if (debugCount > 0 && invokeSites.Count > 0)
-			//{
-			//	Console.WriteLine($"[DEBUG] {abilityName}: Added {invokeSites.Count} invoke sites from {debugCount} modifiers");
-			//}
+		}
+
+		if (abilitySpecials != null && abilitySpecials.Count > 0)
+		{
+			abilitySpecialVec = new List<AbilitySpecialEntry>(abilitySpecials.Count);
+			var keys = abilitySpecials.Keys.ToArray();
+			foreach (var key in keys)
+			{
+				var valueObj = abilitySpecials[key];
+				if (valueObj is int intValue)
+				{
+					valueObj = (float)intValue;
+					abilitySpecials[key] = valueObj;
+				}
+				else if (valueObj is long longValue)
+				{
+					valueObj = (float)longValue;
+					abilitySpecials[key] = valueObj;
+				}
+				else if (valueObj is double doubleValue)
+				{
+					valueObj = (float)doubleValue;
+					abilitySpecials[key] = valueObj;
+				}
+				else if (valueObj is decimal decimalValue)
+				{
+					valueObj = (float)decimalValue;
+					abilitySpecials[key] = valueObj;
+				}
+
+				float value = 0f;
+				if (valueObj is float floatValue)
+					value = floatValue;
+				else if (valueObj is string stringValue && float.TryParse(stringValue, out var parsedValue))
+					value = parsedValue;
+
+				abilitySpecialVec.Add(new AbilitySpecialEntry(key, KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(key), value));
+			}
 		}
 	}
 
@@ -223,7 +271,7 @@ public class ConfigAbility : BaseConfigAbility
 	{
 		if (modifier == null)
 			return;
-			
+
 		_IterateSubActions(modifier.onAdded, callback);
 		_IterateSubActions(modifier.onRemoved, callback);
 		_IterateSubActions(modifier.onBeingHit, callback);
@@ -280,13 +328,13 @@ public class ConfigAbility : BaseConfigAbility
 		// Check conditions that disqualify MP eligibility
 		if (modifier.state != null)
 			canBeMPEligible = false;
-		
+
 		if (modifier.properties != null && modifier.properties.Count > 0)
 			canBeMPEligible = false;
-		
+
 		if (modifier.elementType != null)
 			canBeMPEligible = false;
-		
+
 		if (modifier.isUnique == true)
 			canBeMPEligible = false;
 
@@ -330,12 +378,6 @@ public class ConfigAbility : BaseConfigAbility
 		if (action == null)
 			return;
 
-		// Skip if already added (same instance referenced multiple times)
-		if (action.LocalID != -1)
-		{
-			return;
-		}
-
 		invokeSites.Add(action);
 		action.LocalID = invokeSites.Count - 1;
 	}
@@ -349,14 +391,22 @@ public class ConfigAbility : BaseConfigAbility
 		if (mixin == null)
 			return;
 
-		// Skip if already added (same instance referenced multiple times)
-		if (mixin.LocalID != -1)
-		{
-			return;
-		}
-
 		invokeSites.Add(mixin);
 		mixin.LocalID = invokeSites.Count - 1;
+	}
+
+	public readonly struct AbilitySpecialEntry
+	{
+		public AbilitySpecialEntry(string name, uint hash, float value)
+		{
+			Name = name;
+			Hash = hash;
+			Value = value;
+		}
+
+		public string Name { get; }
+		public uint Hash { get; }
+		public float Value { get; }
 	}
 
 	/// <summary>

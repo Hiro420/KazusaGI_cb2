@@ -20,16 +20,29 @@ internal class HandleClientAbilitiesInitFinishCombineNotify
 
         // Bounds check: max 50 entities per message (from hk4e)
         int entityCount = System.Math.Min(req.EntityInvokeLists.Count, 50);
-        
+
         for (int entityIdx = 0; entityIdx < entityCount; entityIdx++)
         {
             var entityInvokeEntry = req.EntityInvokeLists[entityIdx];
             uint entityId = entityInvokeEntry.EntityId;
 
+            // Extract and validate entity type from high 8 bits
+            // Valid types are 1-12 (PROT_ENTITY_AVATAR through PROT_ENTITY_MAX)
+            uint entityType = (entityId >> 24) & 0xFF;
+            if (entityType > 12)
+            {
+                //session.c.LogWarning($"[ClientAbilitiesInitFinishCombineNotify] Invalid entity type {entityType} for entity {entityId} - skipping");
+                continue;
+            }
+
             // Find the entity
             if (!session.player.Scene.EntityManager.TryGet(entityId, out GameServer.Entity? entity))
             {
-                session.c.LogWarning($"[ClientAbilitiesInitFinishCombineNotify] Failed to find entity {entityId}");
+                // Only log as warning for valid entity types - invalid types are already logged above
+                if (entityType > 0 && entityType <= 12)
+                {
+                    session.c.LogWarning($"[ClientAbilitiesInitFinishCombineNotify] Failed to find entity {entityId} (type: {entityType})");
+                }
                 continue;
             }
 

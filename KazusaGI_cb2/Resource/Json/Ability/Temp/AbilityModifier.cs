@@ -34,4 +34,6 @@ public class AbilityModifier
     
     // Runtime field - mpBehavior (0 = default, 1 = client-only)
     [JsonIgnore] public int mpBehavior { get; internal set; } = 0;
+    [JsonIgnore] public int configLocalID { get; internal set; } = -1;
+    [JsonIgnore] public int fullNameHashCode { get; internal set; }
 }

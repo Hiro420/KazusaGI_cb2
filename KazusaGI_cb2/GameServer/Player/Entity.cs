@@ -82,32 +82,10 @@ namespace KazusaGI_cb2.GameServer
 
 		public AbilitySyncStateInfo BuildAbilityInfo()
 		{
-			var abilityInfo = new Protocol.AbilitySyncStateInfo
-			{
-				IsInited = abilityManager?._isInitialized ?? false
-			};
-
-			// Populate AppliedAbilities from InstancedAbilities list
-			if (InstancedAbilities.Count > 0)
-			{
-				uint instancedIdCounter = 1; // Start from 1 for instanced ability IDs
-				foreach (var ability in InstancedAbilities)
-				{
-					var appliedAbility = new Protocol.AbilityAppliedAbility
-					{
-						// Use hash for efficiency (mirrors hk4e network optimization)
-						AbilityName = new Protocol.AbilityString
-						{
-							Hash = GameServer.Ability.Utils.AbilityHash(ability.Data.abilityName)
-						},
-						InstancedAbilityId = instancedIdCounter++
-					};
-
-					abilityInfo.AppliedAbilities.Add(appliedAbility);
-				}
-			}
-
-			return abilityInfo;
+			if (abilityManager == null)
+				return new Protocol.AbilitySyncStateInfo { IsInited = false };
+			
+			return abilityManager.BuildAbilitySyncStateInfo();
 		}
 
 		protected virtual Dictionary<uint, float> GetFightProps() => new();

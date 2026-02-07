@@ -22,7 +22,7 @@ public class CreateGadget : BaseAction
 		try
 		{
 			createGadget = Serializer.Deserialize<AbilityActionCreateGadget>(new MemoryStream(invoke.AbilityData));
-		} 
+		}
 		catch (Exception)
 		{
 			srcEntity.session.c.LogError($"[CreateGadget] Failed to deserialize AbilityActionCreateGadget for ability {abilityName}");

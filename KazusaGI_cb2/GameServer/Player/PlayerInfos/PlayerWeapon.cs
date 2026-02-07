@@ -20,24 +20,25 @@ public class PlayerWeapon
     public uint GadgetId { get; set; }
     public uint WeaponEntityId { get; set; }
     public ulong? EquipGuid { get; set; }
+    public WeaponEntity WeaponEntity { get; set; }
 
-    // add affixes later TODO
+	// add affixes later TODO
 
-    public PlayerWeapon(Session session, uint WeaponId)
+	public PlayerWeapon(Session session, uint WeaponId, ulong? overrideGuid = null)
     {
         this.Session = session;
-        WeaponEntity weaponEntity = new(session, WeaponId);
+		WeaponEntity = new(session, WeaponId);
         weaponExcel = resourceManager.WeaponExcel[WeaponId];
         (uint maxPromoteLevel, uint maxWeaponLevel) = GetMaxWeaponPromote(weaponExcel);
-		this.Guid = session.GetGuid();
+		this.Guid = overrideGuid ?? session.GetGuid();
         this.WeaponId = WeaponId;
         this.Level = maxWeaponLevel;
         this.Exp = 0;
         this.PromoteLevel = maxPromoteLevel;
         this.GadgetId = weaponExcel.gadgetId;
-        this.WeaponEntityId = weaponEntity._EntityId;
+        this.WeaponEntityId = WeaponEntity._EntityId;
         session.player!.weaponDict.Add(this.Guid, this);
-        session.player.Scene.EntityManager.Add(weaponEntity);
+        session.player.Scene.EntityManager.Add(WeaponEntity);
     }
 
     public void EquipOnAvatar(PlayerAvatar avatar, bool broadcastPacket)
@@ -86,7 +87,7 @@ public class PlayerWeapon
 		    WeaponEntity weaponEntity = (WeaponEntity)entity;
             // Populate ability info from weapon entity
             info.AbilityInfo = weaponEntity.BuildAbilityInfo();
-            
+
             foreach (uint affixId in weaponEntity.GetAffixMap().Keys)
             {
                 if (affixId == 0) continue;

@@ -66,6 +66,122 @@ public abstract class BaseAbilityManager
 
 	}
 
+	public virtual AbilitySyncStateInfo BuildAbilitySyncStateInfo()
+	{
+		var syncInfo = new Protocol.AbilitySyncStateInfo
+		{
+			IsInited = true  // Default for non-avatar/non-team entities (monsters, gadgets, weapons, world, etc.)
+		};
+
+		// Only populate AppliedAbilities for non-avatar/non-team entities
+		// Avatars send abilities via AbilityMetaAddAbility; teams are server-controlled
+		if (!(this is AvatarAbilityManager || this is TeamAbilityManager))
+		{
+			uint instancedIdCounter = 1;
+			foreach (var configAbility in ConfigAbilityHashMap.Values)
+			{
+				if (configAbility == null)
+					continue;
+
+				var appliedAbility = new Protocol.AbilityAppliedAbility
+				{
+					AbilityName = new Protocol.AbilityString
+					{
+						Hash = GameServer.Ability.Utils.AbilityHash(configAbility.abilityName)
+					},
+					InstancedAbilityId = instancedIdCounter++
+				};
+
+				if (AbilitySpecials != null && AbilitySpecials.TryGetValue(configAbility.abilityName, out var specials) && specials != null)
+				{
+					foreach (var kvp in specials)
+					{
+						var entry = new Protocol.AbilityScalarValueEntry
+						{
+							Key = new Protocol.AbilityString { Hash = GameServer.Ability.Utils.AbilityHash(kvp.Key) },
+							ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+							FloatValue = kvp.Value
+						};
+						appliedAbility.OverrideMaps.Add(entry);
+					}
+				}
+
+				syncInfo.AppliedAbilities.Add(appliedAbility);
+			}
+		}
+
+		// Populate DynamicValueMaps: ability special override values + global values
+		if (AbilitySpecialOverrideMap.Count > 0)
+		{
+			foreach (var kvp in AbilitySpecialOverrideMap)
+			{
+				foreach (var specialKvp in kvp.Value)
+				{
+					var entry = new Protocol.AbilityScalarValueEntry
+					{
+						Key = new Protocol.AbilityString { Hash = specialKvp.Key },
+						ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+						FloatValue = specialKvp.Value
+					};
+					syncInfo.DynamicValueMaps.Add(entry);
+				}
+			}
+		}
+
+		// Add global float values if any exist
+		if (GlobalValueHashMap.Count > 0)
+		{
+			foreach (var kvp in GlobalValueHashMap)
+			{
+				var entry = new Protocol.AbilityScalarValueEntry
+				{
+					Key = new Protocol.AbilityString { Hash = kvp.Key },
+					ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+					FloatValue = kvp.Value
+				};
+				syncInfo.DynamicValueMaps.Add(entry);
+			}
+		}
+
+		// Populate AppliedModifiers: all currently instanced modifiers
+		if (InstancedModifierMap.Count > 0)
+		{
+			foreach (var kvp in InstancedModifierMap)
+			{
+				var modifierController = kvp.Value;
+				if (modifierController == null)
+					continue;
+
+				var appliedModifier = new Protocol.AbilityAppliedModifier
+				{
+					ModifierLocalId = modifierController.modifierLocalId,
+					ParentAbilityEntityId = modifierController.parentAbilityEntityId,
+					ParentAbilityName = new Protocol.AbilityString
+					{
+						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityName)
+					},
+					InstancedAbilityId = modifierController.instancedAbilityId,
+					InstancedModifierId = modifierController.instancedModifierId,
+					ExistDuration = modifierController.existDuration,
+					ApplyEntityId = modifierController.applyEntityId,
+					IsAttachedParentAbility = modifierController.isAttachedParentAbility
+				};
+
+				if (!string.IsNullOrWhiteSpace(modifierController.parentAbilityOverride))
+				{
+					appliedModifier.ParentAbilityOverride = new Protocol.AbilityString
+					{
+						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityOverride)
+					};
+				}
+
+				syncInfo.AppliedModifiers.Add(appliedModifier);
+			}
+		}
+
+		return syncInfo;
+	}
+
 	public virtual async Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
 		MemoryStream data = new MemoryStream(invoke.AbilityData);
@@ -538,9 +654,16 @@ public abstract class BaseAbilityManager
 			var controller2 = new AbilityModifierController(
 				instancedAbilityId,
 				instancedModifierId,
+				modifierChange.ModifierLocalId,
 				ability,
 				modifierConfig,
-				modifierChange);
+				modifierChange,
+				parentAbilityEntityId: Owner._EntityId,
+				parentAbilityName: ability.abilityName,
+				parentAbilityOverride: ability.overrideName ?? "",
+				existDuration: 0f,
+				applyEntityId: targetEntityId,
+				isAttachedParentAbility: false);
 
 			// add to InstancedModifierMap at index = instancedModifierId (12)
 			if (InstancedModifierMap.ContainsKey(instancedModifierId))

@@ -239,7 +239,7 @@ public class ResourceLoader
         ConcurrentDictionary<string, BaseConfigTalent[]> ret = new();
 
         string[] filePaths = Directory.GetFiles(
-            Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"), 
+            Path.Combine(_baseResourcePath, JsonSubPath, "Talent", "AvatarTalents"),
             "*.json", SearchOption.AllDirectories
         );
         var tasks = new List<Task>();
@@ -385,12 +385,12 @@ public class ResourceLoader
             "*.json", SearchOption.TopDirectoryOnly
         );
         var tasks = new List<Task>();
-        filePaths.AsParallel().ForAll(async file =>
-        {
-            var filePath = new FileInfo(file);
-            var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName))!;
-            ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
-        });
+        filePaths.AsParallel().ForAll(file =>
+		{
+			var filePath = new FileInfo(file);
+			var fileData = JsonConvert.DeserializeObject<ConfigAvatar>(File.ReadAllText(filePath.FullName))!;
+			ret[Regex.Replace(filePath.Name, "\\.json", "")] = fileData;
+		});
 
         return ret.ToDictionary();
     }
@@ -810,10 +810,7 @@ public class ResourceLoader
                 "GadgetData_Quest"
             });
 
-        _resourceManager.ConfigAbilityHashMap = _resourceManager.ConfigAbilityMap.ToDictionary(
-            k => KazusaGI_cb2.GameServer.Ability.Utils.AbilityHash(k.Key),
-            k => k.Value.Default as ConfigAbility
-        )!;
+        // ConfigAbilityHashMap is built after ConfigAbility initialization in ResourceManager.
     }
 
 
@@ -852,17 +849,17 @@ public class ResourceLoader
                     typeof(DoActionByCreateGadgetMixin), typeof(CurLocalAvatarMixinV2), typeof(ApplyInertiaVelocityMixin), typeof(TriggerPostProcessEffectMixin), typeof(AttachToDayNightMixin),
                     typeof(VelocityDetectMixin), typeof(TriggerWitchTimeMixin), typeof(AttachToMonsterAirStateMixin), typeof(OnParentAbilityStartMixin), typeof(AIPerceptionMixin),
                     typeof(FieldEntityCountChangeMixin), typeof(StageReadyMixin), typeof(DoActionByGainCrystalSeedMixin), typeof(AttachToGadgetStateMutexMixin), typeof(DebugMixin),
-                    typeof(CollisionMixin), typeof(WindSeedSpawnerMixin), typeof(WatcherSystemMixin), typeof(AttachToGadgetStateMixin), typeof(OverrideStickElemUIMixin), 
+                    typeof(CollisionMixin), typeof(WindSeedSpawnerMixin), typeof(WatcherSystemMixin), typeof(AttachToGadgetStateMixin), typeof(OverrideStickElemUIMixin),
                     typeof(TileAttackMixin), typeof(RelyOnElementMixin), typeof(SteerAttackMixin), typeof(TileAttackManagerMixin), typeof(TriggerBeHitSupportMixin),
-                    typeof(AvatarLevelSkillMixin), typeof(DoTileActionManagerMixin), typeof(AttackCostElementMixin), typeof(ShieldBarMixin), 
+                    typeof(AvatarLevelSkillMixin), typeof(DoTileActionManagerMixin), typeof(AttackCostElementMixin), typeof(ShieldBarMixin),
                     // New Mixins
                     typeof(AttachToPoseIDMixin), typeof(DoActionByPoseIDMixin), typeof(ElementAdjustMixin), typeof(AttachToAnimatorStateMixin),
                     typeof(AttachModifierToHPPercentMixin), typeof(AttachModifierToElementDurabilityMixin), typeof(AirFlowMixin), typeof(AnimatorRotationCompensateMixin),
                     typeof(AttachToElementTypeMixin), typeof(AttackHittingSceneMixin), typeof(AvatarLockForwardFlyMixin), typeof(BoxClampWindZoneMixin),
                     typeof(ElementOuterGlowEffectMixin), typeof(ElementShieldMixin), typeof(FixDvalinS04MoveMixin),
                     typeof(EnviroFollowRotateMixin), typeof(TriggerResistDamageTextMixin), typeof(DvalinS01PathEffsMixin),
-                    typeof(IceFloorMixin), typeof(MonsterDefendMixin), typeof(RecycleModifierMixin), 
-                    typeof(WeightDetectRegionMixin), typeof(DvalinS01BoxMoxeMixin), 
+                    typeof(IceFloorMixin), typeof(MonsterDefendMixin), typeof(RecycleModifierMixin),
+                    typeof(WeightDetectRegionMixin), typeof(DvalinS01BoxMoxeMixin),
                     // Actions
                     typeof(SetAnimatorTrigger), typeof(SetAnimatorInt), typeof(SetAnimatorBool), typeof(SetCameraLockTime), typeof(ResetAnimatorTrigger), typeof(RemoveModifier),
                     typeof(ApplyModifier), typeof(TriggerBullet), typeof(EntityDoSkill), typeof(AvatarSkillStart), typeof(Predicated), typeof(SetGlobalValue), typeof(AttachModifier),
@@ -882,7 +879,7 @@ public class ResourceLoader
                     typeof(EnableAvatarMoveOnWater), typeof(DummyAction), typeof(EnableAfterImage), typeof(HideUIBillBoard), typeof(EnterCameraLock), typeof(EnablePartControl),
                     typeof(FireMonsterBeingHitAfterImage), typeof(EnableHDMesh), typeof(SendDungeonFogEffectTrigger),
                     // New Actions
-                    typeof(EnableAIStealthy), typeof(SetPoseInt), typeof(SetPoseBool), typeof(RushMove), typeof(TriggerDropEquipParts), 
+                    typeof(EnableAIStealthy), typeof(SetPoseInt), typeof(SetPoseBool), typeof(RushMove), typeof(TriggerDropEquipParts),
                     typeof(StartDither), typeof(DropSubfield), typeof(ShowReminder), typeof(BroadcastNeuronStimulate), typeof(AddAbilityAction),
                     typeof(CalcDvalinS04RebornPoint), typeof(SetPartControlTarget), typeof(UseSkillEliteSet),
                     typeof(TriggerThrowEquipPart), typeof(SetAISkillCDMultiplier), typeof(ShowUICombatBar),
@@ -905,7 +902,7 @@ public class ResourceLoader
                     typeof(ByAttackTags), typeof(ByTargetType), typeof(ByNot), typeof(ByHasChildGadget), typeof(ByHasElement), typeof(ByTargetIsCaster), typeof(ByAnimatorBool), typeof(ByTargetAltitude),
                     typeof(ByAvatarWeaponType), typeof(ByHasAbilityState), typeof(ByIsCombat), typeof(ByTargetIsSelf), typeof(ByAvatarElementType), typeof(ByTargetForwardAndSelfPosition),
                     typeof(ByTargetIsGhostToEnemy), typeof(ByIsLocalAvatar), typeof(ByTargetWeight), typeof(ByHitElement), typeof(ByEnergyRatio), typeof(ByHitDamage), typeof(ByHitEnBreak),
-                    typeof(ByHitStrikeType), typeof(ByHitCritical), typeof(ByTargetConfigID), typeof(ByHitBoxType), typeof(ByAttackType), typeof(ByMonsterAirState), typeof(ByTargetElement), 
+                    typeof(ByHitStrikeType), typeof(ByHitCritical), typeof(ByTargetConfigID), typeof(ByHitBoxType), typeof(ByAttackType), typeof(ByMonsterAirState), typeof(ByTargetElement),
                     typeof(ByScenePropState), typeof(ByAnimatorFloat), typeof(ByHasFeatureTag), typeof(ByCurTeamHasElementType),
                     typeof(ByStageIsReadyTemp), typeof(BySceneSurfaceType), typeof(ByHitImpulse),
                     // BornType

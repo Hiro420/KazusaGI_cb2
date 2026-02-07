@@ -19,7 +19,8 @@ public class KazusaConsoleServer
             logger.LogWarning("Waiting for client connection...");
             try
             {
-                using (var pipeServer = new NamedPipeServerStream("KazusaGI", PipeDirection.InOut, 1, PipeTransmissionMode.Message))
+#pragma warning disable CA1416 // Validate platform compatibility
+				using (var pipeServer = new NamedPipeServerStream("KazusaGI", PipeDirection.InOut, 1, PipeTransmissionMode.Message))
                 {
                     pipeServer.WaitForConnection();
                     logger.LogSuccess("Client connected.");
@@ -38,7 +39,8 @@ public class KazusaConsoleServer
                         }
                     }
                 }
-            }
+#pragma warning restore CA1416 // Validate platform compatibility
+			}
             catch (IOException)
             {
                 logger.LogError("Client disconnected. Waiting for a new connection...");

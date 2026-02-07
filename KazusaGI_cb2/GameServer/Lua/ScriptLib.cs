@@ -115,7 +115,21 @@ public class ScriptLib
         return 0;
     }
 
-    public int DropSubfield(Session session, object _table)
+	// ScriptLib::LockForce(const ScriptContext *context, uint32_t force_id)
+	public int LockForce(Session session, uint force_id)
+    {
+        Log($"Called LockForce force_id={force_id}");
+        return 0;
+	}
+
+    // ScriptLib::UnlockForce(const ScriptContext *context, uint32_t force_id)
+    public int UnlockForce(Session session, uint force_id)
+    {
+        Log($"Called UnlockForce force_id={force_id}");
+        return 0;
+	}
+
+	public int DropSubfield(Session session, object _table)
     {
 	    LuaTable? table = _table as LuaTable;
 	    if (table == null)
@@ -301,6 +315,211 @@ public class ScriptLib
         uint sid = (uint)suite_index;
         return player.Scene.RemoveExtraGroupSuite(gid, sid);
 	}
+
+    public int KillGroupEntity(Session session, object _param)
+    {
+        Log("Called KillGroupEntity");
+        var player = currentSession.player;
+        if (player == null || player.Scene == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] KillGroupEntity called with no active player/scene");
+            return -1;
+        }
+
+        LuaTable? param = _param as LuaTable;
+        if (param == null)
+        {
+            currentSession.c.LogWarning("[ScriptLib] KillGroupEntity called with invalid param");
+            return -1;
+        }
+
+        var scene = player.Scene;
+
+        int groupId = currentGroupId;
+        try
+        {
+            if (param["group_id"] != null)
+            {
+                groupId = (int)(long)param["group_id"];
+            }
+        }
+        catch
+        {
+            // shouldn't be a thing
+        }
+
+        var group = scene.GetGroup(groupId);
+        if (group == null)
+        {
+            currentSession.c.LogWarning($"[ScriptLib] KillGroupEntity: group_ptr is null, group_id: {groupId}");
+            return -1;
+        }
+
+		GroupKillPolicy killPolicy = GroupKillPolicy.GROUP_KILL_NONE;
+        try
+        {
+            if (param["kill_policy"] != null)
+            {
+                killPolicy = (GroupKillPolicy)(int)(long)param["kill_policy"];
+            }
+        }
+        catch
+        {
+            // wtf?
+        }
+
+        if (killPolicy == GroupKillPolicy.GROUP_KILL_ALL)
+        {
+            var entitiesToKill = scene.EntityManager.Entities.Values
+                .Where(e =>
+                    ((e is MonsterEntity monster && monster._monsterInfo != null && monster._monsterInfo.group_id == groupId) ||
+                     (e is GadgetEntity gadget && gadget._gadgetLua != null && gadget._gadgetLua.group_id == groupId) ||
+                     (e is NpcEntity npc && npc._npcInfo != null && npc._npcInfo.group_id == groupId)))
+                .ToList();
+            foreach (var entity in entitiesToKill)
+            {
+                entity.ForceKill();
+            }
+            return 0;
+        }
+        else if (killPolicy == GroupKillPolicy.GROUP_KILL_MONSTER)
+        {
+            var monsters = scene.EntityManager.Entities.Values
+                .Where(e => e is MonsterEntity monster &&
+                            monster._monsterInfo != null &&
+                            monster._monsterInfo.group_id == groupId)
+                .ToList();
+            foreach (var entity in monsters)
+            {
+                entity.ForceKill();
+            }
+            return 0;
+        }
+        else if (killPolicy == GroupKillPolicy.GROUP_KILL_GADGET)
+        {
+            var gadgets = scene.EntityManager.Entities.Values
+                .Where(e => e is GadgetEntity gadget &&
+                            gadget._gadgetLua != null &&
+                            gadget._gadgetLua.group_id == groupId)
+                .ToList();
+            foreach (var entity in gadgets)
+            {
+                entity.ForceKill();
+            }
+            return 0;
+        }
+        else if (killPolicy == GroupKillPolicy.GROUP_KILL_NPC)
+        {
+            var npcs = scene.EntityManager.Entities.Values
+                .Where(e => e is NpcEntity npc &&
+                            npc._npcInfo != null &&
+                            npc._npcInfo.group_id == groupId)
+                .ToList();
+            foreach (var entity in npcs)
+            {
+                entity.ForceKill();
+            }
+            return 0;
+        }
+
+        try
+        {
+            if (param["monsters"] is LuaTable monstersTable)
+            {
+                var monsterConfigIds = new HashSet<uint>();
+                foreach (var key in monstersTable.Keys)
+                {
+                    try
+                    {
+                        uint configId = (uint)(long)monstersTable[key];
+                        monsterConfigIds.Add(configId);
+                    }
+                    catch { }
+                }
+
+                if (monsterConfigIds.Count > 0)
+                {
+                    var monsters = scene.EntityManager.Entities.Values
+                        .Where(e => e is MonsterEntity monster &&
+                                    monster._monsterInfo != null &&
+                                    monster._monsterInfo.group_id == groupId &&
+                                    monsterConfigIds.Contains(monster._monsterInfo.config_id))
+                        .ToList();
+                    foreach (var entity in monsters)
+                    {
+                        entity.ForceKill();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (param["gadgets"] is LuaTable gadgetsTable)
+            {
+                var gadgetConfigIds = new HashSet<uint>();
+                foreach (var key in gadgetsTable.Keys)
+                {
+                    try
+                    {
+                        uint configId = (uint)(long)gadgetsTable[key];
+                        gadgetConfigIds.Add(configId);
+                    }
+                    catch { }
+                }
+
+                if (gadgetConfigIds.Count > 0)
+                {
+                    var gadgets = scene.EntityManager.Entities.Values
+                        .Where(e => e is GadgetEntity gadget &&
+                                    gadget._gadgetLua != null &&
+                                    gadget._gadgetLua.group_id == groupId &&
+                                    gadgetConfigIds.Contains((uint)gadget._gadgetLua.config_id))
+                        .ToList();
+                    foreach (var entity in gadgets)
+                    {
+                        entity.ForceKill();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (param["npcs"] is LuaTable npcsTable)
+            {
+                var npcConfigIds = new HashSet<uint>();
+                foreach (var key in npcsTable.Keys)
+                {
+                    try
+                    {
+                        uint configId = (uint)(long)npcsTable[key];
+                        npcConfigIds.Add(configId);
+                    }
+                    catch { }
+                }
+
+                if (npcConfigIds.Count > 0)
+                {
+                    var npcs = scene.EntityManager.Entities.Values
+                        .Where(e => e is NpcEntity npc &&
+                                    npc._npcInfo != null &&
+                                    npc._npcInfo.group_id == groupId &&
+                                    npcConfigIds.Contains(npc._npcInfo.config_id))
+                        .ToList();
+                    foreach (var entity in npcs)
+                    {
+                        entity.ForceKill();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return 0;
+    }
 
     public int GetCurTriggerCount(Session session)
     {

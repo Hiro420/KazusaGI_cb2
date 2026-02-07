@@ -1,20 +1,16 @@
-﻿using KazusaGI_cb2.GameServer.Systems.Ability;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using KazusaGI_cb2.Resource.Json.Monster;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
-/// <summary>
-/// Ability manager for monsters.
-///
-/// Mirrors the role Grasscutter's AbilityManager plays for EntityMonster,
-/// but scoped to a single monster entity. Monsters currently use a single
-/// ability config map derived from their JSON ability data.
-/// </summary>
 public class MonsterAbilityManager : BaseAbilityManager
 {
 	private readonly MonsterEntity _monster;
@@ -34,94 +30,147 @@ public class MonsterAbilityManager : BaseAbilityManager
 
 	public override Task HandleAbilityInvokeAsync(AbilityInvokeEntry invoke)
 	{
-		// For now, just reuse the base implementation which already mirrors
-		// Grasscutter's AbilityManager.onAbilityInvoke logic.
 		return base.HandleAbilityInvokeAsync(invoke);
 	}
 
 	private void InitAbilities()
 	{
-		// Initialize monster abilities in a Grasscutter-like way by
-		// collecting ability names from global combat config and
-		// per-monster configuration, then resolving them to ConfigAbility.
 		var resourceManager = MainApp.resourceManager;
-		var abilityNames = new HashSet<string>();
+		var abilityNames = new HashSet<string>(StringComparer.Ordinal);
 
-		// 1. Global default non-humanoid move abilities.
 		var defaultAbilities = resourceManager.GlobalCombatData?.defaultAbilities;
+		// Only add nonHumanoidMoveAbilities (like Unique_AbilityCrash) if monster has specific move types
 		if (defaultAbilities?.nonHumanoidMoveAbilities != null)
 		{
-			foreach (var abilityName in defaultAbilities.nonHumanoidMoveAbilities)
+			// Check if monster has a valid non-humanoid move config
+			var monsterCombatConfig = _monster.serverExcelConfig?.CombatConfig;
+			bool hasNonHumanoidMove = false;
+			if (!string.IsNullOrWhiteSpace(monsterCombatConfig) &&
+			    resourceManager.ConfigMonsterMap.TryGetValue(monsterCombatConfig, out var monsterConfig))
 			{
-				if (!string.IsNullOrWhiteSpace(abilityName))
-					abilityNames.Add(abilityName);
+				hasNonHumanoidMove = monsterConfig.HasNonHumanoidMove();
+			}
+			
+			if (hasNonHumanoidMove)
+			{
+				foreach (var abilityName in defaultAbilities.nonHumanoidMoveAbilities)
+				{
+					if (!string.IsNullOrWhiteSpace(abilityName))
+						abilityNames.Add(abilityName);
+				}
 			}
 		}
 
-		// 2. Elite monster ability, if applicable.
 		if (_monster._monsterInfo?.isElite == true &&
 			!string.IsNullOrWhiteSpace(defaultAbilities?.monterEliteAbilityName))
 		{
 			abilityNames.Add(defaultAbilities.monterEliteAbilityName);
 		}
 
-		// 3. Per-monster abilities from ConfigMonster, mirroring
-		//    hk4e's Monster::initAbility which pulls from the
-		//    monster's config abilities list.
-		var monsterName = _monster.excelConfig.monsterName;
-		if (!string.IsNullOrWhiteSpace(monsterName) &&
-			resourceManager.ConfigMonsterMap != null)
-		{
-			var key = _monster.serverExcelConfig!.CombatConfig!;
-			if (resourceManager.ConfigMonsterMap.TryGetValue(key, out var configMonster) &&
-				configMonster.abilities != null)
-			{
-				foreach (var targetAbility in configMonster.abilities)
-				{
-					//Console.WriteLine($"MonsterAbilityManager: Monster {monsterName} ability: ID={targetAbility.abilityID} Name={targetAbility.abilityName} Override={targetAbility.abilityOverride}");
-					if (!string.IsNullOrWhiteSpace(targetAbility.abilityName))
-					{
-						abilityNames.Add(targetAbility.abilityName);
-					}
-				}
-			}
-			foreach (uint affixId in _monster.excelConfig.affix)
-			{
-				if (!resourceManager.MonsterAffixExcel.TryGetValue(affixId, out MonsterAffixExcelConfig? affix))
-					continue;
-				if (!string.IsNullOrWhiteSpace(affix.abilityName))
-					abilityNames.Add(affix.abilityName);
-            }
-        }
-
-
-		// 4. Resolve ability names to ConfigAbility using ResourceManager.ConfigAbilityMap.
 		var configAbilityMap = resourceManager.ConfigAbilityMap;
+		var combatConfig = _monster.serverExcelConfig?.CombatConfig;
+		if (configAbilityMap != null &&
+			!string.IsNullOrWhiteSpace(combatConfig) &&
+			resourceManager.ConfigMonsterMap.TryGetValue(combatConfig, out ConfigMonster? configMonster) &&
+			configMonster.abilities != null)
+		{
+			foreach (var entry in configMonster.abilities)
+			{
+				var resolved = ResolveAbilityName(entry, configAbilityMap);
+				if (!string.IsNullOrWhiteSpace(resolved))
+					abilityNames.Add(resolved);
+			}
+		}
+
+		var affixIds = new HashSet<uint>();
+		foreach (var affixId in _monster.excelConfig.affix)
+			if (affixId != 0)
+				affixIds.Add(affixId);
+		if (_monster._monsterInfo?.affix != null)
+		{
+			foreach (var affixId in _monster._monsterInfo.affix)
+				if (affixId != 0)
+					affixIds.Add(affixId);
+		}
+
+		foreach (var affixId in affixIds)
+		{
+			if (!resourceManager.MonsterAffixExcel.TryGetValue(affixId, out MonsterAffixExcelConfig? affix))
+				continue;
+			if (!string.IsNullOrWhiteSpace(affix.abilityName))
+				abilityNames.Add(affix.abilityName);
+		}
+
 		if (configAbilityMap != null)
 		{
 			foreach (var abilityName in abilityNames)
 			{
 				if (!configAbilityMap.TryGetValue(abilityName, out ConfigAbilityContainer? container) ||
-					container == null ||
-					container.Default == null)
-				{
+					container?.Default is not ConfigAbility configAbility)
 					continue;
-				}
-
-				if (container.Default is not ConfigAbility configAbility)
-					continue;
-
 				uint hash = Utils.AbilityHash(abilityName);
 				ConfigAbilityHashMap[hash] = configAbility;
-
-				// Ensure we have a specials map entry for this ability name so that
-				// BaseAbilityManager.Initialize can build override maps.
-				if (!_abilitySpecials.ContainsKey(abilityName))
-				{
-					_abilitySpecials[abilityName] = new Dictionary<string, float>();
-				}
+				if (!_abilitySpecials.ContainsKey(configAbility.abilityName))
+					_abilitySpecials[configAbility.abilityName] = BuildAbilitySpecials(configAbility);
 			}
 		}
 
+		foreach (var ability in ConfigAbilityHashMap.Values)
+		{
+			if (ability != null)
+				AddAbilityToEntity(_monster, ability);
+		}
+	}
+
+	private static string? ResolveAbilityName(TargetAbility entry, Dictionary<string, ConfigAbilityContainer> configMap)
+	{
+		if (!string.IsNullOrWhiteSpace(entry.abilityOverride) && configMap.ContainsKey(entry.abilityOverride))
+			return entry.abilityOverride;
+		if (!string.IsNullOrWhiteSpace(entry.abilityName))
+			return entry.abilityName;
+		return null;
+	}
+
+	private static Dictionary<string, float> BuildAbilitySpecials(ConfigAbility config)
+	{
+		var specials = new Dictionary<string, float>();
+		if (config.abilitySpecials == null)
+			return specials;
+		foreach (var kvp in config.abilitySpecials)
+		{
+			if (TryReadSpecialValue(kvp.Value, out var value))
+				specials[kvp.Key] = value;
+		}
+		return specials;
+	}
+
+	private static bool TryReadSpecialValue(object? valueObj, out float value)
+	{
+		switch (valueObj)
+		{
+			case null:
+				value = 0f;
+				return false;
+			case float floatValue:
+				value = floatValue;
+				return true;
+			case int intValue:
+				value = intValue;
+				return true;
+			case long longValue:
+				value = longValue;
+				return true;
+			case double doubleValue:
+				value = (float)doubleValue;
+				return true;
+			case decimal decimalValue:
+				value = (float)decimalValue;
+				return true;
+			case string stringValue:
+				return float.TryParse(stringValue, out value);
+			default:
+				value = 0f;
+				return false;
+		}
 	}
 }

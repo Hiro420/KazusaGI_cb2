@@ -345,17 +345,16 @@ public class Player
         {
             foreach (var w in record.Weapons)
             {
-                // Try to find an existing weapon instance for this weaponId.
-                // If the avatar constructor already created this weapon (via initialWeapon),
-                // we'll reuse that instance rather than creating a duplicate.
-                var weapon = weaponDict.Values.FirstOrDefault(x => x.WeaponId == w.WeaponId);
+                // Try to find an existing unequipped weapon with this exact guid.
+                // This handles the case where the avatar constructor already created
+                // this specific weapon instance (via initialWeapon).
+                var weapon = weaponDict.Values.FirstOrDefault(x => x.Guid == w.Guid);
 
-                // If not present (e.g. weapons granted via commands and
-                // saved previously), instantiate a new PlayerWeapon so it
-                // appears in inventory and can be equipped again.
+                // If not found by guid, create a new weapon instance with the saved guid.
+                // Never reuse an equipped weapon across different avatars!
                 if (weapon == null)
                 {
-                    weapon = new PlayerWeapon(session, w.WeaponId);
+                    weapon = new PlayerWeapon(session, w.WeaponId, overrideGuid: w.Guid);
                 }
 
                 weapon.Level = w.Level;

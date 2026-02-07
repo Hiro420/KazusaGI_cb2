@@ -105,6 +105,15 @@ public class ResourceManager
             }
         }
 
+        // Build the global ability hash map after ConfigAbility initialization.
+        if (ConfigAbilityMap != null)
+        {
+            ConfigAbilityHashMap = ConfigAbilityMap.ToDictionary(
+                k => GameServer.Ability.Utils.AbilityHash(k.Key),
+                k => k.Value.Default as ConfigAbility
+            )!;
+        }
+
         // Log SUCCESS
         c.LogSuccess("Loaded Resources");
     }

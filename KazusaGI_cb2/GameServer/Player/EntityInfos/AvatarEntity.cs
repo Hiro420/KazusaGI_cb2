@@ -20,7 +20,6 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 	{
 		DbInfo = playerAvatar;
 		abilityManager = new AvatarAbilityManager(this);
-		InitAbilityStuff();
 		abilityManager.Initialize();
 	}
 

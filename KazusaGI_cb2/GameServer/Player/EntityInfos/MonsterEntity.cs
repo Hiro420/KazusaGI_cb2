@@ -20,6 +20,8 @@ public class MonsterEntity : Entity, IDamageable
 	public float Atk { get; private set; }
 	public float Def { get; private set; }
 	public HashSet<uint> DroppedPercents { get; private set; } = new();
+	
+	private Dictionary<string, WeaponEntity> weaponGadgetMap = new();
 
 	public MonsterEntity(Session session, uint monsterId, MonsterLua? monsterInfo = null, Vector3? position = null, Vector3? rotation = null)
 		: base(session, position, rotation, ProtEntityType.ProtEntityMonster)
@@ -38,6 +40,74 @@ public class MonsterEntity : Entity, IDamageable
 		ReCalculateFightProps();
 		abilityManager = new MonsterAbilityManager(this);
 		abilityManager.Initialize();
+		
+		InitializeWeaponGadgets();
+	}
+	
+	private void InitializeWeaponGadgets()
+	{
+		if (excelConfig.equips.Count > 0)
+		{
+			foreach (uint equipId in excelConfig.equips)
+			{
+				if (equipId == 0) continue;
+				AddWeaponGadget(equipId, $"equip_{equipId}");
+			}
+		}
+	}
+	
+	public WeaponEntity? AddWeaponGadget(uint weaponGadgetId, string attachTo)
+	{
+		if (string.IsNullOrEmpty(attachTo))
+		{
+			session.c.LogWarning($"[MonsterEntity] AddWeaponGadget: empty attach_to for weapon {weaponGadgetId}");
+			return null;
+		}
+		
+		if (weaponGadgetMap.ContainsKey(attachTo))
+		{
+			session.c.LogWarning($"[MonsterEntity] AddWeaponGadget: duplicate attach_to '{attachTo}' for weapon {weaponGadgetId}");
+			return null;
+		}
+		
+		var weaponEntity = new WeaponEntity(session, weaponGadgetId);
+		weaponGadgetMap[attachTo] = weaponEntity;
+		
+		session.player?.Scene?.EntityManager.Add(weaponEntity);
+		
+		var appearNotify = new SceneEntityAppearNotify
+		{
+			AppearType = Protocol.VisionType.VisionMeet,
+			EntityLists = { weaponEntity.ToSceneEntityInfo() }
+		};
+		session.SendPacket(appearNotify);
+		
+		return weaponEntity;
+	}
+	
+	public bool DelWeaponGadget(string attachTo)
+	{
+		if (!weaponGadgetMap.TryGetValue(attachTo, out var weaponEntity))
+		{
+			session.c.LogWarning($"[MonsterEntity] DelWeaponGadget: can't find attach_to '{attachTo}'");
+			return false;
+		}
+		
+		weaponGadgetMap.Remove(attachTo);
+		
+		session.player?.Scene?.EntityManager.Remove(weaponEntity._EntityId, Protocol.VisionType.VisionDie);
+		
+		return true;
+	}
+	
+	public void DelAllWeaponGadgets()
+	{
+		var attachTos = weaponGadgetMap.Keys.ToList();
+		foreach (var attachTo in attachTos)
+		{
+			DelWeaponGadget(attachTo);
+		}
+		weaponGadgetMap.Clear();
 	}
 
 	public void ApplyDamage(float amount, AttackResult attack) => Damage(amount);
@@ -106,32 +176,21 @@ public class MonsterEntity : Entity, IDamageable
 			GroupId = _monsterInfo?.group_id ?? 0,
 		};
 
-		// Attach weapons (if any)
-		if (excelConfig.equips.Count > 0)
+		// Add existing weapons from weaponGadgetMap (like hk4e does in toClient)
+		foreach (var kvp in weaponGadgetMap)
 		{
-			foreach (uint equipId in excelConfig.equips)
+			var weaponEntity = kvp.Value;
+			sceneMonsterInfo.WeaponLists.Add(new SceneWeaponInfo
 			{
-				if (equipId == 0) continue;
-				var weaponEntity = new WeaponEntity(session, equipId);
-				sceneMonsterInfo.WeaponLists.Add(new SceneWeaponInfo
-				{
-					EntityId = weaponEntity._EntityId,
-					GadgetId = equipId,
-					Level = 1,
-					AbilityInfo = new()
-				});
-				foreach (var kv in weaponEntity.GetAffixMap())
-				{
-					sceneMonsterInfo.WeaponLists[^1].AffixMaps[kv.Key] = kv.Value;
-				}
-				session.player!.Scene.EntityManager.Add(weaponEntity);
-
-				SceneEntityAppearNotify appearNotify = new SceneEntityAppearNotify
-				{
-					AppearType = Protocol.VisionType.VisionMeet,
-					EntityLists = { weaponEntity.ToSceneEntityInfo() }
-				};
-				session.SendPacket(appearNotify);
+				EntityId = weaponEntity._EntityId,
+				GadgetId = weaponEntity._gadgetId,
+				Level = 1,
+				AbilityInfo = new()
+			});
+			
+			foreach (var affixKv in weaponEntity.GetAffixMap())
+			{
+				sceneMonsterInfo.WeaponLists[^1].AffixMaps[affixKv.Key] = affixKv.Value;
 			}
 		}
 
@@ -169,6 +228,12 @@ public class MonsterEntity : Entity, IDamageable
 	{
 		Hp = 0;
 		OnDied(vision);
+	}
+	
+	public override void ForceKill()
+	{
+		DelAllWeaponGadgets();
+		base.ForceKill();
 	}
 
 	protected override void OnDied(Protocol.VisionType disappearType)

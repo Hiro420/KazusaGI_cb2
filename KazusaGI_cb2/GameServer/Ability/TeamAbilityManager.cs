@@ -67,4 +67,85 @@ public class TeamAbilityManager : BaseAbilityManager
 		base.Initialize();
 	}
 
+	public override Protocol.AbilitySyncStateInfo BuildAbilitySyncStateInfo()
+	{
+		var syncInfo = new Protocol.AbilitySyncStateInfo
+		{
+			IsInited = false  // Teams are server-controlled, abilities managed by server
+		};
+
+		// Populate AppliedModifiers: all currently instanced modifiers
+		if (InstancedModifierMap.Count > 0)
+		{
+			foreach (var kvp in InstancedModifierMap)
+			{
+				var modifierController = kvp.Value;
+				if (modifierController == null)
+					continue;
+
+				var appliedModifier = new Protocol.AbilityAppliedModifier
+				{
+					ModifierLocalId = modifierController.modifierLocalId,
+					ParentAbilityEntityId = modifierController.parentAbilityEntityId,
+					ParentAbilityName = new Protocol.AbilityString
+					{
+						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityName)
+					},
+					InstancedAbilityId = modifierController.instancedAbilityId,
+					InstancedModifierId = modifierController.instancedModifierId,
+					ExistDuration = modifierController.existDuration,
+					ApplyEntityId = modifierController.applyEntityId,
+					IsAttachedParentAbility = modifierController.isAttachedParentAbility
+				};
+
+				if (!string.IsNullOrWhiteSpace(modifierController.parentAbilityOverride))
+				{
+					appliedModifier.ParentAbilityOverride = new Protocol.AbilityString
+					{
+						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityOverride)
+					};
+				}
+
+				syncInfo.AppliedModifiers.Add(appliedModifier);
+			}
+		}
+
+		// DynamicValueMaps: ability special overrides and global values
+		var abilitySpecialOverrideMap = AbilitySpecialOverrideMap;
+		var globalValueHashMap = GlobalValueHashMap;
+
+		if (abilitySpecialOverrideMap.Count > 0)
+		{
+			foreach (var kvp in abilitySpecialOverrideMap)
+			{
+				foreach (var specialKvp in kvp.Value)
+				{
+					var entry = new Protocol.AbilityScalarValueEntry
+					{
+						Key = new Protocol.AbilityString { Hash = specialKvp.Key },
+						ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+						FloatValue = specialKvp.Value
+					};
+					syncInfo.DynamicValueMaps.Add(entry);
+				}
+			}
+		}
+
+		if (globalValueHashMap.Count > 0)
+		{
+			foreach (var kvp in globalValueHashMap)
+			{
+				var entry = new Protocol.AbilityScalarValueEntry
+				{
+					Key = new Protocol.AbilityString { Hash = kvp.Key },
+					ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+					FloatValue = kvp.Value
+				};
+				syncInfo.DynamicValueMaps.Add(entry);
+			}
+		}
+
+		return syncInfo;
+	}
+
 }

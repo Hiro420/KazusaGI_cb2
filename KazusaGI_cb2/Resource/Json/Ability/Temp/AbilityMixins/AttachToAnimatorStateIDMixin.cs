@@ -2,9 +2,9 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins
 {
-    internal class AttachToAnimatorStateIDMixin : BaseAbilityMixin
-    {
-        [JsonProperty] public readonly string[] stateIDs;
-        [JsonProperty] public readonly string modifierName;
-    }
+	internal class AttachToAnimatorStateIDMixin : BaseAbilityMixin
+	{
+		[JsonProperty] public readonly string[] stateIDs;
+		[JsonProperty] public readonly string modifierName;
+	}
 }

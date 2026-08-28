@@ -2,14 +2,14 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins
 {
-    internal class CameraBlurMixin : BaseAbilityMixin
-    {
-        [JsonProperty] public readonly Blur cameraRadialBlur;
+	internal class CameraBlurMixin : BaseAbilityMixin
+	{
+		[JsonProperty] public readonly Blur cameraRadialBlur;
 
-        public class Blur
-        {
-            [JsonProperty] public readonly float power;
-            [JsonProperty] public readonly float fadeTime;
-        }
-    }
+		public class Blur
+		{
+			[JsonProperty] public readonly float power;
+			[JsonProperty] public readonly float fadeTime;
+		}
+	}
 }

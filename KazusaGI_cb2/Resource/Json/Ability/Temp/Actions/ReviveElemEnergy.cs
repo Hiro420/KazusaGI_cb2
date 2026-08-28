@@ -2,9 +2,9 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class ReviveElemEnergy : BaseAction
-    {
-        [JsonProperty] public readonly bool doOffStage;
-        [JsonProperty] public readonly object value;
-    }
+	internal class ReviveElemEnergy : BaseAction
+	{
+		[JsonProperty] public readonly bool doOffStage;
+		[JsonProperty] public readonly object value;
+	}
 }

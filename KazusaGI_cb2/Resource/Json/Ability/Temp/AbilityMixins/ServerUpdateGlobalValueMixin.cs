@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins
 {
-    internal class ServerUpdateGlobalValueMixin : BaseAbilityMixin
-    {
-        [JsonProperty] public readonly string key;
-    }
+	internal class ServerUpdateGlobalValueMixin : BaseAbilityMixin
+	{
+		[JsonProperty] public readonly string key;
+	}
 }

@@ -4,6 +4,6 @@ namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
 
 internal class ElementOuterGlowEffectMixin : BaseAbilityMixin
 {
-    [JsonProperty] public string? elementType;
-    [JsonProperty] public float? glowIntensity;
+	[JsonProperty] public string? elementType;
+	[JsonProperty] public float? glowIntensity;
 }

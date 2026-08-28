@@ -1,18 +1,13 @@
-﻿using System.Collections.Generic;
-using System.Numerics;
+﻿using KazusaGI_cb2.GameServer.Ability;
+using KazusaGI_cb2.GameServer.Lua;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.GameServer.Lua;
-using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System.Linq;
-using KazusaGI_cb2.Resource.Json.Avatar;
-using Newtonsoft.Json;
-using System;
-using System.IO;
 using KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes;
+using KazusaGI_cb2.Resource.Json.Avatar;
 using KazusaGI_cb2.Resource.ServerExcel;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
 
@@ -236,7 +231,7 @@ public class GadgetEntity : Entity, IDamageable
 
 		// showcutscene in gadget lua directly maps to SceneGadgetInfo.IsShowCutscene.
 		info.IsShowCutscene = _gadgetLua?.showcutscene ?? false;
-		
+
 		ret.Gadget = info;
 	}
 
@@ -429,7 +424,7 @@ public class GadgetEntity : Entity, IDamageable
 		};
 		LuaManager.executeTriggersLua(session, GetEntityGroup(_gadgetLua.group_id)!, args);
 	}
-	
+
 	// Ability initialization handled by GadgetAbilityManager.
 
 	public static System.Numerics.Vector3 ResolveBornPosition(Entity entity, BaseBornType bornType)

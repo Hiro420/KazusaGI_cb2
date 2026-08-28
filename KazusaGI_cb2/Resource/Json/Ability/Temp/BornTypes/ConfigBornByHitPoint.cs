@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes
 {
-    internal class ConfigBornByHitPoint : BaseBornType
-    {
-    }
+	internal class ConfigBornByHitPoint : BaseBornType
+	{
+	}
 }

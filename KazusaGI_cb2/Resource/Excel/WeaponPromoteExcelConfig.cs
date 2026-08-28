@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using KazusaGI_cb2.Resource.Misc;
+﻿using KazusaGI_cb2.Resource.Misc;
 
 namespace KazusaGI_cb2.Resource.Excel;
 

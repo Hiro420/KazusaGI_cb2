@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KazusaGI_cb2.WebServer.Handlers;
+﻿namespace KazusaGI_cb2.WebServer.Handlers;
 
 public class ShieldApiLoginReq
 {
@@ -28,7 +22,7 @@ public class ComboGranterLoginLoginReq
 	public string device;
 	public string sign;
 
-	public class DataInfo 
+	public class DataInfo
 	{
 		public string uid;
 		public bool guest;

@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates
 {
-    internal class ByTargetIsCaster : BasePredicate
-    {
-        [JsonProperty] public readonly bool isCaster;
-    }
+	internal class ByTargetIsCaster : BasePredicate
+	{
+		[JsonProperty] public readonly bool isCaster;
+	}
 }

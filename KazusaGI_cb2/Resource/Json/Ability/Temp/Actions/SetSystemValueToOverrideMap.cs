@@ -1,8 +1,6 @@
-﻿using Newtonsoft.Json;
-
-namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
+﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class SetSystemValueToOverrideMap : BaseAction
-    {
-    }
+	internal class SetSystemValueToOverrideMap : BaseAction
+	{
+	}
 }

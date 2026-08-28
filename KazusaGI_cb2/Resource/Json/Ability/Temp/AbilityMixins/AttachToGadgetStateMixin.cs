@@ -1,7 +1,4 @@
-﻿using Newtonsoft.Json;
-using KazusaGI_cb2.Resource;
-
-namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
+﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
 
 public class AttachToGadgetStateMixin : BaseAbilityMixin
 {

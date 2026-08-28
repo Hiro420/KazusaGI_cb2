@@ -1,19 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Numerics;
-using KazusaGI_cb2.Protocol;
+﻿using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.GameServer.Lua;
-using KazusaGI_cb2.GameServer.Ability;
-using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System.Linq;
 using KazusaGI_cb2.Resource.Json.Avatar;
-using Newtonsoft.Json;
-using System;
-using System.IO;
-using KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes;
 using KazusaGI_cb2.Resource.ServerExcel;
 using KazusaGI_cb2.Utils;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
 

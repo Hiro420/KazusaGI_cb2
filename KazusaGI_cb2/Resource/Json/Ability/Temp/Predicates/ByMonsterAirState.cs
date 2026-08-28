@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates
 {
-    internal class ByMonsterAirState : BasePredicate
-    {
-    }
+	internal class ByMonsterAirState : BasePredicate
+	{
+	}
 }

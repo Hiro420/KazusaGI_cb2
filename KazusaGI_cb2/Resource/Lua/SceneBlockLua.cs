@@ -1,78 +1,73 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace KazusaGI_cb2.Resource.Excel;
 
 public class SceneBlockLua
 {
-    public List<SceneGroupBasicLua> groups;
+	public List<SceneGroupBasicLua> groups;
 
-    // custom, inlined
-    public Dictionary<uint, SceneGroupLua> scene_groups;
+	// custom, inlined
+	public Dictionary<uint, SceneGroupLua> scene_groups;
 }
 
 public class SceneGroupBasicLua
 {
-    public uint id;
-    public uint refresh_id;
-    public uint area;
-    public Vector3 pos;
-    public bool dynamic_load;
-    public bool unload_when_disconnect;
-    // life_cycle, will be used later if at all
+	public uint id;
+	public uint refresh_id;
+	public uint area;
+	public Vector3 pos;
+	public bool dynamic_load;
+	public bool unload_when_disconnect;
+	// life_cycle, will be used later if at all
 }
 
 public class SceneGroupLua
 {
-    public List<MonsterLua> monsters;
-    public List<NpcLua> npcs;
-    public List<GadgetLua> gadgets;
-    public List<SceneRegionLua> regions;
-    public List<SceneTriggerLua> triggers;
-    // variables -> important for later (logic)
-    // In hk4e, group variables are defined in the Lua "variables" table
-    // and stored on the Group object. We mirror that here as a simple
-    // name->int map for runtime logic and ScriptLib access.
-    public Dictionary<string, int> variables = new();
-    public SceneGroupLuaInitConfig init_config;
-    public List<SceneGroupLuaSuite> suites;
+	public List<MonsterLua> monsters;
+	public List<NpcLua> npcs;
+	public List<GadgetLua> gadgets;
+	public List<SceneRegionLua> regions;
+	public List<SceneTriggerLua> triggers;
+	// variables -> important for later (logic)
+	// In hk4e, group variables are defined in the Lua "variables" table
+	// and stored on the Group object. We mirror that here as a simple
+	// name->int map for runtime logic and ScriptLib access.
+	public Dictionary<string, int> variables = new();
+	public SceneGroupLuaInitConfig init_config;
+	public List<SceneGroupLuaSuite> suites;
 
-    // functions later ??
+	// functions later ??
 }
 
 public class SceneRegionLua
 {
-    public uint config_id;
-    public LuaRegionShape shape;
-    public float radius; // for sphere
-    public Vector3 size; // for cubic
-    public Vector3 pos;
-    // room later
+	public uint config_id;
+	public LuaRegionShape shape;
+	public float radius; // for sphere
+	public Vector3 size; // for cubic
+	public Vector3 pos;
+	// room later
 }
 
 public class SceneGroupLuaInitConfig
 {
-    public uint suite; // the suit we load the scene with
-    public uint end_suite; // last index of the suits 
-    public uint rand_suite; // no idea what it does
+	public uint suite; // the suit we load the scene with
+	public uint end_suite; // last index of the suits 
+	public uint rand_suite; // no idea what it does
 }
 
 public class SceneGroupLuaSuite
 {
-    public List<uint> monsters;
-    public List<uint> gadgets;
-    public List<uint> regions;
-    public List<string> triggers;
-    public uint rand_weight;
+	public List<uint> monsters;
+	public List<uint> gadgets;
+	public List<uint> regions;
+	public List<string> triggers;
+	public uint rand_weight;
 }
 
 public enum LuaRegionShape
 {
-    NONE = 0,
-    SPHERE = 1,
-    CUBIC = 2
+	NONE = 0,
+	SPHERE = 1,
+	CUBIC = 2
 }

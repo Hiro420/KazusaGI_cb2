@@ -1,20 +1,15 @@
 ﻿using Newtonsoft.Json.Converters;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.Resource;
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum AvatarUseType
 {
-    AVATAR_TEST = 0,
-    AVATAR_SYNC_TEST = 1,
-    AVATAR_FORMAL = 2,
-    AVATAR_ABANDON = 3
+	AVATAR_TEST = 0,
+	AVATAR_SYNC_TEST = 1,
+	AVATAR_FORMAL = 2,
+	AVATAR_ABANDON = 3
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -60,27 +55,27 @@ public enum WeaponType
 [JsonConverter(typeof(StringEnumConverter))]
 public enum AvatarIdentityType
 {
-    AVATAR_IDENTITY_MASTER = 0,
-    AVATAR_IDENTITY_NORMAL = 1
+	AVATAR_IDENTITY_MASTER = 0,
+	AVATAR_IDENTITY_NORMAL = 1
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum ScenePointType
 {
-    NORMAL = 0,
-    TOWER = 1,
-    PORTAL = 2,
-    Other = 3
+	NORMAL = 0,
+	TOWER = 1,
+	PORTAL = 2,
+	Other = 3
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum MonsterType
 {
-    MONSTER_NONE = 0,
-    MONSTER_ORDINARY = 1,
-    MONSTER_BOSS = 2,
-    MONSTER_ENV_ANIMAL = 3,
-    MONSTER_LITTLE_MONSTER = 4,
+	MONSTER_NONE = 0,
+	MONSTER_ORDINARY = 1,
+	MONSTER_BOSS = 2,
+	MONSTER_ENV_ANIMAL = 3,
+	MONSTER_LITTLE_MONSTER = 4,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
@@ -223,280 +218,280 @@ public enum GrowCurveType
 [JsonConverter(typeof(StringEnumConverter))]
 public enum GachaItemType
 {
-    GACHA_ITEM_INVALID = 0,
-    GACHA_ITEM_AVATAR_S5 = 11,
-    GACHA_ITEM_AVATAR_S4 = 12,
-    GACHA_ITEM_AVATAR_S3 = 13,
-    GACHA_ITEM_WEAPON_S5 = 21,
-    GACHA_ITEM_WEAPON_S4 = 22,
-    GACHA_ITEM_WEAPON_S3 = 23,
-    GACHA_ITEM_COMMON_MATERIAL = 31
+	GACHA_ITEM_INVALID = 0,
+	GACHA_ITEM_AVATAR_S5 = 11,
+	GACHA_ITEM_AVATAR_S4 = 12,
+	GACHA_ITEM_AVATAR_S3 = 13,
+	GACHA_ITEM_WEAPON_S5 = 21,
+	GACHA_ITEM_WEAPON_S4 = 22,
+	GACHA_ITEM_WEAPON_S3 = 23,
+	GACHA_ITEM_COMMON_MATERIAL = 31
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum MaterialType
 {
-    MATERIAL_NONE = 0,
-    MATERIAL_FOOD = 1,
-    MATERIAL_QUEST = 2,
-    MATERIAL_EXCHANGE = 4,
-    MATERIAL_CONSUME = 5,
-    MATERIAL_EXP_FRUIT = 6,
-    MATERIAL_AVATAR = 7,
-    MATERIAL_ADSORBATE = 8,
-    MATERIAL_CRICKET = 9,
-    MATERIAL_ELEM_CRYSTAL = 10,
-    MATERIAL_WEAPON_EXP_STONE = 11,
-    MATERIAL_CHEST = 12,
-    MATERIAL_RELIQUARY_MATERIAL = 13,
-    MATERIAL_AVATAR_MATERIAL = 14,
-    MATERIAL_NOTICE_ADD_HP = 15,
-    MATERIAL_SEA_LAMP = 16
+	MATERIAL_NONE = 0,
+	MATERIAL_FOOD = 1,
+	MATERIAL_QUEST = 2,
+	MATERIAL_EXCHANGE = 4,
+	MATERIAL_CONSUME = 5,
+	MATERIAL_EXP_FRUIT = 6,
+	MATERIAL_AVATAR = 7,
+	MATERIAL_ADSORBATE = 8,
+	MATERIAL_CRICKET = 9,
+	MATERIAL_ELEM_CRYSTAL = 10,
+	MATERIAL_WEAPON_EXP_STONE = 11,
+	MATERIAL_CHEST = 12,
+	MATERIAL_RELIQUARY_MATERIAL = 13,
+	MATERIAL_AVATAR_MATERIAL = 14,
+	MATERIAL_NOTICE_ADD_HP = 15,
+	MATERIAL_SEA_LAMP = 16
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum ItemType
 {
-    ITEM_NONE = 0,
-    ITEM_VIRTUAL = 1,
-    ITEM_MATERIAL = 2,
-    ITEM_RELIQUARY = 3,
-    ITEM_WEAPON = 4,
-    ITEM_DISPLAY = 5
+	ITEM_NONE = 0,
+	ITEM_VIRTUAL = 1,
+	ITEM_MATERIAL = 2,
+	ITEM_RELIQUARY = 3,
+	ITEM_WEAPON = 4,
+	ITEM_DISPLAY = 5
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum ArithType
 {
-    ARITH_NONE = 0,
-    ARITH_ADD = 1,
-    ARITH_MULTI = 2,
-    ARITH_SUB = 3,
-    ARITH_DIVIDE = 4
+	ARITH_NONE = 0,
+	ARITH_ADD = 1,
+	ARITH_MULTI = 2,
+	ARITH_SUB = 3,
+	ARITH_DIVIDE = 4
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum ShopType
 {
-    SHOP_TYPE_NONE = 0,
-    SHOP_TYPE_PAIMON = 1001,
-    SHOP_TYPE_CITY = 1002,
-    SHOP_TYPE_BLACKSMITH = 1003,
-    SHOP_TYPE_GROCERY = 1004,
-    SHOP_TYPE_FOOD = 1005,
-    SHOP_TYPE_SEA_LAMP = 1006,
-    SHOP_TYPE_VIRTUAL_SHOP = 1007,
-    SHOP_TYPE_LIYUE_GROCERY = 1008,
-    SHOP_TYPE_LIYUE_SOUVENIR = 1009,
-    SHOP_TYPE_LIYUE_RESTAURANT = 1010,
+	SHOP_TYPE_NONE = 0,
+	SHOP_TYPE_PAIMON = 1001,
+	SHOP_TYPE_CITY = 1002,
+	SHOP_TYPE_BLACKSMITH = 1003,
+	SHOP_TYPE_GROCERY = 1004,
+	SHOP_TYPE_FOOD = 1005,
+	SHOP_TYPE_SEA_LAMP = 1006,
+	SHOP_TYPE_VIRTUAL_SHOP = 1007,
+	SHOP_TYPE_LIYUE_GROCERY = 1008,
+	SHOP_TYPE_LIYUE_SOUVENIR = 1009,
+	SHOP_TYPE_LIYUE_RESTAURANT = 1010,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum OpenStateType
 {
-    OPEN_STATE_NONE = 0,
-    OPEN_STATE_PAIMON = 1,
-    OPEN_STATE_PAIMON_NAVIGATION = 2,
-    OPEN_STATE_AVATAR_PROMOTE = 3,
-    OPEN_STATE_AVATAR_TALENT = 4,
-    OPEN_STATE_WEAPON_PROMOTE = 5,
-    OPEN_STATE_WEAPON_AWAKEN = 6,
-    OPEN_STATE_QUEST_REMIND = 7,
-    OPEN_STATE_GAME_GUIDE = 8,
-    OPEN_STATE_COOK = 9,
-    OPEN_STATE_WEAPON_UPGRADE = 10,
-    OPEN_STATE_RELIQUARY_UPGRADE = 11,
-    OPEN_STATE_RELIQUARY_PROMOTE = 12,
-    OPEN_STATE_WEAPON_PROMOTE_GUIDE = 13,
-    OPEN_STATE_WEAPON_CHANGE_GUIDE = 14,
-    OPEN_STATE_PLAYER_LVUP_GUIDE = 15,
-    OPEN_STATE_FRESHMAN_GUIDE = 16,
-    OPEN_STATE_SKIP_FRESHMAN_GUIDE = 17,
-    OPEN_STATE_GUIDE_MOVE_CAMERA = 18,
-    OPEN_STATE_GUIDE_SCALE_CAMERA = 19,
-    OPEN_STATE_GUIDE_KEYBOARD = 20,
-    OPEN_STATE_GUIDE_MOVE = 21,
-    OPEN_STATE_GUIDE_JUMP = 22,
-    OPEN_STATE_GUIDE_SPRINT = 23,
-    OPEN_STATE_GUIDE_MAP = 24,
-    OPEN_STATE_GUIDE_ATTACK = 25,
-    OPEN_STATE_GUIDE_FLY = 26,
-    OPEN_STATE_GUIDE_TALENT = 27,
-    OPEN_STATE_GUIDE_RELIC = 28,
-    OPEN_STATE_GUIDE_RELIC_PROM = 29,
-    OPEN_STATE_COMBINE = 30,
-    OPEN_STATE_GACHA = 31,
-    OPEN_STATE_GUIDE_GACHA = 32,
-    OPEN_STATE_GUIDE_TEAM = 33,
-    OPEN_STATE_GUIDE_PROUD = 34,
-    OPEN_STATE_GUIDE_AVATAR_PROMOTE = 35,
-    OPEN_STATE_GUIDE_ADVENTURE_CARD = 36,
-    OPEN_STATE_FORGE = 37,
-    OPEN_STATE_GUIDE_BAG = 38,
-    OPEN_STATE_EXPEDITION = 39,
-    OPEN_STATE_GUIDE_ADVENTURE_DAILYTASK = 40,
-    OPEN_STATE_GUIDE_ADVENTURE_DUNGEON = 41,
-    OPEN_STATE_TOWER = 42,
-    OPEN_STATE_WORLD_STAMINA = 43,
-    OPEN_STATE_TOWER_FIRST_ENTER = 44,
-    OPEN_STATE_RESIN = 45,
-    OPEN_STATE_WORLD_RESIN = 46,
-    OPEN_STATE_LIMIT_REGION_FRESHMEAT = 47,
-    OPEN_STATE_LIMIT_REGION_GLOBAL = 48,
-    OPEN_STATE_MULTIPLAYER = 49,
-    OPEN_STATE_GUIDE_MOUSEPC = 50,
-    OPEN_STATE_GUIDE_MULTIPLAYER = 51,
-    OPEN_STATE_GUIDE_DUNGEONREWARD = 52,
-    OPEN_STATE_SHOP_TYPE_PAIMON = 1001,
-    OPEN_STATE_SHOP_TYPE_CITY = 1002,
-    OPEN_STATE_SHOP_TYPE_BLACKSMITH = 1003,
-    OPEN_STATE_SHOP_TYPE_GROCERY = 1004,
-    OPEN_STATE_SHOP_TYPE_FOOD = 1005,
-    OPEN_STATE_SHOP_TYPE_SEA_LAMP = 1006,
-    OPEN_STATE_SHOP_TYPE_VIRTUAL_SHOP = 1007,
-    OPEN_STATE_SHOP_TYPE_LIYUE_GROCERY = 1008,
-    OPEN_STATE_SHOP_TYPE_LIYUE_SOUVENIR = 1009,
-    OPEN_STATE_SHOP_TYPE_LIYUE_RESTAURANT = 1010,
-    OPEN_ADVENTURE_MANUAL = 1100,
-    OPEN_ADVENTURE_MANUAL_CITY_MENGDE = 1101,
-    OPEN_ADVENTURE_MANUAL_CITY_LIYUE = 1102,
-    OPEN_ADVENTURE_MANUAL_MONSTER = 1103,
-    OPEN_STATE_ACTIVITY_SEALAMP = 1200,
-    OPEN_STATE_ACTIVITY_SEALAMP_TAB2 = 1201,
-    OPEN_STATE_ACTIVITY_SEALAMP_TAB3 = 1202,
+	OPEN_STATE_NONE = 0,
+	OPEN_STATE_PAIMON = 1,
+	OPEN_STATE_PAIMON_NAVIGATION = 2,
+	OPEN_STATE_AVATAR_PROMOTE = 3,
+	OPEN_STATE_AVATAR_TALENT = 4,
+	OPEN_STATE_WEAPON_PROMOTE = 5,
+	OPEN_STATE_WEAPON_AWAKEN = 6,
+	OPEN_STATE_QUEST_REMIND = 7,
+	OPEN_STATE_GAME_GUIDE = 8,
+	OPEN_STATE_COOK = 9,
+	OPEN_STATE_WEAPON_UPGRADE = 10,
+	OPEN_STATE_RELIQUARY_UPGRADE = 11,
+	OPEN_STATE_RELIQUARY_PROMOTE = 12,
+	OPEN_STATE_WEAPON_PROMOTE_GUIDE = 13,
+	OPEN_STATE_WEAPON_CHANGE_GUIDE = 14,
+	OPEN_STATE_PLAYER_LVUP_GUIDE = 15,
+	OPEN_STATE_FRESHMAN_GUIDE = 16,
+	OPEN_STATE_SKIP_FRESHMAN_GUIDE = 17,
+	OPEN_STATE_GUIDE_MOVE_CAMERA = 18,
+	OPEN_STATE_GUIDE_SCALE_CAMERA = 19,
+	OPEN_STATE_GUIDE_KEYBOARD = 20,
+	OPEN_STATE_GUIDE_MOVE = 21,
+	OPEN_STATE_GUIDE_JUMP = 22,
+	OPEN_STATE_GUIDE_SPRINT = 23,
+	OPEN_STATE_GUIDE_MAP = 24,
+	OPEN_STATE_GUIDE_ATTACK = 25,
+	OPEN_STATE_GUIDE_FLY = 26,
+	OPEN_STATE_GUIDE_TALENT = 27,
+	OPEN_STATE_GUIDE_RELIC = 28,
+	OPEN_STATE_GUIDE_RELIC_PROM = 29,
+	OPEN_STATE_COMBINE = 30,
+	OPEN_STATE_GACHA = 31,
+	OPEN_STATE_GUIDE_GACHA = 32,
+	OPEN_STATE_GUIDE_TEAM = 33,
+	OPEN_STATE_GUIDE_PROUD = 34,
+	OPEN_STATE_GUIDE_AVATAR_PROMOTE = 35,
+	OPEN_STATE_GUIDE_ADVENTURE_CARD = 36,
+	OPEN_STATE_FORGE = 37,
+	OPEN_STATE_GUIDE_BAG = 38,
+	OPEN_STATE_EXPEDITION = 39,
+	OPEN_STATE_GUIDE_ADVENTURE_DAILYTASK = 40,
+	OPEN_STATE_GUIDE_ADVENTURE_DUNGEON = 41,
+	OPEN_STATE_TOWER = 42,
+	OPEN_STATE_WORLD_STAMINA = 43,
+	OPEN_STATE_TOWER_FIRST_ENTER = 44,
+	OPEN_STATE_RESIN = 45,
+	OPEN_STATE_WORLD_RESIN = 46,
+	OPEN_STATE_LIMIT_REGION_FRESHMEAT = 47,
+	OPEN_STATE_LIMIT_REGION_GLOBAL = 48,
+	OPEN_STATE_MULTIPLAYER = 49,
+	OPEN_STATE_GUIDE_MOUSEPC = 50,
+	OPEN_STATE_GUIDE_MULTIPLAYER = 51,
+	OPEN_STATE_GUIDE_DUNGEONREWARD = 52,
+	OPEN_STATE_SHOP_TYPE_PAIMON = 1001,
+	OPEN_STATE_SHOP_TYPE_CITY = 1002,
+	OPEN_STATE_SHOP_TYPE_BLACKSMITH = 1003,
+	OPEN_STATE_SHOP_TYPE_GROCERY = 1004,
+	OPEN_STATE_SHOP_TYPE_FOOD = 1005,
+	OPEN_STATE_SHOP_TYPE_SEA_LAMP = 1006,
+	OPEN_STATE_SHOP_TYPE_VIRTUAL_SHOP = 1007,
+	OPEN_STATE_SHOP_TYPE_LIYUE_GROCERY = 1008,
+	OPEN_STATE_SHOP_TYPE_LIYUE_SOUVENIR = 1009,
+	OPEN_STATE_SHOP_TYPE_LIYUE_RESTAURANT = 1010,
+	OPEN_ADVENTURE_MANUAL = 1100,
+	OPEN_ADVENTURE_MANUAL_CITY_MENGDE = 1101,
+	OPEN_ADVENTURE_MANUAL_CITY_LIYUE = 1102,
+	OPEN_ADVENTURE_MANUAL_MONSTER = 1103,
+	OPEN_STATE_ACTIVITY_SEALAMP = 1200,
+	OPEN_STATE_ACTIVITY_SEALAMP_TAB2 = 1201,
+	OPEN_STATE_ACTIVITY_SEALAMP_TAB3 = 1202,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum DungeonType
 {
-    DUNGEON_NONE = 0,
-    DUNGEON_PLOT = 1,
-    DUNGEON_FIGHT = 2,
-    DUNGEON_DAILY_FIGHT = 3,
-    DUNGEON_WEEKLY_FIGHT = 4,
-    DUNGEON_DISCARDED = 5,
-    DUNGEON_TOWER = 6,
-    DUNGEON_BOSS = 7,
+	DUNGEON_NONE = 0,
+	DUNGEON_PLOT = 1,
+	DUNGEON_FIGHT = 2,
+	DUNGEON_DAILY_FIGHT = 3,
+	DUNGEON_WEEKLY_FIGHT = 4,
+	DUNGEON_DISCARDED = 5,
+	DUNGEON_TOWER = 6,
+	DUNGEON_BOSS = 7,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum GadgetState
 {
-    Default = 0,
-    GatherDrop = 1,
-    ChestLocked = 101,
-    ChestOpened = 102,
-    ChestTrap = 103,
-    ChestBramble = 104,
-    ChestFrozen = 105,
-    ChestRock = 106,
-    GearStart = 201,
-    GearStop = 202,
-    GearAction1 = 203,
-    GearAction2 = 204,
-    CrystalResonate1 = 301,
-    CrystalResonate2 = 302,
-    CrystalExplode = 303,
-    CrystalDrain = 304,
-    StatueActive = 401,
-    Action01 = 901,
-    Action02 = 902,
-    Action03 = 903
+	Default = 0,
+	GatherDrop = 1,
+	ChestLocked = 101,
+	ChestOpened = 102,
+	ChestTrap = 103,
+	ChestBramble = 104,
+	ChestFrozen = 105,
+	ChestRock = 106,
+	GearStart = 201,
+	GearStop = 202,
+	GearAction1 = 203,
+	GearAction2 = 204,
+	CrystalResonate1 = 301,
+	CrystalResonate2 = 302,
+	CrystalExplode = 303,
+	CrystalDrain = 304,
+	StatueActive = 401,
+	Action01 = 901,
+	Action02 = 902,
+	Action03 = 903
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum GadgetType_Lua
 {
-    GADGET_NONE = 0,
-    GADGET_WORLD_CHECT = 1,
-    GADGET_DUNGEON_SECRET_CHEST = 2,
-    GADGET_DUNGEON_PASS_CHEST = 3
+	GADGET_NONE = 0,
+	GADGET_WORLD_CHECT = 1,
+	GADGET_DUNGEON_SECRET_CHEST = 2,
+	GADGET_DUNGEON_PASS_CHEST = 3
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum TowerCondType
 {
-    TOWER_COND_NONE = 0,
-    TOWER_COND_FINISH_TIME_LESS_THAN = 1,
-    TOWER_COND_LEFT_HP_GREATER_THAN = 2,
-    TOWER_COND_CHALLENGE_LEFT_TIME_MORE_THAN = 3,
+	TOWER_COND_NONE = 0,
+	TOWER_COND_FINISH_TIME_LESS_THAN = 1,
+	TOWER_COND_LEFT_HP_GREATER_THAN = 2,
+	TOWER_COND_CHALLENGE_LEFT_TIME_MORE_THAN = 3,
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum GroupKillPolicy
 {
-    GROUP_KILL_NONE = 0,
-    GROUP_KILL_ALL = 1,
-    GROUP_KILL_MONSTER = 2,
-    GROUP_KILL_GADGET = 3,
-    GROUP_KILL_NPC = 4
+	GROUP_KILL_NONE = 0,
+	GROUP_KILL_ALL = 1,
+	GROUP_KILL_MONSTER = 2,
+	GROUP_KILL_GADGET = 3,
+	GROUP_KILL_NPC = 4
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum RegionShape
 {
-    REGION_NONE = 0,
-    REGION_SPHERE = 1,
-    REGION_CUBIC = 2
+	REGION_NONE = 0,
+	REGION_SPHERE = 1,
+	REGION_CUBIC = 2
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum EntityType
 {
-    None = 0,
-    Avatar = 1,
-    Monster = 2,
-    Bullet = 3,
-    AttackPhyisicalUnit = 4,
-    AOE = 5,
-    Camera = 6,
-    EnviroArea = 7,
-    Equip = 8,
-    MonsterEquip = 9,
-    Grass = 10,
-    Level = 11,
-    NPC = 12,
-    TransPointFirst = 13,
-    TransPointFirstGadget = 14,
-    TransPointSecond = 15,
-    TransPointSecondGadget = 16,
-    DropItem = 17,
-    Field = 18,
-    Gadget = 19,
-    Water = 20,
-    GatherPoint = 21,
-    GatherObject = 22,
-    AirflowField = 23,
-    SpeedupField = 24,
-    Gear = 25,
-    Chest = 26,
-    EnergyBall = 27,
-    ElemCrystal = 28,
-    Timeline = 29,
-    Worktop = 30,
-    Team = 31,
-    Platform = 32,
-    AmberWind = 33,
-    EnvAnimal = 34,
-    SealGadget = 35,
-    Tree = 36,
-    Bush = 37,
-    QuestGadget = 38,
-    Lightning = 39,
-    RewardPoint = 40,
-    RewardStatue = 41,
-    MPLevel = 42,
-    WindSeed = 43,
-    PlaceHolder = 99
+	None = 0,
+	Avatar = 1,
+	Monster = 2,
+	Bullet = 3,
+	AttackPhyisicalUnit = 4,
+	AOE = 5,
+	Camera = 6,
+	EnviroArea = 7,
+	Equip = 8,
+	MonsterEquip = 9,
+	Grass = 10,
+	Level = 11,
+	NPC = 12,
+	TransPointFirst = 13,
+	TransPointFirstGadget = 14,
+	TransPointSecond = 15,
+	TransPointSecondGadget = 16,
+	DropItem = 17,
+	Field = 18,
+	Gadget = 19,
+	Water = 20,
+	GatherPoint = 21,
+	GatherObject = 22,
+	AirflowField = 23,
+	SpeedupField = 24,
+	Gear = 25,
+	Chest = 26,
+	EnergyBall = 27,
+	ElemCrystal = 28,
+	Timeline = 29,
+	Worktop = 30,
+	Team = 31,
+	Platform = 32,
+	AmberWind = 33,
+	EnvAnimal = 34,
+	SealGadget = 35,
+	Tree = 36,
+	Bush = 37,
+	QuestGadget = 38,
+	Lightning = 39,
+	RewardPoint = 40,
+	RewardStatue = 41,
+	MPLevel = 42,
+	WindSeed = 43,
+	PlaceHolder = 99
 }
 
 [JsonConverter(typeof(StringEnumConverter))]
 public enum GearType
 {
-    None = 0,
-    Ray = 1,
-    Spray = 2,
-    Wall = 3
+	None = 0,
+	Ray = 1,
+	Spray = 2,
+	Wall = 3
 }
 
 [JsonConverter(typeof(StringEnumConverter))]

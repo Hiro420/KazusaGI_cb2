@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace KazusaGI_cb2.Resource.ServerExcel;
+﻿namespace KazusaGI_cb2.Resource.ServerExcel;
 
 public sealed class ChestDropRow
 {

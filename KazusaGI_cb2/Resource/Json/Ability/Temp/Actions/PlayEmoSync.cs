@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class PlayEmoSync : BaseAction
-    {
-        [JsonProperty] public readonly string emoSyncAssetPath;
-    }
+	internal class PlayEmoSync : BaseAction
+	{
+		[JsonProperty] public readonly string emoSyncAssetPath;
+	}
 }

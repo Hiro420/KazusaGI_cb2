@@ -1,8 +1,6 @@
-﻿using Newtonsoft.Json;
-
-namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins
+﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins
 {
-    internal class AttackCostElementMixin : BaseAbilityMixin
-    {
-    }
+	internal class AttackCostElementMixin : BaseAbilityMixin
+	{
+	}
 }

@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes
 {
-    internal class ConfigBornBySelfOwner : BaseBornType
-    {
-    }
+	internal class ConfigBornBySelfOwner : BaseBornType
+	{
+	}
 }

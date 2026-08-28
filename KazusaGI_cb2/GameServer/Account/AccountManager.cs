@@ -1,47 +1,44 @@
-using System;
-using KazusaGI_cb2.GameServer.Account;
-
 namespace KazusaGI_cb2.GameServer.Account;
 
 public static class AccountManager
 {
-    private static readonly Logger Logger = new("AccountManager");
-    private static readonly IAccountRepository Repository;
-    private static readonly MongoAccountRepository MongoRepository;
+	private static readonly Logger Logger = new("AccountManager");
+	private static readonly IAccountRepository Repository;
+	private static readonly MongoAccountRepository MongoRepository;
 
-    static AccountManager()
-    {
-        try
-        {
-            var cfg = MainApp.config.AccountDataBase;
-            MongoRepository = new MongoAccountRepository(cfg);
-            Repository = MongoRepository;
-            Logger.LogInfo($"Initialized Mongo account repository at {cfg.Uri}, db '{cfg.Collection}'");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError($"Failed to initialize account repository: {ex.Message}\n{ex}");
-            throw;
-        }
-    }
+	static AccountManager()
+	{
+		try
+		{
+			var cfg = MainApp.config.AccountDataBase;
+			MongoRepository = new MongoAccountRepository(cfg);
+			Repository = MongoRepository;
+			Logger.LogInfo($"Initialized Mongo account repository at {cfg.Uri}, db '{cfg.Collection}'");
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError($"Failed to initialize account repository: {ex.Message}\n{ex}");
+			throw;
+		}
+	}
 
-    public static AccountRecord GetOrCreate(string accountName, string accountToken)
-        => Repository.GetOrCreate(accountName, accountToken);
+	public static AccountRecord GetOrCreate(string accountName, string accountToken)
+		=> Repository.GetOrCreate(accountName, accountToken);
 
-    public static AccountRecord? GetByAccountUid(string accountUid)
-        => Repository.GetByAccountUid(accountUid);
+	public static AccountRecord? GetByAccountUid(string accountUid)
+		=> Repository.GetByAccountUid(accountUid);
 
-    public static AccountRecord? GetByAccountToken(string accountToken)
-        => Repository.GetByAccountToken(accountToken);
+	public static AccountRecord? GetByAccountToken(string accountToken)
+		=> Repository.GetByAccountToken(accountToken);
 
 	// Expose strongly-typed player data helpers for now via the concrete Mongo implementation. 
 	public static PlayerDataRecord? LoadPlayerData(uint playerUid)
-    {
-        return MongoRepository.LoadPlayerData(playerUid);
-    }
+	{
+		return MongoRepository.LoadPlayerData(playerUid);
+	}
 
-    public static void SavePlayerData(PlayerDataRecord record)
-    {
-        MongoRepository.SavePlayerData(record);
-    }
+	public static void SavePlayerData(PlayerDataRecord record)
+	{
+		MongoRepository.SavePlayerData(record);
+	}
 }

@@ -1,5 +1,6 @@
 {
   "GameServer": {
+    "ServerId": 1,
     "ServerIP": "127.0.0.1",
     "ServerPort": 6969,
     "AutoCreateAccount": true

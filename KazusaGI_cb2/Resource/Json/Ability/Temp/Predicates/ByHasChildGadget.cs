@@ -2,9 +2,9 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates
 {
-    internal class ByHasChildGadget : BasePredicate
-    {
-        [JsonProperty] public readonly int[] configIdArray;
-        [JsonProperty] public readonly string compareType;
-    }
+	internal class ByHasChildGadget : BasePredicate
+	{
+		[JsonProperty] public readonly int[] configIdArray;
+		[JsonProperty] public readonly string compareType;
+	}
 }

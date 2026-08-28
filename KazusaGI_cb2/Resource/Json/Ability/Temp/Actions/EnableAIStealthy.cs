@@ -2,8 +2,8 @@ using Newtonsoft.Json;
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class EnableAIStealthy : BaseAction
-    {
-        [JsonProperty] public readonly bool enable;
-    }
+	internal class EnableAIStealthy : BaseAction
+	{
+		[JsonProperty] public readonly bool enable;
+	}
 }

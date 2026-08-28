@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.BornTypes
 {
-    internal class ConfigBornByCollisionPoint : BaseBornType
-    {
-    }
+	internal class ConfigBornByCollisionPoint : BaseBornType
+	{
+	}
 }

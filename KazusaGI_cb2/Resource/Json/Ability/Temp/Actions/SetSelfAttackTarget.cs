@@ -2,9 +2,9 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class SetSelfAttackTarget : BaseAction
-    {
-        [JsonProperty] public readonly BaseSelectTargetType otherTargets;
-        [JsonProperty] public readonly BasePredicate[] predicates;
-    }
+	internal class SetSelfAttackTarget : BaseAction
+	{
+		[JsonProperty] public readonly BaseSelectTargetType otherTargets;
+		[JsonProperty] public readonly BasePredicate[] predicates;
+	}
 }

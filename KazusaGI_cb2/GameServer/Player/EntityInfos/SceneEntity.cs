@@ -1,39 +1,41 @@
-﻿using System.Numerics;
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource;
-using KazusaGI_cb2.Resource.Excel;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
 
 public class SceneEntity : Entity
 {
-    public SceneAbilityManager AbilityManager { get; private set; }
+	// EntityMgr::createSceneEntity in CB2 assigns this exact id. Scene::findEntity
+	// special-cases it because its high byte is not PROT_ENTITY_SCENE.
+	public const uint FixedEntityId = 0x13800001u;
 
-    public SceneEntity(Session session, Vector3? position = null, Vector3? rotation = null)
-        : base(session, position, rotation, ProtEntityType.ProtEntityScene)
-    {
-        AbilityManager = new SceneAbilityManager(this);
-        AbilityManager.Initialize();
-    }
+	public SceneAbilityManager AbilityManager => (SceneAbilityManager)abilityManager!;
 
-    protected override void BuildKindSpecific(SceneEntityInfo info)
-    {
-        // Attach weather info via SceneGadgetInfo to mirror hk4e scene entity.
-        var weather = new WeatherInfo
-        {
-            WeatherAreaId = 0
-        };
+	public SceneEntity(Session session, Vector3? position = null, Vector3? rotation = null)
+		: base(session, position, rotation, ProtEntityType.ProtEntityScene, FixedEntityId)
+	{
+		abilityManager = new SceneAbilityManager(this);
+		abilityManager.Initialize();
+	}
 
-        info.Gadget = new SceneGadgetInfo
-        {
-            Weather = weather
-        };
-    }
+	protected override void BuildKindSpecific(SceneEntityInfo info)
+	{
+		// Attach weather info via SceneGadgetInfo to mirror hk4e scene entity.
+		var weather = new WeatherInfo
+		{
+			WeatherAreaId = 0
+		};
 
-    // Override ForceKill to prevent SceneEntity from being removed from entityMap
-    public override void ForceKill()
-    {
-        // Do nothing to prevent removal from entityMap
-    }
+		info.Gadget = new SceneGadgetInfo
+		{
+			Weather = weather
+		};
+	}
+
+	// Override ForceKill to prevent SceneEntity from being removed from entityMap
+	public override void ForceKill()
+	{
+		// Do nothing to prevent removal from entityMap
+	}
 }

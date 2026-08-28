@@ -1,12 +1,11 @@
-﻿// AvatarEntity.cs (update)
-using KazusaGI_cb2.GameServer.Ability;
+// AvatarEntity.cs (update)
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
+using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Talent;
-using KazusaGI_cb2.Resource.Excel;
 using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
@@ -29,21 +28,24 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 		return DbInfo.Level;
 	}
 
+	protected override uint GetLifeState()
+	{
+		return DbInfo.Hp > 0f ? 1u : 2u;
+	}
+
 	protected override void BuildKindSpecific(SceneEntityInfo ret)
 	{
-		var asAvatarInfo = DbInfo.ToAvatarInfo();
 		ret.Avatar = DbInfo.ToSceneAvatarInfo();
-
-		foreach (var kv in asAvatarInfo.PropMaps)
-			ret.PropMaps[kv.Key] = kv.Value;
-
-		foreach (var kv in asAvatarInfo.FightPropMaps)
-			ret.FightPropMaps[kv.Key] = kv.Value;
+		DbInfo.FillSceneEntityState(ret);
+		ret.LastMoveSceneTimeMs = DbInfo.LastMoveSceneTimeMs;
+		ret.LastMoveReliableSeq = DbInfo.LastMoveReliableSeq;
+		if (ret.MotionInfo != null)
+			ret.MotionInfo.Params.AddRange(DbInfo.LastMoveParams);
 	}
 
 	public SceneEntityInfo ToSceneEntityInfo(Session session) =>
 		base.ToSceneEntityInfo(session.player!.Pos, session.player!.Rot);
-	
+
 	/// <summary>
 	/// Initialize ability system for this avatar entity
 	/// </summary>
@@ -55,7 +57,7 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 
 		// Build AbilityConfigMap using TargetAbilities from ConfigAvatarMap
 		List<ConfigAbilityContainer> configContainerList = new();
-		
+
 		if (resourceManager.ConfigAvatarMap.TryGetValue(DbInfo.serverAvatarExcel.CombatConfig, out var configAvatar))
 		{
 			foreach (TargetAbility targetAbility in configAvatar.abilities)
@@ -74,7 +76,7 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 			DbInfo.AbilityConfigMap.TryAdd((int)DbInfo.SkillDepotId, configContainerList.ToArray());
 		}
 
-		var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.skills.Contains(w.Key) || 
+		var dictionary1 = resourceManager.AvatarSkillExcel.Where(w => DbInfo.avatarSkillDepotExcel.skills.Contains(w.Key) ||
 			DbInfo.avatarSkillDepotExcel.subSkills.Contains(w.Key) || DbInfo.avatarSkillDepotExcel.energySkill == w.Key)
 			.ToDictionary(x => x.Key, x => x.Value);
 
@@ -83,7 +85,7 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 		{
 			DbInfo.SkillData[(int)DbInfo.SkillDepotId] = new SortedList<uint, AvatarSkillExcelConfig>();
 		}
-		
+
 		foreach (var skill in dictionary1)
 		{
 			DbInfo.SkillData[CurDepotId][skill.Key] = skill.Value;
@@ -120,7 +122,7 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 		Dictionary<uint, ConfigAbility> abilityHashMap = new();
 
 		// add abilityGroup abilities (if player skill depot ability group)
-		if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatarForHash) && 
+		if (resourceManager.ConfigAvatarMap.TryGetValue($"ConfigAvatar_{DbInfo.AvatarName}", out var configAvatarForHash) &&
 			DbInfo.AbilityConfigMap.ContainsKey((int)DbInfo.SkillDepotId))
 		{
 			foreach (TargetAbility ability in configAvatarForHash.abilities)
@@ -138,7 +140,7 @@ public class AvatarEntity : Entity // Maybe IDamageable in the future
 				abilityHashMap[(uint)Ability.Utils.AbilityHash(ability.abilityName)] = config;
 			}
 		}
-		
+
 		if (abilityHashMap.Count > 0)
 		{
 			DbInfo.AbilityHashMap.TryAdd((int)DbInfo.SkillDepotId, abilityHashMap);

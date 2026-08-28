@@ -1,59 +1,69 @@
 using KazusaGI_cb2.GameServer.PlayerInfos;
 using KazusaGI_cb2.Protocol;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Handlers.Recv;
 
 internal class HandleChangeAvatarReq
 {
-    [Packet.PacketCmdId(PacketId.ChangeAvatarReq)]
-    public static void OnPacket(Session session, Packet packet)
-    {
-        ChangeAvatarReq req = packet.GetDecodedBody<ChangeAvatarReq>();
-        ChangeAvatarRsp rsp = new ChangeAvatarRsp()
-        {
-            CurGuid = req.Guid,
-            SkillId = req.SkillId
-        };
+	[Packet.PacketCmdId(PacketId.ChangeAvatarReq)]
+	public static void OnPacket(Session session, Packet packet)
+	{
+		ChangeAvatarReq req = packet.GetDecodedBody<ChangeAvatarReq>();
+		var rsp = new ChangeAvatarRsp
+		{
+			CurGuid = req.Guid,
+			SkillId = req.SkillId
+		};
 
-        PlayerTeam targetTeam = session.player!.GetCurrentLineup();
-        PlayerAvatar oldTeamLeader = targetTeam.Leader!; // old one
-        PlayerAvatar newLeaderAvatar = session.player.avatarDict[req.Guid]; // new one
+		Player player = session.player!;
+		PlayerTeam team = player.GetCurrentLineup();
 
-        AvatarEntity oldLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, oldTeamLeader)!;
-        AvatarEntity newLeaderEntity = session.player!.FindEntityByPlayerAvatar(session, newLeaderAvatar)!;
+		if (!player.avatarDict.TryGetValue(req.Guid, out var nextAvatar))
+		{
+			rsp.Retcode = 104; // RET_AVATAR_NOT_EXIST
+			session.SendPacket(rsp);
+			return;
+		}
+		if (!team.Avatars.Contains(nextAvatar))
+		{
+			rsp.Retcode = 122; // target is not in current lineup
+			session.SendPacket(rsp);
+			return;
+		}
 
-        // Prepare notification for old avatar + weapon despawn
-        var disappearNotify = new SceneEntityDisappearNotify()
-        {
-            DisappearType = Protocol.VisionType.VisionReplace
-        };
-        disappearNotify.EntityLists.Add(oldLeaderEntity._EntityId);
+		PlayerAvatar? previousAvatar = team.Leader;
+		if (previousAvatar == null)
+		{
+			rsp.Retcode = -1;
+			session.SendPacket(rsp);
+			return;
+		}
+		if (previousAvatar.Guid == nextAvatar.Guid)
+		{
+			session.SendPacket(rsp);
+			return;
+		}
 
-        // Also despawn the old leader's weapon if equipped
-        if (oldTeamLeader.EquipGuid != 0 && session.player.weaponDict.TryGetValue(oldTeamLeader.EquipGuid, out var oldWeapon))
-        {
-            disappearNotify.EntityLists.Add(oldWeapon.WeaponEntityId);
-        }
+		Scene scene = player.Scene;
+		AvatarEntity previousEntity = scene.GetOrCreateAvatarEntity(previousAvatar);
+		AvatarEntity nextEntity = scene.GetOrCreateAvatarEntity(nextAvatar);
 
-        session.SendPacket(disappearNotify);
+		// PlayerAvatarComp::changeCurAvatar asks Scene to disappear only the
+		// old Avatar entity. Its equipped WeaponGadget stays instantiated and
+		// is represented through SceneAvatarInfo::weapon.
+		var disappear = new SceneEntityDisappearNotify { DisappearType = VisionType.VisionReplace };
+		disappear.EntityLists.Add(previousEntity._EntityId);
+		session.SendPacket(disappear);
 
-        SceneEntityAppearNotify sceneEntityAppearNotify = new SceneEntityAppearNotify()
-        {
-            AppearType = Protocol.VisionType.VisionReplace
-        };
-        sceneEntityAppearNotify.EntityLists.Add(newLeaderEntity.ToSceneEntityInfo(session));
+		// Persistent lineup selection changes before the replacement appears.
+		team.Leader = nextAvatar;
 
-        // Also spawn the new leader's weapon if equipped
-        if (newLeaderAvatar.EquipGuid != 0 && session.player.weaponDict.TryGetValue(newLeaderAvatar.EquipGuid, out PlayerWeapon? newWeapon))
-        {
-            sceneEntityAppearNotify.EntityLists.Add(newWeapon.WeaponEntity!.ToSceneEntityInfo());
-        }
+		var appear = new SceneEntityAppearNotify { AppearType = VisionType.VisionReplace };
+		appear.EntityLists.Add(nextEntity.ToSceneEntityInfo(session));
+		session.SendPacket(appear);
 
-        session.SendPacket(sceneEntityAppearNotify);
-    }
+		TeamHandler.SendAvatarEquipChangeNotify(session, nextAvatar);
+		session.SendPacket(rsp);
+		player.SavePersistent();
+	}
 }

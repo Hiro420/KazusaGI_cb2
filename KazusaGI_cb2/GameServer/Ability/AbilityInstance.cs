@@ -1,9 +1,4 @@
 ﻿using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 

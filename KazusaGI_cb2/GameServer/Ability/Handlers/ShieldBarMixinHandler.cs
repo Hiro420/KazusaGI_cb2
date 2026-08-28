@@ -1,6 +1,3 @@
-using System.IO;
-using KazusaGI_cb2.GameServer;
-using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;

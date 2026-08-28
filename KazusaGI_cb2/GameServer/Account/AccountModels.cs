@@ -1,4 +1,3 @@
-using System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -6,44 +5,44 @@ namespace KazusaGI_cb2.GameServer.Account;
 
 public class AccountRecord
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string? Id { get; set; }
+	[BsonId]
+	[BsonRepresentation(BsonType.ObjectId)]
+	public string? Id { get; set; }
 
-    [BsonElement("name")]
+	[BsonElement("name")]
 	public string? Name { get; set; }
 
-    [BsonElement("account_uid")]
-    public string AccountUid { get; set; } = string.Empty;
+	[BsonElement("account_uid")]
+	public string AccountUid { get; set; } = string.Empty;
 
-    [BsonElement("account_token")]
-    public string AccountToken { get; set; } = string.Empty;
+	[BsonElement("account_token")]
+	public string AccountToken { get; set; } = string.Empty;
 
-    [BsonElement("player_uid")]
-    public uint PlayerUid { get; set; }
+	[BsonElement("player_uid")]
+	public uint PlayerUid { get; set; }
 
-    [BsonElement("created_at")]
-    public DateTime CreatedAt { get; set; }
+	[BsonElement("created_at")]
+	public DateTime CreatedAt { get; set; }
 
-    [BsonElement("last_login_at")]
-    public DateTime LastLoginAt { get; set; }
+	[BsonElement("last_login_at")]
+	public DateTime LastLoginAt { get; set; }
 }
 
 public class CounterRecord
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.String)]
-    public string Id { get; set; } = string.Empty;
+	[BsonId]
+	[BsonRepresentation(BsonType.String)]
+	public string Id { get; set; } = string.Empty;
 
-    [BsonElement("value")]
-    public long Value { get; set; }
+	[BsonElement("value")]
+	public long Value { get; set; }
 }
 
 public interface IAccountRepository
 {
-    AccountRecord? GetByAccountUid(string accountUid);
+	AccountRecord? GetByAccountUid(string accountUid);
 
-    AccountRecord GetOrCreate(string accountName, string accountToken);
+	AccountRecord GetOrCreate(string accountName, string accountToken);
 
-    AccountRecord GetByAccountToken(string accountToken);
+	AccountRecord GetByAccountToken(string accountToken);
 }

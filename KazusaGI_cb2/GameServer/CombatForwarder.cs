@@ -1,4 +1,3 @@
-using System.Linq;
 using KazusaGI_cb2.Protocol;
 using ProtoBuf;
 

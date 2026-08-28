@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class ActCameraShake : BaseAction
-    {
-    }
+	internal class ActCameraShake : BaseAction
+	{
+	}
 }

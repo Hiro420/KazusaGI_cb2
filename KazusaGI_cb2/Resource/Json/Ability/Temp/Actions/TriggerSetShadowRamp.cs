@@ -2,10 +2,10 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class TriggerSetShadowRamp : BaseAction
-    {
-        [JsonProperty] public readonly bool useShadowRamp;
-        [JsonProperty] public readonly bool? doOffStage;
-        [JsonProperty] public readonly string[] specialMats;
-    }
+	internal class TriggerSetShadowRamp : BaseAction
+	{
+		[JsonProperty] public readonly bool useShadowRamp;
+		[JsonProperty] public readonly bool? doOffStage;
+		[JsonProperty] public readonly string[] specialMats;
+	}
 }

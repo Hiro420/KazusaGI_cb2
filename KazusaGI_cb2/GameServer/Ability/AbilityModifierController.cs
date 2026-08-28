@@ -1,7 +1,5 @@
 ﻿using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System;
-using System.Collections.Generic;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 

@@ -1,6 +1,6 @@
-﻿using System.Numerics;
-using KazusaGI_cb2.Protocol;
+﻿using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Excel;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
 

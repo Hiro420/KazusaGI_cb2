@@ -2,7 +2,11 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp;
 
-public class ConfigAbilityContainer
+public sealed class ConfigAbilityContainer
 {
-    [JsonProperty] public readonly BaseConfigAbility Default;
+	// The Default payload is intentionally declared through the base family.
+	// AbilityPolymorphicConverter supplies ConfigAbility when the JSON object is
+	// untagged, matching hk4e's schema-known default factory.
+	[JsonProperty("Default", Required = Required.Always)]
+	public BaseConfigAbility Default { get; private set; } = null!;
 }

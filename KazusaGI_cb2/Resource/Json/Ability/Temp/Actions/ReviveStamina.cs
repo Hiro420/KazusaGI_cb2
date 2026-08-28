@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class ReviveStamina : BaseAction
-    {
-        [JsonProperty] public readonly object value;
-    }
+	internal class ReviveStamina : BaseAction
+	{
+		[JsonProperty] public readonly object value;
+	}
 }

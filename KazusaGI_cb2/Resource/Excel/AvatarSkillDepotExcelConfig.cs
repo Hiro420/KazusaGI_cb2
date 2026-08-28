@@ -1,14 +1,6 @@
 ﻿using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.GameServer.PlayerInfos;
-using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace KazusaGI_cb2.Resource.Excel;
 
@@ -16,18 +8,18 @@ public class AvatarSkillDepotExcelConfig
 {
 	private static Logger logger = new Logger("AvatarSkillDepot");
 	public uint id;
-    public uint energySkill;
-    public List<uint> skills;
-    public List<uint> subSkills;
-    public uint attackModeSkill;
-    public uint leaderTalent;
-    public List<string> extraAbilities;
-    public List<uint> talents;
-    public string talentStarName;
-    public uint coreProudSkillGroupId;
-    public uint coreProudAvatarPromoteLevel;
+	public uint energySkill;
+	public List<uint> skills;
+	public List<uint> subSkills;
+	public uint attackModeSkill;
+	public uint leaderTalent;
+	public List<string> extraAbilities;
+	public List<uint> talents;
+	public string talentStarName;
+	public uint coreProudSkillGroupId;
+	public uint coreProudAvatarPromoteLevel;
 
-    public List<ProudSkillOpenConfig> inherentProudSkillOpens = new();
+	public List<ProudSkillOpenConfig> inherentProudSkillOpens = new();
 	public Dictionary<uint, ConfigAbility>? Abilities;
 	public Dictionary<string, Dictionary<string, float>?>? AbilitySpecials = new();
 	public SortedList<int, int> ProudSkillExtraLevelMap = new();

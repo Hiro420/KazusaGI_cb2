@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class DummyAction : BaseAction
-    {
-        [JsonProperty] public readonly bool doOffStage;
-    }
+	internal class DummyAction : BaseAction
+	{
+		[JsonProperty] public readonly bool doOffStage;
+	}
 }

@@ -1,46 +1,46 @@
 using KazusaGI_cb2.Protocol;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Handlers.Recv;
 
 internal class HandleSceneEntitiesMovesReq
 {
-    [Packet.PacketCmdId(PacketId.SceneEntitiesMovesReq)]
-    public static void OnPacket(Session session, Packet packet)
-    {
-        SceneEntitiesMovesReq req = packet.GetDecodedBody<SceneEntitiesMovesReq>();
-        SceneEntitiesMovesRsp rsp = new SceneEntitiesMovesRsp();
-        bool needsUpdate = false;
-        EntityManager entityManager = session.player!.Scene.EntityManager;
-        foreach (EntityMoveInfo move in req.EntityMoveInfoLists)
-        {
-            if (Session.VectorProto2Vector3(move.MotionInfo.Pos) == Vector3.Zero || !entityManager.TryGet(move.EntityId, out Entity? entity))
-            {
-                session.c.LogWarning($"[FUCKED MOVEMENT] Entity {move.EntityId} moved to {move.MotionInfo.Pos.X}, {move.MotionInfo.Pos.Y}, {move.MotionInfo.Pos.Z}");
-                // may happen sometimes, may not. better be safe.
-                continue;
-            }
+	[Packet.PacketCmdId(PacketId.SceneEntitiesMovesReq)]
+	public static void OnPacket(Session session, Packet packet)
+	{
+		SceneEntitiesMovesReq req = packet.GetDecodedBody<SceneEntitiesMovesReq>();
+		SceneEntitiesMovesRsp rsp = new SceneEntitiesMovesRsp();
+		bool needsUpdate = false;
+		EntityManager entityManager = session.player!.Scene.EntityManager;
+		foreach (EntityMoveInfo move in req.EntityMoveInfoLists)
+		{
+			if (Session.VectorProto2Vector3(move.MotionInfo.Pos) == Vector3.Zero || !entityManager.TryGet(move.EntityId, out Entity? entity))
+			{
+				session.c.LogWarning($"[FUCKED MOVEMENT] Entity {move.EntityId} moved to {move.MotionInfo.Pos.X}, {move.MotionInfo.Pos.Y}, {move.MotionInfo.Pos.Z}");
+				// may happen sometimes, may not. better be safe.
+				continue;
+			}
 
-            // Mirror hk4e: Entity::setMotionInfo updates both transform and motion_state_,
-            // which is then used by Entity::toClient when filling MotionInfo.state.
-            entity.SetMotionState(move.MotionInfo.State);
-            entity.Position = Session.VectorProto2Vector3(move.MotionInfo.Pos);
-            if (entity is AvatarEntity)
-            {
-                needsUpdate = true;
-                session.player!.TeleportToPos(session, Session.VectorProto2Vector3(move.MotionInfo.Pos), true);
-                session.player!.SetRot(Session.VectorProto2Vector3(move.MotionInfo.Rot));
-                // session.c.LogWarning($"Player {session.player.Uid} moved to {move.MotionInfo.Pos.X}, {move.MotionInfo.Pos.Y}, {move.MotionInfo.Pos.Z}");
-            }
-        }
-        session.SendPacket(rsp);
+			// Mirror hk4e: Entity::setMotionInfo updates both transform and motion_state_,
+			// which is then used by Entity::toClient when filling MotionInfo.state.
+			entity.SetMotionState(move.MotionInfo.State);
+			entity.Position = Session.VectorProto2Vector3(move.MotionInfo.Pos);
+			entity.Rotation = Session.VectorProto2Vector3(move.MotionInfo.Rot);
+			if (entity is AvatarEntity avatarEntity)
+			{
+				avatarEntity.DbInfo.LastMoveSceneTimeMs = move.SceneTime;
+				avatarEntity.DbInfo.LastMoveReliableSeq = move.ReliableSeq;
+				avatarEntity.DbInfo.LastMoveParams.Clear();
+				avatarEntity.DbInfo.LastMoveParams.AddRange(move.MotionInfo.Params);
+				needsUpdate = true;
+				session.player!.TeleportToPos(session, Session.VectorProto2Vector3(move.MotionInfo.Pos), true);
+				session.player!.SetRot(Session.VectorProto2Vector3(move.MotionInfo.Rot));
+				// session.c.LogWarning($"Player {session.player.Uid} moved to {move.MotionInfo.Pos.X}, {move.MotionInfo.Pos.Y}, {move.MotionInfo.Pos.Z}");
+			}
+		}
+		session.SendPacket(rsp);
 
-        if (needsUpdate)
-            session.player!.Scene.UpdateOnMove();
-    }
+		if (needsUpdate)
+			session.player!.Scene.UpdateOnMove();
+	}
 }

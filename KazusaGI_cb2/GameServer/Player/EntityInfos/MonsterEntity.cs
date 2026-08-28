@@ -1,10 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Numerics;
+﻿using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.Resource;
 using KazusaGI_cb2.Resource.Excel;
-using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Resource.ServerExcel;
+using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
 
@@ -20,7 +19,7 @@ public class MonsterEntity : Entity, IDamageable
 	public float Atk { get; private set; }
 	public float Def { get; private set; }
 	public HashSet<uint> DroppedPercents { get; private set; } = new();
-	
+
 	private Dictionary<string, WeaponEntity> weaponGadgetMap = new();
 
 	public MonsterEntity(Session session, uint monsterId, MonsterLua? monsterInfo = null, Vector3? position = null, Vector3? rotation = null)
@@ -40,10 +39,10 @@ public class MonsterEntity : Entity, IDamageable
 		ReCalculateFightProps();
 		abilityManager = new MonsterAbilityManager(this);
 		abilityManager.Initialize();
-		
+
 		InitializeWeaponGadgets();
 	}
-	
+
 	private void InitializeWeaponGadgets()
 	{
 		if (excelConfig.equips.Count > 0)
@@ -55,7 +54,7 @@ public class MonsterEntity : Entity, IDamageable
 			}
 		}
 	}
-	
+
 	public WeaponEntity? AddWeaponGadget(uint weaponGadgetId, string attachTo)
 	{
 		if (string.IsNullOrEmpty(attachTo))
@@ -63,28 +62,28 @@ public class MonsterEntity : Entity, IDamageable
 			session.c.LogWarning($"[MonsterEntity] AddWeaponGadget: empty attach_to for weapon {weaponGadgetId}");
 			return null;
 		}
-		
+
 		if (weaponGadgetMap.ContainsKey(attachTo))
 		{
 			session.c.LogWarning($"[MonsterEntity] AddWeaponGadget: duplicate attach_to '{attachTo}' for weapon {weaponGadgetId}");
 			return null;
 		}
-		
+
 		var weaponEntity = new WeaponEntity(session, weaponGadgetId);
 		weaponGadgetMap[attachTo] = weaponEntity;
-		
+
 		session.player?.Scene?.EntityManager.Add(weaponEntity);
-		
+
 		var appearNotify = new SceneEntityAppearNotify
 		{
 			AppearType = Protocol.VisionType.VisionMeet,
 			EntityLists = { weaponEntity.ToSceneEntityInfo() }
 		};
 		session.SendPacket(appearNotify);
-		
+
 		return weaponEntity;
 	}
-	
+
 	public bool DelWeaponGadget(string attachTo)
 	{
 		if (!weaponGadgetMap.TryGetValue(attachTo, out var weaponEntity))
@@ -92,14 +91,14 @@ public class MonsterEntity : Entity, IDamageable
 			session.c.LogWarning($"[MonsterEntity] DelWeaponGadget: can't find attach_to '{attachTo}'");
 			return false;
 		}
-		
+
 		weaponGadgetMap.Remove(attachTo);
-		
+
 		session.player?.Scene?.EntityManager.Remove(weaponEntity._EntityId, Protocol.VisionType.VisionDie);
-		
+
 		return true;
 	}
-	
+
 	public void DelAllWeaponGadgets()
 	{
 		var attachTos = weaponGadgetMap.Keys.ToList();
@@ -187,7 +186,7 @@ public class MonsterEntity : Entity, IDamageable
 				Level = 1,
 				AbilityInfo = new()
 			});
-			
+
 			foreach (var affixKv in weaponEntity.GetAffixMap())
 			{
 				sceneMonsterInfo.WeaponLists[^1].AffixMaps[affixKv.Key] = affixKv.Value;
@@ -229,7 +228,7 @@ public class MonsterEntity : Entity, IDamageable
 		Hp = 0;
 		OnDied(vision);
 	}
-	
+
 	public override void ForceKill()
 	{
 		DelAllWeaponGadgets();

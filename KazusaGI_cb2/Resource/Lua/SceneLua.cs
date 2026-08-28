@@ -1,35 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 
 namespace KazusaGI_cb2.Resource.Excel;
 
 public class SceneLua
 {
-    public SceneConfig scene_config;
-    public List<int> blocks;
-    public List<BlockRect> block_rects;
-    public List<string> dummy_points;
-    public List<string> routes_config;
+	public SceneConfig scene_config;
+	public List<int> blocks;
+	public List<BlockRect> block_rects;
+	public List<string> dummy_points;
+	public List<string> routes_config;
 
-    // custom, inlined
-    public Dictionary<int, SceneBlockLua> scene_blocks;
+	// custom, inlined
+	public Dictionary<int, SceneBlockLua> scene_blocks;
 }
 
 public class SceneConfig
 {
-    public Vector3 begin_pos;
-    public Vector3 size;
-    public Vector3 born_pos;
-    public Vector3 born_rot;
-    public int die_y;
+	public Vector3 begin_pos;
+	public Vector3 size;
+	public Vector3 born_pos;
+	public Vector3 born_rot;
+	public int die_y;
 }
 
 public class BlockRect
 {
-    public Vector3 min;
-    public Vector3 max;
+	public Vector3 min;
+	public Vector3 max;
 }

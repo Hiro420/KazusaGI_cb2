@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using KazusaGI_cb2.GameServer;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using System.Reflection;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
@@ -13,21 +9,21 @@ namespace KazusaGI_cb2.GameServer.Ability;
 /// </summary>
 public abstract class AbilityMixinHandler
 {
-    /// <summary>
-    /// Execute the mixin logic with the given parameters
-    /// </summary>
-    /// <param name="ability">The ability that contains this mixin</param>
-    /// <param name="mixin">The mixin data containing configuration</param>
-    /// <param name="abilityData">Additional ability data from the invoke</param>
-    /// <param name="source">The entity that owns/executes the ability</param>
-    /// <param name="target">The target entity (can be null)</param>
-    /// <returns>True if the mixin was executed successfully, false otherwise</returns>
-    public abstract Task<bool> ExecuteAsync(
-        ConfigAbility ability, 
-        BaseAbilityMixin mixin, 
-        byte[] abilityData, 
-        Entity source, 
-        Entity? target);
+	/// <summary>
+	/// Execute the mixin logic with the given parameters
+	/// </summary>
+	/// <param name="ability">The ability that contains this mixin</param>
+	/// <param name="mixin">The mixin data containing configuration</param>
+	/// <param name="abilityData">Additional ability data from the invoke</param>
+	/// <param name="source">The entity that owns/executes the ability</param>
+	/// <param name="target">The target entity (can be null)</param>
+	/// <returns>True if the mixin was executed successfully, false otherwise</returns>
+	public abstract Task<bool> ExecuteAsync(
+		ConfigAbility ability,
+		BaseAbilityMixin mixin,
+		byte[] abilityData,
+		Entity source,
+		Entity? target);
 }
 
 /// <summary>
@@ -37,12 +33,12 @@ public abstract class AbilityMixinHandler
 [AttributeUsage(AttributeTargets.Class)]
 public class AbilityMixinAttribute : Attribute
 {
-    public Type MixinType { get; }
-    
-    public AbilityMixinAttribute(Type mixinType)
-    {
-        MixinType = mixinType;
-    }
+	public Type MixinType { get; }
+
+	public AbilityMixinAttribute(Type mixinType)
+	{
+		MixinType = mixinType;
+	}
 }
 
 /// <summary>
@@ -51,60 +47,60 @@ public class AbilityMixinAttribute : Attribute
 /// </summary>
 public static class AbilityMixinHandlerRegistry
 {
-    private static readonly Dictionary<Type, AbilityMixinHandler> Handlers;
+	private static readonly Dictionary<Type, AbilityMixinHandler> Handlers;
 
-    static AbilityMixinHandlerRegistry()
-    {
-        Handlers = new Dictionary<Type, AbilityMixinHandler>();
+	static AbilityMixinHandlerRegistry()
+	{
+		Handlers = new Dictionary<Type, AbilityMixinHandler>();
 
-        try
-        {
-            Type handlerBaseType = typeof(AbilityMixinHandler);
-            Type attributeType = typeof(AbilityMixinAttribute);
+		try
+		{
+			Type handlerBaseType = typeof(AbilityMixinHandler);
+			Type attributeType = typeof(AbilityMixinAttribute);
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type[] types;
-                try
-                {
-                    types = assembly.GetTypes();
-                }
-                catch (ReflectionTypeLoadException ex)
-                {
-                    types = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
-                }
+			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+			{
+				Type[] types;
+				try
+				{
+					types = assembly.GetTypes();
+				}
+				catch (ReflectionTypeLoadException ex)
+				{
+					types = ex.Types.Where(t => t != null).Cast<Type>().ToArray();
+				}
 
-                foreach (var type in types)
-                {
-                    if (type == null || type.IsAbstract || !handlerBaseType.IsAssignableFrom(type))
-                        continue;
+				foreach (var type in types)
+				{
+					if (type == null || type.IsAbstract || !handlerBaseType.IsAssignableFrom(type))
+						continue;
 
-                    var attr = type.GetCustomAttribute<AbilityMixinAttribute>();
-                    if (attr?.MixinType == null)
-                        continue;
+					var attr = type.GetCustomAttribute<AbilityMixinAttribute>();
+					if (attr?.MixinType == null)
+						continue;
 
-                    if (Handlers.ContainsKey(attr.MixinType))
-                        continue;
+					if (Handlers.ContainsKey(attr.MixinType))
+						continue;
 
-                    if (Activator.CreateInstance(type) is AbilityMixinHandler handler)
-                    {
-                        Handlers[attr.MixinType] = handler;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // If reflection fails for any reason, leave the registry empty.
-        }
-    }
+					if (Activator.CreateInstance(type) is AbilityMixinHandler handler)
+					{
+						Handlers[attr.MixinType] = handler;
+					}
+				}
+			}
+		}
+		catch
+		{
+			// If reflection fails for any reason, leave the registry empty.
+		}
+	}
 
-    public static AbilityMixinHandler? GetHandlerForMixin(BaseAbilityMixin mixin)
-    {
-        if (mixin == null)
-            return null;
+	public static AbilityMixinHandler? GetHandlerForMixin(BaseAbilityMixin mixin)
+	{
+		if (mixin == null)
+			return null;
 
-        Handlers.TryGetValue(mixin.GetType(), out var handler);
-        return handler;
-    }
+		Handlers.TryGetValue(mixin.GetType(), out var handler);
+		return handler;
+	}
 }

@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using KazusaGI_cb2.GameServer.PlayerInfos;
+﻿using KazusaGI_cb2.GameServer.PlayerInfos;
 using Newtonsoft.Json;
-using KazusaGI_cb2.Resource;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 

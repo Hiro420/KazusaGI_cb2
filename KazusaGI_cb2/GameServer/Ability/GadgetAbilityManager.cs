@@ -1,15 +1,6 @@
-﻿using KazusaGI_cb2.GameServer.Handlers;
 using KazusaGI_cb2.GameServer.Systems.Ability;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource;
-using KazusaGI_cb2.Resource.Excel;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using KazusaGI_cb2.Resource.Json.Talent;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KazusaGI_cb2.GameServer.Ability;
 
@@ -49,7 +40,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 			var gadgetJsonName = _gadget.gadgetExcel.jsonName;
 			bool hasNonHumanoidMove = false;
 			if (!string.IsNullOrWhiteSpace(gadgetJsonName) &&
-			    resourceManager.ConfigGadgetMap != null)
+				resourceManager.ConfigGadgetMap != null)
 			{
 				var configKey = _gadget.serverExcelConfig!.JsonName!;
 				if (resourceManager.ConfigGadgetMap.TryGetValue(configKey, out var gadgetConfig))
@@ -57,7 +48,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 					hasNonHumanoidMove = gadgetConfig.HasNonHumanoidMove();
 				}
 			}
-			
+
 			if (hasNonHumanoidMove)
 			{
 				foreach (var abilityName in defaultAbilities.nonHumanoidMoveAbilities)
@@ -158,7 +149,7 @@ public class GadgetAbilityManager : BaseAbilityManager
 
 		foreach (var kvp in config.abilitySpecials)
 		{
-			if (TryReadSpecialValue(kvp.Value, out var value))
+			if (kvp.Value.TryGetSingle(out var value))
 				specials[kvp.Key] = value;
 		}
 		return specials;

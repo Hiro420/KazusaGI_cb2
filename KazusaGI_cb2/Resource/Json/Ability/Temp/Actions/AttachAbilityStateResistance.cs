@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class AttachAbilityStateResistance : BaseAction
-    {
-        [JsonProperty] public readonly int resistanceListID;
-    }
+	internal class AttachAbilityStateResistance : BaseAction
+	{
+		[JsonProperty] public readonly int resistanceListID;
+	}
 }

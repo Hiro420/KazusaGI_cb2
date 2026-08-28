@@ -3,16 +3,14 @@ using KazusaGI_cb2.GameServer.Account;
 using KazusaGI_cb2.Protocol;
 using KazusaGI_cb2.WebServer.Handlers;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Net;
-using static KazusaGI_cb2.Protocol.DebugNotify;
 
 namespace KazusaGI_cb2.WebServer;
 
 public class HttpHandler
 {
-    Config config = MainApp.config;
-    public string GameConfig = """
+	Config config = MainApp.config;
+	public string GameConfig = """
     {
        "retcode":0,
        "message":"OK",
@@ -52,7 +50,7 @@ public class HttpHandler
     }
     """;
 
-    public string custom_config = """
+	public string custom_config = """
     {
         "sdkenv": "2",
         "checkdevice": "False",
@@ -63,9 +61,9 @@ public class HttpHandler
     }
     """;
 
-    [HttpEndpoint("/mdk/shield/api/login", "POST")]
-    public HttpResponse MdkShieldApiLogin(HttpListenerRequest request)
-    {
+	[HttpEndpoint("/mdk/shield/api/login", "POST")]
+	public HttpResponse MdkShieldApiLogin(HttpListenerRequest request)
+	{
 		ShieldApiLoginReq apiLoginReq;
 
 		using (var reader = new StreamReader(request.InputStream))
@@ -74,90 +72,90 @@ public class HttpHandler
 			apiLoginReq = JsonConvert.DeserializeObject<ShieldApiLoginReq>(body)!;
 		}
 
-        // Resolve or create account in database based on provided account identifier.
-        // We deliberately skip password verification here as requested.
-        string accountName = apiLoginReq.account;
-        if (string.IsNullOrWhiteSpace(accountName))
-        {
-            // Minimal error handling: client must provide some account identifier
-            var errorRsp = new
-            {
-                retcode = -1,
-                message = "Invalid account",
-                data = (object?)null
-            };
-            return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
-        }
+		// Resolve or create account in database based on provided account identifier.
+		// We deliberately skip password verification here as requested.
+		string accountName = apiLoginReq.account;
+		if (string.IsNullOrWhiteSpace(accountName))
+		{
+			// Minimal error handling: client must provide some account identifier
+			var errorRsp = new
+			{
+				retcode = -1,
+				message = "Invalid account",
+				data = (object?)null
+			};
+			return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
+		}
 
-        // Generate a simple token for this login and persist it with the account.
-        // Later, the game server will use this token in GetPlayerTokenReq.
-        string token = $"{accountName}_token"; // dummy token generation for now
+		// Generate a simple token for this login and persist it with the account.
+		// Later, the game server will use this token in GetPlayerTokenReq.
+		string token = $"{accountName}_token"; // dummy token generation for now
 		AccountRecord account = AccountManager.GetOrCreate(accountName, token);
 
-        // Build response payload following the original ACCOUNT_INFO shape,
-        // but populated from the database-backed account.
-        var rspObj = new
-        {
-            retcode = 0,
-            message = "OK",
-            data = new
-            {
-                account = new
-                {
-                    uid = account.AccountUid,
-                    name = account.Name,
-                    email = "",
-                    mobile = "",
-                    is_email_verify = 1,
-                    realname = "",
-                    identity_card = "",
-                    token = token,
-                    safe_mobile = "",
-                    facebook_name = "",
-                    google_name = "",
-                    twitter_name = "",
-                    game_center_name = "",
-                    apple_name = "",
-                    sony_name = "",
-                    tap_name = "",
-                    country = "US",
-                    reactivate_ticket = "",
-                    area_code = "US",
-                    device_grant_ticket = "",
-                    steam_name = ""
-                },
-                device_grant_required = false,
-                safe_mobile_required = false,
-                realperson_required = false,
-                realname_operation = "None"
-            }
-        };
+		// Build response payload following the original ACCOUNT_INFO shape,
+		// but populated from the database-backed account.
+		var rspObj = new
+		{
+			retcode = 0,
+			message = "OK",
+			data = new
+			{
+				account = new
+				{
+					uid = account.AccountUid,
+					name = account.Name,
+					email = "",
+					mobile = "",
+					is_email_verify = 1,
+					realname = "",
+					identity_card = "",
+					token = token,
+					safe_mobile = "",
+					facebook_name = "",
+					google_name = "",
+					twitter_name = "",
+					game_center_name = "",
+					apple_name = "",
+					sony_name = "",
+					tap_name = "",
+					country = "US",
+					reactivate_ticket = "",
+					area_code = "US",
+					device_grant_ticket = "",
+					steam_name = ""
+				},
+				device_grant_required = false,
+				safe_mobile_required = false,
+				realperson_required = false,
+				realname_operation = "None"
+			}
+		};
 
-        string json = JsonConvert.SerializeObject(rspObj);
-        return new JsonResponse(json);
-    }
+		string json = JsonConvert.SerializeObject(rspObj);
+		return new JsonResponse(json);
+	}
 
-    [HttpEndpoint("/mdk/shield/api/verify", "POST")]
-    public HttpResponse MdkShieldApiVerify(HttpListenerRequest request)
-    {
-        ShieldApiVerifyReq apiVerifyReq;
-        using (var reader = new StreamReader(request.InputStream))
-        {
-            var body = reader.ReadToEnd();
-            apiVerifyReq = JsonConvert.DeserializeObject<ShieldApiVerifyReq>(body)!;
+	[HttpEndpoint("/mdk/shield/api/verify", "POST")]
+	public HttpResponse MdkShieldApiVerify(HttpListenerRequest request)
+	{
+		ShieldApiVerifyReq apiVerifyReq;
+		using (var reader = new StreamReader(request.InputStream))
+		{
+			var body = reader.ReadToEnd();
+			apiVerifyReq = JsonConvert.DeserializeObject<ShieldApiVerifyReq>(body)!;
 		}
 		// Lookup account in database based on provided uid.
-        AccountRecord? account = AccountManager.GetByAccountUid(apiVerifyReq.uid);
-        if (account == null)
-            {
-            // Minimal error handling: account not found
-            var errorRsp = new
-            {
-                retcode = -1,
-                message = "Account not found",
-                data = (object?)null
-            };
-            return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
+		AccountRecord? account = AccountManager.GetByAccountUid(apiVerifyReq.uid);
+		if (account == null)
+		{
+			// Minimal error handling: account not found
+			var errorRsp = new
+			{
+				retcode = -1,
+				message = "Account not found",
+				data = (object?)null
+			};
+			return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
 		}
 		var rspObj = new
 		{
@@ -199,68 +197,68 @@ public class HttpHandler
 		return new JsonResponse(json);
 	}
 
-    [HttpEndpoint("/mdk/shield/api/loadConfig", "POST")]
-    public HttpResponse MdkShieldApiLoadConfig(HttpListenerRequest request)
-    {
-        return new JsonResponse(GameConfig);
-    }
+	[HttpEndpoint("/mdk/shield/api/loadConfig", "POST")]
+	public HttpResponse MdkShieldApiLoadConfig(HttpListenerRequest request)
+	{
+		return new JsonResponse(GameConfig);
+	}
 
-    [HttpEndpoint("/admin/mi18n/bh3_usa/20190628_5d15ba66cd922/20190628_5d15ba66cd922-version.json", "GET")]
-    public HttpResponse VersionJson(HttpListenerRequest request)
-    {
-        return new JsonResponse("{\"version\": 52}");
-    }
+	[HttpEndpoint("/admin/mi18n/bh3_usa/20190628_5d15ba66cd922/20190628_5d15ba66cd922-version.json", "GET")]
+	public HttpResponse VersionJson(HttpListenerRequest request)
+	{
+		return new JsonResponse("{\"version\": 52}");
+	}
 
-    [HttpEndpoint("/mdk/shield/api/loginCaptcha", "POST")]
-    public HttpResponse LoginCaptcha(HttpListenerRequest request)
-    {
-        return new JsonResponse("{\"retcode\":0,\"message\":\"OK\",\"data\":{\"protocol\":true,\"qr_enabled\":true,\"log_level\":\"INFO\"}}");
-    }
+	[HttpEndpoint("/mdk/shield/api/loginCaptcha", "POST")]
+	public HttpResponse LoginCaptcha(HttpListenerRequest request)
+	{
+		return new JsonResponse("{\"retcode\":0,\"message\":\"OK\",\"data\":{\"protocol\":true,\"qr_enabled\":true,\"log_level\":\"INFO\"}}");
+	}
 
-    [HttpEndpoint("/log/sdk/upload", "POST")]
-    public HttpResponse Upload(HttpListenerRequest request)
-    {
-        return new JsonResponse("");
-    }
+	[HttpEndpoint("/log/sdk/upload", "POST")]
+	public HttpResponse Upload(HttpListenerRequest request)
+	{
+		return new JsonResponse("");
+	}
 
-    [HttpEndpoint("/pcSdkLogin.html", "GET")]
-    public HttpResponse PcSdkLogin(HttpListenerRequest request)
-    {
-        return new JsonResponse("");
-    }
+	[HttpEndpoint("/pcSdkLogin.html", "GET")]
+	public HttpResponse PcSdkLogin(HttpListenerRequest request)
+	{
+		return new JsonResponse("");
+	}
 
-    [HttpEndpoint("/client_game_res/:data", "GET")]
-    public HttpResponse ClientGameRes(HttpListenerRequest request)
-    {
-        return new JsonResponse("");
-    }
+	[HttpEndpoint("/client_game_res/:data", "GET")]
+	public HttpResponse ClientGameRes(HttpListenerRequest request)
+	{
+		return new JsonResponse("");
+	}
 
-    //[HttpEndpoint("/sdk/login", "GET")]
-    //public HttpResponse SdkLogin(HttpListenerRequest request)
-    //{
-    //    string rsp = """
-    //    {
-    //       "retcode":0,
-    //       "data":{
-    //          "uid":"69420",
-    //          "token":"kazusaaa",
-    //          "email":"Kazusa@pot.moe"
-    //       }
-    //    }
-    //    """;
-    //    return new JsonResponse(rsp);
-    //}
+	//[HttpEndpoint("/sdk/login", "GET")]
+	//public HttpResponse SdkLogin(HttpListenerRequest request)
+	//{
+	//    string rsp = """
+	//    {
+	//       "retcode":0,
+	//       "data":{
+	//          "uid":"69420",
+	//          "token":"kazusaaa",
+	//          "email":"Kazusa@pot.moe"
+	//       }
+	//    }
+	//    """;
+	//    return new JsonResponse(rsp);
+	//}
 
-    [HttpEndpoint("/client_design_data/:data", "GET")]
-    public HttpResponse ClientDesignData(HttpListenerRequest request)
-    {
-        return new JsonResponse("");
-    }
+	[HttpEndpoint("/client_design_data/:data", "GET")]
+	public HttpResponse ClientDesignData(HttpListenerRequest request)
+	{
+		return new JsonResponse("");
+	}
 
-    [HttpEndpoint("/combo/granter/api/getProtocol", "GET")]
-    public HttpResponse ApiGetProtocol(HttpListenerRequest request)
-    {
-        string rsp = """
+	[HttpEndpoint("/combo/granter/api/getProtocol", "GET")]
+	public HttpResponse ApiGetProtocol(HttpListenerRequest request)
+	{
+		string rsp = """
         {
            "retcode":0,
            "message":"OK",
@@ -281,19 +279,19 @@ public class HttpHandler
            }
         }
         """;
-        return new JsonResponse(rsp);
-    }
+		return new JsonResponse(rsp);
+	}
 
-    [HttpEndpoint("/combo/granter/login/login", "POST")]
-    public HttpResponse ComboGranterLoginLogin(HttpListenerRequest request)
-    {
-        ComboGranterLoginLoginReq loginReq;
-        using (var reader = new StreamReader(request.InputStream))
-        {
-            var body = reader.ReadToEnd();
-            loginReq = JsonConvert.DeserializeObject<ComboGranterLoginLoginReq>(body)!;
+	[HttpEndpoint("/combo/granter/login/login", "POST")]
+	public HttpResponse ComboGranterLoginLogin(HttpListenerRequest request)
+	{
+		ComboGranterLoginLoginReq loginReq;
+		using (var reader = new StreamReader(request.InputStream))
+		{
+			var body = reader.ReadToEnd();
+			loginReq = JsonConvert.DeserializeObject<ComboGranterLoginLoginReq>(body)!;
 		}
-        var dataInfo = loginReq.GetData();
+		var dataInfo = loginReq.GetData();
 		AccountRecord? account = AccountManager.GetByAccountToken(dataInfo.token);
 		if (account == null)
 		{
@@ -306,29 +304,29 @@ public class HttpHandler
 			};
 			return new JsonResponse(JsonConvert.SerializeObject(errorRsp));
 		}
-        var rspObj = new
-        {
-            retcode = 0,
-            message = "OK",
-            data = new
-            {
-                combo_id = account.AccountUid,
-                open_id = account.AccountUid,
-                combo_token = account.AccountToken,
-                data = "{\"guest\":true}",
-                heartbeat = false,
-                account_type = 1
-            }
-        };
+		var rspObj = new
+		{
+			retcode = 0,
+			message = "OK",
+			data = new
+			{
+				combo_id = account.AccountUid,
+				open_id = account.AccountUid,
+				combo_token = account.AccountToken,
+				data = "{\"guest\":true}",
+				heartbeat = false,
+				account_type = 1
+			}
+		};
 
-        string rsp = JsonConvert.SerializeObject(rspObj);
+		string rsp = JsonConvert.SerializeObject(rspObj);
 		return new JsonResponse(rsp);
-    }
+	}
 
-    [HttpEndpoint("/combo/granter/api/getConfig", "GET")]
-    public HttpResponse ComboGranterGetConfig(HttpListenerRequest request)
-    {
-        string rsp = """
+	[HttpEndpoint("/combo/granter/api/getConfig", "GET")]
+	public HttpResponse ComboGranterGetConfig(HttpListenerRequest request)
+	{
+		string rsp = """
         {
            "retcode":0,
            "message":"OK",
@@ -343,54 +341,54 @@ public class HttpHandler
            }
         }
         """;
-        return new JsonResponse(rsp);
-    }
+		return new JsonResponse(rsp);
+	}
 
-    [HttpEndpoint("/query_region_list", "GET")]
-    public HttpResponse QueryRegionList(HttpListenerRequest request)
-    {
+	[HttpEndpoint("/query_region_list", "GET")]
+	public HttpResponse QueryRegionList(HttpListenerRequest request)
+	{
 
-        QueryRegionListHttpRsp queryRegionListHttpRsp = new QueryRegionListHttpRsp()
-        {
-            ClientCustomConfig = custom_config,
-            ClientConfig = new ClientCustomConfig()
-            {
-                Sdkenv = "2",
-                Showexception = false
-            }
-        };
+		QueryRegionListHttpRsp queryRegionListHttpRsp = new QueryRegionListHttpRsp()
+		{
+			ClientCustomConfig = custom_config,
+			ClientConfig = new ClientCustomConfig()
+			{
+				Sdkenv = "2",
+				Showexception = false
+			}
+		};
 
-        queryRegionListHttpRsp.RegionLists.Add(new RegionSimpleInfo()
-        {
-            Name = "KazusaGI",
-            Title = "KazusaGI",
-            Type = "DEV_PUBLIC",
-            DispatchUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/query_cur_region"
-        });
+		queryRegionListHttpRsp.RegionLists.Add(new RegionSimpleInfo()
+		{
+			Name = "KazusaGI",
+			Title = "KazusaGI",
+			Type = "DEV_PUBLIC",
+			DispatchUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/query_cur_region"
+		});
 
-        return new TextResponse(Convert.ToBase64String(Packet.SerializeToByteArray(queryRegionListHttpRsp)));
-    }
+		return new TextResponse(Convert.ToBase64String(Packet.SerializeToByteArray(queryRegionListHttpRsp)));
+	}
 
-    [HttpEndpoint("/query_cur_region", "GET")]
-    public HttpResponse QueryCurRegion(HttpListenerRequest request)
-    {
-        QueryCurrRegionHttpRsp queryCurrRegionHttpRsp = new QueryCurrRegionHttpRsp()
-        {
-            RegionInfo = new RegionInfo()
-            {
-                GateserverIp = config.GameServer.ServerIP,
-                GateserverPort = Convert.ToUInt32(config.GameServer.ServerPort),
-                ResourceUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/client_game_res",
-                DataUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/client_design_data",
-                SecretKey = new byte[0],
-            },
-            ClientConfig = new ClientCustomConfig()
-            {
-                Sdkenv = "2",
-                Showexception = false,
-            },
-        };
+	[HttpEndpoint("/query_cur_region", "GET")]
+	public HttpResponse QueryCurRegion(HttpListenerRequest request)
+	{
+		QueryCurrRegionHttpRsp queryCurrRegionHttpRsp = new QueryCurrRegionHttpRsp()
+		{
+			RegionInfo = new RegionInfo()
+			{
+				GateserverIp = config.GameServer.ServerIP,
+				GateserverPort = Convert.ToUInt32(config.GameServer.ServerPort),
+				ResourceUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/client_game_res",
+				DataUrl = $"http://{config.WebServer.ServerIP}:{config.WebServer.ServerPort}/client_design_data",
+				SecretKey = new byte[0],
+			},
+			ClientConfig = new ClientCustomConfig()
+			{
+				Sdkenv = "2",
+				Showexception = false,
+			},
+		};
 
-        return new TextResponse(Convert.ToBase64String(Packet.SerializeToByteArray(queryCurrRegionHttpRsp)));
-    }
+		return new TextResponse(Convert.ToBase64String(Packet.SerializeToByteArray(queryCurrRegionHttpRsp)));
+	}
 }

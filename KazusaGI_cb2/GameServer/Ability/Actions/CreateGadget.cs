@@ -1,6 +1,5 @@
 using KazusaGI_cb2.GameServer;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource;
 using Newtonsoft.Json;
 using ProtoBuf;
 

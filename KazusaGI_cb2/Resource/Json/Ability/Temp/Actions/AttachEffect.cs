@@ -2,8 +2,8 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Actions
 {
-    internal class AttachEffect : BaseAction
-    {
-        [JsonProperty] public readonly string effectPattern;
-    }
+	internal class AttachEffect : BaseAction
+	{
+		[JsonProperty] public readonly string effectPattern;
+	}
 }

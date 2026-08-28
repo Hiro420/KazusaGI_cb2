@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace KazusaGI_cb2.Utils;
+﻿namespace KazusaGI_cb2.Utils;
 
 public static class WeightedRandom
 {

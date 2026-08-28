@@ -1,8 +1,5 @@
-﻿using KazusaGI_cb2.GameServer.Ability;
-using KazusaGI_cb2.GameServer.Systems.Ability;
+using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
-using KazusaGI_cb2.Resource;
-using KazusaGI_cb2.Resource.Excel;
 using System.Numerics;
 
 namespace KazusaGI_cb2.GameServer;
@@ -11,7 +8,7 @@ public class MpLevelEntity : Entity
 {
 
 	public MpLevelEntity(Session session, Vector3? position = null, Vector3? rotation = null)
-		: base(session, position, rotation, ProtEntityType.ProtEntityMpLevel)
+		: base(session, position, rotation, ProtEntityType.ProtEntityTeam)
 	{
 		abilityManager = new MpLevelEntityAbilityManager(this);
 		abilityManager.Initialize();

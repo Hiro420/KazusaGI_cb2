@@ -2,9 +2,9 @@
 
 namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates
 {
-    internal class ByAvatarInWaterDepth : BasePredicate
-    {
-        [JsonProperty] public readonly string compareType;
-        [JsonProperty] public readonly float depth;
-    }
+	internal class ByAvatarInWaterDepth : BasePredicate
+	{
+		[JsonProperty] public readonly string compareType;
+		[JsonProperty] public readonly float depth;
+	}
 }

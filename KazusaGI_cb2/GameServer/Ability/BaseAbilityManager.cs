@@ -1,6 +1,6 @@
-﻿using Google.Protobuf;
 using KazusaGI_cb2.GameServer.Ability;
 using KazusaGI_cb2.Protocol;
+using KazusaGI_cb2.Resource.Json.Ability;
 using KazusaGI_cb2.Resource.Json.Ability.Temp;
 using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
 using ProtoBuf;
@@ -11,7 +11,12 @@ public abstract class BaseAbilityManager
 {
 	protected static Logger logger = new("AbilityManager");
 	protected readonly Entity Owner;
-	// instancedAbilityId -> abilityNameHash (filled from network "applied ability" data)
+
+	// hk4e AbilityComp::applied_ability_map_: authoritative runtime ability state.
+	// InstancedAbilityHashMap remains only as a compatibility view for older callers
+	// while the rest of the ability subsystem is migrated in later checkpoints.
+	protected readonly SortedDictionary<uint, ActorAbility> AppliedAbilityMap = new();
+	protected readonly HashSet<uint> AbilityNameHashSet = new();
 	protected readonly Dictionary<uint, uint> InstancedAbilityHashMap = new();
 	public abstract SortedDictionary<uint, ConfigAbility> ConfigAbilityHashMap { get; } // <abilityNameHash, configAbility>
 	public readonly Dictionary<uint, Dictionary<uint, float>> AbilitySpecialOverrideMap = new(); // <abilityNameHash, <abilitySpecialNameHash, value>>
@@ -23,8 +28,9 @@ public abstract class BaseAbilityManager
 	protected Dictionary<uint, float> GlobalValueHashMap = new(); // <hash, value> TODO map the hashes to variable names
 	protected Dictionary<int, ActiveModifierInfo> ActiveModifiers = new(); // <modifierLocalId, modifierInfo>
 
-	// <instancedModifierId, AbilityModifierController>
-	protected readonly Dictionary<uint, AbilityModifierController> InstancedModifierMap = new();
+	// hk4e AbilityComp::applied_modifier_vec_: modifier id N lives at slot N-1.
+	// Null slots are preserved after removal and are part of the runtime state.
+	protected readonly List<ActorModifier?> AppliedModifierVec = new();
 	public bool _isInitialized { get; private set; } = false;
 
 	protected BaseAbilityManager(Entity owner)
@@ -52,6 +58,20 @@ public abstract class BaseAbilityManager
 			}
 		}
 
+		// Preserve the exact ordering this server used before this checkpoint while
+		// making the ids authoritative runtime state. Monster/static discovery order
+		// itself is migrated to hk4e in the next checkpoint.
+		if (AppliedAbilityMap.Count == 0 &&
+			this is not AvatarAbilityManager &&
+			this is not TeamAbilityManager)
+		{
+			foreach (ConfigAbility configAbility in ConfigAbilityHashMap.Values.ToArray())
+			{
+				if (configAbility != null)
+					AttachActorAbility(configAbility);
+			}
+		}
+
 		// ConfigAbility.Initialize() already calls OnBakeLoaded() during resource loading
 		// Just log the ability info here for debugging
 		foreach (var kvp in ConfigAbilityHashMap)
@@ -70,114 +90,42 @@ public abstract class BaseAbilityManager
 	{
 		var syncInfo = new Protocol.AbilitySyncStateInfo
 		{
-			IsInited = true  // Default for non-avatar/non-team entities (monsters, gadgets, weapons, world, etc.)
+			IsInited = true
 		};
 
-		// Only populate AppliedAbilities for non-avatar/non-team entities
-		// Avatars send abilities via AbilityMetaAddAbility; teams are server-controlled
-		if (!(this is AvatarAbilityManager || this is TeamAbilityManager))
+		// hk4e AbilityComp::toClient serializes applied_ability_map_. IDs are
+		// allocated when ActorAbility is attached and are never fabricated here.
+		if (this is not AvatarAbilityManager && this is not TeamAbilityManager)
 		{
-			uint instancedIdCounter = 1;
-			foreach (var configAbility in ConfigAbilityHashMap.Values)
-			{
-				if (configAbility == null)
-					continue;
-
-				var appliedAbility = new Protocol.AbilityAppliedAbility
-				{
-					AbilityName = new Protocol.AbilityString
-					{
-						Hash = GameServer.Ability.Utils.AbilityHash(configAbility.abilityName)
-					},
-					InstancedAbilityId = instancedIdCounter++
-				};
-
-				if (AbilitySpecials != null && AbilitySpecials.TryGetValue(configAbility.abilityName, out var specials) && specials != null)
-				{
-					foreach (var kvp in specials)
-					{
-						var entry = new Protocol.AbilityScalarValueEntry
-						{
-							Key = new Protocol.AbilityString { Hash = GameServer.Ability.Utils.AbilityHash(kvp.Key) },
-							ValueType = AbilityScalarType.AbilityScalarTypeFloat,
-							FloatValue = kvp.Value
-						};
-						appliedAbility.OverrideMaps.Add(entry);
-					}
-				}
-
-				syncInfo.AppliedAbilities.Add(appliedAbility);
-			}
+			foreach (ActorAbility actorAbility in AppliedAbilityMap.Values)
+				syncInfo.AppliedAbilities.Add(actorAbility.ToProtocol());
 		}
 
-		// Populate DynamicValueMaps: ability special override values + global values
-		if (AbilitySpecialOverrideMap.Count > 0)
+		// Compatibility path retained until the dynamic-value runtime checkpoint.
+		foreach (var kvp in AbilitySpecialOverrideMap)
 		{
-			foreach (var kvp in AbilitySpecialOverrideMap)
+			foreach (var specialKvp in kvp.Value)
 			{
-				foreach (var specialKvp in kvp.Value)
+				syncInfo.DynamicValueMaps.Add(new Protocol.AbilityScalarValueEntry
 				{
-					var entry = new Protocol.AbilityScalarValueEntry
-					{
-						Key = new Protocol.AbilityString { Hash = specialKvp.Key },
-						ValueType = AbilityScalarType.AbilityScalarTypeFloat,
-						FloatValue = specialKvp.Value
-					};
-					syncInfo.DynamicValueMaps.Add(entry);
-				}
-			}
-		}
-
-		// Add global float values if any exist
-		if (GlobalValueHashMap.Count > 0)
-		{
-			foreach (var kvp in GlobalValueHashMap)
-			{
-				var entry = new Protocol.AbilityScalarValueEntry
-				{
-					Key = new Protocol.AbilityString { Hash = kvp.Key },
+					Key = new Protocol.AbilityString { Hash = specialKvp.Key },
 					ValueType = AbilityScalarType.AbilityScalarTypeFloat,
-					FloatValue = kvp.Value
-				};
-				syncInfo.DynamicValueMaps.Add(entry);
+					FloatValue = specialKvp.Value
+				});
 			}
 		}
 
-		// Populate AppliedModifiers: all currently instanced modifiers
-		if (InstancedModifierMap.Count > 0)
+		foreach (var kvp in GlobalValueHashMap)
 		{
-			foreach (var kvp in InstancedModifierMap)
+			syncInfo.DynamicValueMaps.Add(new Protocol.AbilityScalarValueEntry
 			{
-				var modifierController = kvp.Value;
-				if (modifierController == null)
-					continue;
-
-				var appliedModifier = new Protocol.AbilityAppliedModifier
-				{
-					ModifierLocalId = modifierController.modifierLocalId,
-					ParentAbilityEntityId = modifierController.parentAbilityEntityId,
-					ParentAbilityName = new Protocol.AbilityString
-					{
-						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityName)
-					},
-					InstancedAbilityId = modifierController.instancedAbilityId,
-					InstancedModifierId = modifierController.instancedModifierId,
-					ExistDuration = modifierController.existDuration,
-					ApplyEntityId = modifierController.applyEntityId,
-					IsAttachedParentAbility = modifierController.isAttachedParentAbility
-				};
-
-				if (!string.IsNullOrWhiteSpace(modifierController.parentAbilityOverride))
-				{
-					appliedModifier.ParentAbilityOverride = new Protocol.AbilityString
-					{
-						Hash = GameServer.Ability.Utils.AbilityHash(modifierController.parentAbilityOverride)
-					};
-				}
-
-				syncInfo.AppliedModifiers.Add(appliedModifier);
-			}
+				Key = new Protocol.AbilityString { Hash = kvp.Key },
+				ValueType = AbilityScalarType.AbilityScalarTypeFloat,
+				FloatValue = kvp.Value
+			});
 		}
+
+		AppendAppliedModifiers(syncInfo);
 
 		return syncInfo;
 	}
@@ -334,7 +282,7 @@ public abstract class BaseAbilityManager
 	protected virtual async Task HandleMixinInvokeAsync<TMixin>(AbilityInvokeEntry invoke)
 		where TMixin : BaseAbilityMixin
 	{
-		if (!TryResolveAbilityForInvoke(invoke, out ConfigAbility ability, out AbilityModifierController? _))
+		if (!TryResolveAbilityForInvoke(invoke, out ConfigAbility ability, out ActorModifier? _))
 		{
 			logger.LogWarning($"HandleMixinInvokeAsync<{typeof(TMixin).Name}>: failed to resolve ability for instancedAbilityId {invoke.Head.InstancedAbilityId}");
 			return;
@@ -381,10 +329,62 @@ public abstract class BaseAbilityManager
 	}
 
 	/// <summary>
+	/// hk4e AbilityComp::addAbility/attachAbility: ability id 0 means
+	/// max(applied_ability_map_) + 1, or 1 for an empty map.
+	/// </summary>
+	protected ActorAbility? AttachActorAbility(
+		ConfigAbility config,
+		string? overrideName = null,
+		uint requestedAbilityId = 0,
+		uint overrideNameHash = 0,
+		IEnumerable<AbilityScalarValueEntry>? overrideMap = null)
+	{
+		if (config == null || string.IsNullOrWhiteSpace(config.abilityName))
+			return null;
+
+		uint abilityNameHash = GameServer.Ability.Utils.AbilityHash(config.abilityName);
+		if (AbilityNameHashSet.Contains(abilityNameHash))
+		{
+			logger.LogWarning($"Duplicate ability '{config.abilityName}' on entity {Owner._EntityId}");
+			return null;
+		}
+
+		uint abilityId = requestedAbilityId;
+		if (abilityId == 0)
+			abilityId = AppliedAbilityMap.Count == 0 ? 1u : checked(AppliedAbilityMap.Keys.Last() + 1u);
+
+		if (AppliedAbilityMap.ContainsKey(abilityId))
+		{
+			logger.LogWarning($"Duplicate instanced ability id {abilityId} on entity {Owner._EntityId}");
+			return null;
+		}
+
+		var actorAbility = new ActorAbility(abilityId, Owner, config, overrideName, overrideNameHash);
+		if (overrideMap != null)
+			actorAbility.LoadOverrideMap(overrideMap);
+
+		AppliedAbilityMap.Add(abilityId, actorAbility);
+		AbilityNameHashSet.Add(abilityNameHash);
+		InstancedAbilityHashMap[abilityId] = abilityNameHash;
+		ConfigAbilityHashMap[abilityNameHash] = config;
+		return actorAbility;
+	}
+
+	protected bool TryFindActorAbility(uint abilityId, out ActorAbility actorAbility)
+	{
+		if (abilityId != 0 && AppliedAbilityMap.TryGetValue(abilityId, out ActorAbility? found))
+		{
+			actorAbility = found;
+			return true;
+		}
+
+		actorAbility = null!;
+		return false;
+	}
+
+	/// <summary>
 	/// Resolves the ConfigAbility (and optionally the modifier controller)
-	/// for a given invoke entry, mirroring hk4e's serverCommonInvokeHandler
-	/// resolution order: prefer modifier-based resolution, then fall back
-	/// to the applied ability via InstancedAbilityHashMap.
+	/// from authoritative runtime ActorAbility/ActorModifier identity.
 	/// </summary>
 	/// <param name="invoke">Incoming ability invoke entry.</param>
 	/// <param name="ability">Resolved ability config when true is returned.</param>
@@ -393,72 +393,34 @@ public abstract class BaseAbilityManager
 	protected virtual bool TryResolveAbilityForInvoke(
 		AbilityInvokeEntry invoke,
 		out ConfigAbility ability,
-		out AbilityModifierController? modifierController)
+		out ActorModifier? modifierController)
 	{
 		ability = null!;
 		modifierController = null;
 
-		// 1) Prefer resolving via modifier id, like hk4e's logic which
-		// first checks the modifier context to find the owning ability.
-		if (invoke.Head.InstancedModifierId != 0 &&
-			InstancedModifierMap.TryGetValue(invoke.Head.InstancedModifierId, out var controller))
+		// hk4e serverCommonInvokeHandler resolves an existing modifier first and
+		// obtains its parent ActorAbility. applied_modifier_id is a 1-based slot id.
+		if (invoke.Head.InstancedModifierId != 0)
 		{
-			modifierController = controller;
-			ability = controller.AbilityConfig;
-			if (ability == null)
+			ActorModifier? actorModifier = FindAppliedModifier(invoke.Head.InstancedModifierId);
+			if (actorModifier == null)
 			{
-				logger.LogWarning($"TryResolveAbilityForInvoke: modifier {invoke.Head.InstancedModifierId} has null AbilityConfig.");
+				logger.LogWarning($"TryResolveAbilityForInvoke: unknown instanced modifier {invoke.Head.InstancedModifierId}.");
 				return false;
 			}
+
+			modifierController = actorModifier;
+			ability = actorModifier.ParentAbility.Config;
 			return true;
 		}
 
-		// 2) Fall back to instanced ability id mapping.
-		uint instancedAbilityId = invoke.Head.InstancedAbilityId;
-		if (instancedAbilityId == 0)
+		if (!TryFindActorAbility(invoke.Head.InstancedAbilityId, out ActorAbility actorAbility))
 		{
-			logger.LogWarning("TryResolveAbilityForInvoke: instancedAbilityId is 0 and no modifier context was found.");
+			logger.LogWarning($"TryResolveAbilityForInvoke: unknown instanced ability {invoke.Head.InstancedAbilityId}.");
 			return false;
 		}
 
-		if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out uint abilityHash))
-		{
-			logger.LogWarning($"TryResolveAbilityForInvoke: no ability hash for instancedAbilityId {instancedAbilityId}.");
-			//foreach (var kv in InstancedAbilityHashMap)
-			//{
-			//	logger.LogInfo($"  Known instancedAbilityId {kv.Key} -> abilityHash {kv.Value:X}");
-			//}
-			return false;
-		}
-
-		// Try to get the config from this manager first.
-		if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? configAbility) || configAbility == null)
-		{
-			// Fallback: pull from global ConfigAbilityHashMap if available,
-			// similar to how AddAbility and ProcessAddModifier behave.
-			if (MainApp.resourceManager.ConfigAbilityHashMap == null ||
-				!MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(abilityHash, out configAbility) ||
-				configAbility == null)
-			{
-				logger.LogWarning($"TryResolveAbilityForInvoke: config not found for ability hash {abilityHash} (instancedAbilityId={instancedAbilityId}).");
-				return false;
-			}
-
-			// Ensure invoke_site_vec and modifier indices are ready, then bind into this manager.
-			try
-			{
-				configAbility.Initialize().GetAwaiter().GetResult();
-				ConfigAbilityHashMap[abilityHash] = configAbility;
-				logger.LogInfo($"TryResolveAbilityForInvoke: bound global ConfigAbility '{configAbility.abilityName}' to hash {abilityHash} for instancedAbilityId {instancedAbilityId}.");
-			}
-			catch (Exception ex)
-			{
-				logger.LogError($"TryResolveAbilityForInvoke: failed to initialize/bind global ConfigAbility for hash {abilityHash}: {ex.Message}");
-				return false;
-			}
-		}
-
-		ability = configAbility;
+		ability = actorAbility.Config;
 		return true;
 	}
 
@@ -483,8 +445,9 @@ public abstract class BaseAbilityManager
 					break;
 
 				default:
-					logger.LogWarning($"Unknown modifier action: {modifierChange.Action}");
-					break;
+					// hk4e metaHandlerModifierChange only handles action 0 (add)
+					// and action 1 (remove); all other enum values return silently.
+					return;
 			}
 		}
 		catch (Exception ex)
@@ -496,17 +459,15 @@ public abstract class BaseAbilityManager
 	protected virtual void ProcessRemoveModifier(AbilityInvokeEntry invoke, AbilityMetaModifierChange modifierChange)
 	{
 		uint instancedModifierId = invoke.Head.InstancedModifierId;
-
-		if (InstancedModifierMap.Remove(instancedModifierId))
+		if (instancedModifierId == 0)
 		{
-			logger.LogInfo($"Removed instanced modifier {instancedModifierId}");
+			logger.LogWarning("AbilityMetaModifierChange remove has invalid instancedModifierId=0");
+			return;
 		}
-		else
-		{
+
+		uint modifierIndex = instancedModifierId - 1;
+		if (!RemoveModifierOnIndex(modifierIndex))
 			logger.LogWarning($"Tried to remove unknown instanced modifier {instancedModifierId}");
-		}
-
-		ActiveModifiers.Remove(modifierChange.ModifierLocalId);
 	}
 
 
@@ -516,190 +477,76 @@ public abstract class BaseAbilityManager
 	/// <param name="modifierChange">The modifier change data</param>
 	protected virtual void ProcessAddModifier(AbilityInvokeEntry invoke, AbilityMetaModifierChange modifierChange)
 	{
-		logger.LogInfo($"Adding modifier: LocalId={modifierChange.ModifierLocalId}, " +
-			$"ConfigLocalId={invoke.Head.ModifierConfigLocalId}, " +
-			$"ParentAbility={modifierChange.ParentAbilityName?.Hash:X}");
-
-		//logger.LogWarning("Modifier Change Data:");
-		//logger.LogWarning(Newtonsoft.Json.JsonConvert.SerializeObject(modifierChange, Newtonsoft.Json.Formatting.Indented));
-		//logger.LogWarning("Full Invoke Data:");
-		//logger.LogWarning(Newtonsoft.Json.JsonConvert.SerializeObject(invoke, Newtonsoft.Json.Formatting.Indented));
-
-		try
+		uint instancedAbilityId = invoke.Head.InstancedAbilityId;
+		uint instancedModifierId = invoke.Head.InstancedModifierId;
+		if (instancedModifierId == 0)
 		{
-			// figure out who the modifier is applied to
-			uint targetEntityId = modifierChange.ApplyEntityId != 0
-				? modifierChange.ApplyEntityId
-				: Owner._EntityId;
+			logger.LogWarning($"AbilityMetaModifierChange has invalid instancedModifierId=0 (localId={modifierChange.ModifierLocalId})");
+			return;
+		}
 
-			uint instancedAbilityId = invoke.Head.InstancedAbilityId;
-			uint instancedModifierId = invoke.Head.InstancedModifierId;
-			if (instancedModifierId == 0)
+		// hk4e uses head.target_id only to choose the AbilityComp from which the
+		// parent ActorAbility is resolved. The new ActorModifier itself always
+		// belongs to *this* AbilityComp/applied_modifier_vec_. This distinction is
+		// observable: later remove invokes address this manager's modifier slots.
+		BaseAbilityManager abilityLookupManager = this;
+		if (invoke.Head.TargetId != 0)
+		{
+			Scene? scene = Owner.session.player?.Scene;
+			if (scene == null ||
+				!scene.TryFindEntity(invoke.Head.TargetId, out Entity targetEntity) ||
+				targetEntity.abilityManager == null)
 			{
-				logger.LogWarning($"AbilityMetaModifierChange has invalid instancedModifierId=0 (localId={modifierChange.ModifierLocalId})");
+				logger.LogWarning($"AbilityMetaModifierChange cannot resolve target entity {invoke.Head.TargetId}");
 				return;
 			}
 
-			// Resolve or bind the parent ability hash for this instancedAbilityId.
-			uint abilityHash;
-			if (!InstancedAbilityHashMap.TryGetValue(instancedAbilityId, out abilityHash))
+			abilityLookupManager = targetEntity.abilityManager;
+			if (!abilityLookupManager._isInitialized)
+				abilityLookupManager.Initialize();
+
+			// AbilityComp::metaHandlerModifierChange aborts if lazy target AbilityComp
+			// initialization fails; do not continue against a half-built map.
+			if (!abilityLookupManager._isInitialized)
 			{
-				// Preferred hk4e-style path: use the parent ability name / override
-				// carried in AbilityMetaModifierChange to find the config, then
-				// bind this instancedAbilityId to that ability's hash.
-				uint parentHash = 0;
-				string? parentNameStr = null;
-				string? parentOverrideStr = null;
-
-				if (modifierChange.ParentAbilityOverride != null)
-				{
-					parentOverrideStr = modifierChange.ParentAbilityOverride.Str;
-					if (modifierChange.ParentAbilityOverride.Hash != 0)
-						parentHash = modifierChange.ParentAbilityOverride.Hash;
-					else if (!string.IsNullOrEmpty(parentOverrideStr))
-						parentHash = GameServer.Ability.Utils.AbilityHash(parentOverrideStr);
-				}
-
-				if (parentHash == 0 && modifierChange.ParentAbilityName != null)
-				{
-					parentNameStr = modifierChange.ParentAbilityName.Str;
-					if (modifierChange.ParentAbilityName.Hash != 0)
-						parentHash = modifierChange.ParentAbilityName.Hash;
-					else if (!string.IsNullOrEmpty(parentNameStr))
-						parentHash = GameServer.Ability.Utils.AbilityHash(parentNameStr);
-				}
-
-				ConfigAbility? matchedAbility = null;
-				uint matchedHash = 0;
-
-				// 1) If we could resolve a parent ability hash, prefer that, but only
-				// if this manager actually knows about that ability. We *do not*
-				// pull arbitrary configs from the global map here, to avoid binding
-				// avatar-only abilities (e.g. Avatar_Venti_WindBlade) to monsters.
-				if (parentHash != 0)
-				{
-					if (ConfigAbilityHashMap.TryGetValue(parentHash, out matchedAbility) && matchedAbility != null)
-					{
-						matchedHash = parentHash;
-					}
-				}
-
-				// 2) Fallback: scan abilities for one that has a modifier entry
-				// at this config local id, like hk4e does when only the index
-				// is known.
-				if (matchedHash == 0)
-				{
-					uint configLocalId = (uint)invoke.Head.ModifierConfigLocalId;
-					foreach (var kv in ConfigAbilityHashMap)
-					{
-						if (kv.Value?.modifierIDMap != null &&
-							configLocalId < kv.Value.modifierIDMap.Count)
-						{
-							matchedHash = kv.Key;
-							matchedAbility = kv.Value;
-							break;
-						}
-					}
-				}
-
-				if (matchedHash == 0)
-				{
-					logger.LogWarning($"No ability found for modifier (parentHash={parentHash:X}, ModifierConfigLocalId={invoke.Head.ModifierConfigLocalId}) instancedAbilityId {instancedAbilityId}");
-					return;
-				}
-
-				abilityHash = matchedHash;
-				InstancedAbilityHashMap[instancedAbilityId] = abilityHash;
-			}
-
-			// At this point we must have an ability config for abilityHash, either
-			// from this manager or from the global ConfigAbilityHashMap.
-			if (!ConfigAbilityHashMap.TryGetValue(abilityHash, out ConfigAbility? ability) || ability == null)
-			{
-				if (MainApp.resourceManager.ConfigAbilityHashMap == null ||
-					!MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(abilityHash, out ability) ||
-					ability == null)
-				{
-					var sceneManager = Owner.session.player.Scene.EntityManager;
-					logger.LogWarning($"Missing ability config for ability hash {abilityHash} | entity {targetEntityId} of type {sceneManager.Entities[targetEntityId].GetType().Name}");
-					return;
-				}
-
-				// Ensure local invoke_site_vec / modifier indices are initialized before use.
-				try
-				{
-					ability.Initialize().GetAwaiter().GetResult();
-					ConfigAbilityHashMap[abilityHash] = ability;
-				}
-				catch (Exception ex)
-				{
-					logger.LogError($"Failed to initialize/bind ability config for hash {abilityHash} in ProcessAddModifier: {ex.Message}");
-					return;
-				}
-			}
-
-			// hk4e: modifier config is addressed by modifier_config_local_id
-			uint configLocalId2 = (uint)invoke.Head.ModifierConfigLocalId;
-			AbilityModifier? modifierConfig = null!;
-			if (ability.modifierIDMap == null ||
-				configLocalId2 >= ability.modifierIDMap.Count)
-			{
-				logger.LogWarning($"No modifier config for configLocalId={configLocalId2} in ability {ability.abilityName} (modifier count={ability.modifierIDMap?.Count ?? 0})");
+				logger.LogWarning($"AbilityMetaModifierChange target ability manager init failed for entity {targetEntity._EntityId}");
 				return;
 			}
-
-			modifierConfig = ability.modifierIDMap[(int)configLocalId2];
-
-			// create the controller ("AbilityModifierController" like in GC)
-			var controller2 = new AbilityModifierController(
-				instancedAbilityId,
-				instancedModifierId,
-				modifierChange.ModifierLocalId,
-				ability,
-				modifierConfig,
-				modifierChange,
-				parentAbilityEntityId: Owner._EntityId,
-				parentAbilityName: ability.abilityName,
-				parentAbilityOverride: ability.overrideName ?? "",
-				existDuration: 0f,
-				applyEntityId: targetEntityId,
-				isAttachedParentAbility: false);
-
-			// add to InstancedModifierMap at index = instancedModifierId (12)
-			if (InstancedModifierMap.ContainsKey(instancedModifierId))
-			{
-				logger.LogWarning(
-					$"InstancedModifierId {instancedModifierId} already exists on add. " +
-					$"Game should have sent REMOVE before ADD  check your logic.");
-				// Overwrite existing entry to keep state consistent.
-				InstancedModifierMap[instancedModifierId] = controller2;
-			}
-			else
-			{
-				InstancedModifierMap.Add(instancedModifierId, controller2);
-			}
-
-			var modifierInfo2 = new ActiveModifierInfo(
-				modifierChange.ModifierLocalId,
-				targetEntityId,
-				modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? Owner._EntityId,
-				abilityHash)
-			{
-					Properties = modifierChange.Properties.ToList(),
-					InstancedModifierId = instancedModifierId
-			};
-
-			ActiveModifiers[modifierChange.ModifierLocalId] = modifierInfo2;
-
-			logger.LogInfo($"Successfully applied and tracked modifier: " +
-				$"ModifierLocalId={modifierChange.ModifierLocalId}, InstancedModifierId={instancedModifierId}, " +
-				$"TargetEntity={targetEntityId}, Properties={modifierChange.Properties.Count}", false);
 		}
-		catch (Exception ex)
+
+		if (!abilityLookupManager.TryFindActorAbility(instancedAbilityId, out ActorAbility actorAbility))
 		{
-			logger.LogError($"Failed to apply modifier: {ex.Message}");
+			logger.LogWarning($"AbilityMetaModifierChange cannot find instanced ability {instancedAbilityId} on entity {abilityLookupManager.Owner._EntityId}");
+			return;
 		}
+
+		ConfigAbility ability = actorAbility.Config;
+		int modifierLocalId = modifierChange.ModifierLocalId;
+		if (modifierLocalId < 0 || ability.modifierIDMap == null || modifierLocalId >= ability.modifierIDMap.Count)
+		{
+			logger.LogWarning($"AbilityMetaModifierChange invalid modifier local_id={modifierLocalId} for abilityId={instancedAbilityId} ability={ability.abilityName} modifierCount={ability.modifierIDMap?.Count ?? 0}");
+			return;
+		}
+
+		uint modifierIndex = instancedModifierId - 1;
+		if (modifierIndex < AppliedModifierVec.Count && AppliedModifierVec[(int)modifierIndex] != null)
+		{
+			AppliedModifierVec.Insert((int)modifierIndex, null);
+			ResetAppliedModifierIds(modifierIndex);
+		}
+
+		AbilityModifier modifierConfig = ability.modifierIDMap[modifierLocalId];
+		ActorModifier actorModifier = AddModifierOnIndex(actorAbility, modifierConfig, modifierIndex);
+		actorModifier.AttachedModifierOwnerEntityId = modifierChange.AttachedInstancedModifier?.OwnerEntityId ?? 0;
+		actorModifier.AttachedModifierId = modifierChange.AttachedInstancedModifier?.InstancedModifierId ?? 0;
+		actorModifier.IsMuteRemote = modifierChange.IsMuteRemote;
+		actorModifier.ApplyEntityId = modifierChange.ApplyEntityId;
+		actorModifier.IsAttachedParentAbility = modifierChange.IsAttachedParentAbility;
+		SyncAttachedModifier(actorModifier);
+
+		logger.LogInfo($"Added modifier: Ability={ability.abilityName} AbilityId={instancedAbilityId} ModifierLocalId={modifierLocalId} InstancedModifierId={actorModifier.ModifierId} AbilityEntity={abilityLookupManager.Owner._EntityId} ModifierOwnerEntity={Owner._EntityId}", false);
 	}
+
 
 	/// <summary>
 	/// Handles AbilityMetaSetModifierApplyEntity by retargeting an existing
@@ -721,28 +568,89 @@ public abstract class BaseAbilityManager
 			return;
 		}
 
-		if (!InstancedModifierMap.TryGetValue(instancedModifierId, out var controller))
+		ActorModifier? actorModifier = FindAppliedModifier(instancedModifierId);
+		if (actorModifier == null)
 		{
 			logger.LogWarning($"HandleSetModifierApplyEntity: unknown instancedModifierId {instancedModifierId}");
 			return;
 		}
 
-		uint newApplyEntityId = meta.ApplyEntityId;
-		controller.MetaData.ApplyEntityId = newApplyEntityId;
+		actorModifier.ApplyEntityId = meta.ApplyEntityId;
+		logger.LogInfo($"HandleSetModifierApplyEntity: retargeted modifier {instancedModifierId} to ApplyEntityId={meta.ApplyEntityId}");
+	}
 
-		// Keep ActiveModifiers in sync: find the entry bound to this instanced modifier
-		// and retarget its ApplyEntityId.
-		foreach (var kv in ActiveModifiers)
+	protected ActorModifier? FindAppliedModifier(uint appliedModifierId)
+	{
+		if (appliedModifierId == 0)
+			return null;
+		uint modifierIndex = appliedModifierId - 1;
+		return modifierIndex < AppliedModifierVec.Count ? AppliedModifierVec[(int)modifierIndex] : null;
+	}
+
+	protected ActorModifier AddModifierOnIndex(ActorAbility ability, AbilityModifier configModifier, uint modifierIndex)
+	{
+		while (AppliedModifierVec.Count <= modifierIndex)
+			AppliedModifierVec.Add(null);
+
+		var modifier = new ActorModifier(ability, Owner, configModifier)
 		{
-			var info = kv.Value;
-			if (info.InstancedModifierId == instancedModifierId)
-			{
-				info.ApplyEntityId = newApplyEntityId;
-				break;
-			}
+			ModifierId = modifierIndex + 1
+		};
+		AppliedModifierVec[(int)modifierIndex] = modifier;
+		return modifier;
+	}
+
+	protected bool RemoveModifierOnIndex(uint modifierIndex)
+	{
+		if (modifierIndex >= AppliedModifierVec.Count)
+			return false;
+		ActorModifier? modifier = AppliedModifierVec[(int)modifierIndex];
+		if (modifier == null)
+			return false;
+		modifier.DetachRuntimeLinks();
+		AppliedModifierVec[(int)modifierIndex] = null;
+		return true;
+	}
+
+	protected void ResetAppliedModifierIds(uint start)
+	{
+		for (uint i = start; i < AppliedModifierVec.Count; i++)
+		{
+			ActorModifier? modifier = AppliedModifierVec[(int)i];
+			if (modifier == null)
+				continue;
+			modifier.ModifierId = i + 1;
+			foreach (ActorModifier attached in modifier.AttachedModifiers.ToArray())
+				attached.AttachedModifierId = modifier.ModifierId;
+		}
+	}
+
+	protected void SyncAttachedModifier(ActorModifier modifier)
+	{
+		if (modifier.AttachedModifierId == 0)
+			return;
+
+		BaseAbilityManager? parentManager = this;
+		if (modifier.AttachedModifierOwnerEntityId != 0)
+		{
+			var entityManager = Owner.session.player.Scene.EntityManager;
+			if (!entityManager.TryGet(modifier.AttachedModifierOwnerEntityId, out Entity parentEntity) || parentEntity?.abilityManager == null)
+				parentManager = null;
+			else
+				parentManager = parentEntity.abilityManager;
 		}
 
-		logger.LogInfo($"HandleSetModifierApplyEntity: retargeted modifier {instancedModifierId} to ApplyEntityId={newApplyEntityId}");
+		ActorModifier? parentModifier = parentManager?.FindAppliedModifier(modifier.AttachedModifierId);
+		modifier.AttachToModifier(parentModifier);
+	}
+
+	protected void AppendAppliedModifiers(Protocol.AbilitySyncStateInfo syncInfo)
+	{
+		foreach (ActorModifier? actorModifier in AppliedModifierVec)
+		{
+			if (actorModifier != null)
+				syncInfo.AppliedModifiers.Add(actorModifier.ToProtocol());
+		}
 	}
 
 	protected virtual void ReInitOverrideMap(uint abilityNameHash, AbilityMetaReInitOverrideMap? overrideMap)
@@ -774,90 +682,61 @@ public abstract class BaseAbilityManager
 
 	protected virtual void AddAbility(AbilityAppliedAbility ability)
 	{
-		// Resolve the effective ability name/hash, preferring override
-		// strings/hashes, mirroring hk4e's AbilityAppliedAbility usage.
-		uint hash = 0;
-		string? abilityNameStr = null;
-		string? overrideNameStr = null;
-
-		if (ability.AbilityOverride != null)
+		if (ability == null || ability.AbilityName == null)
 		{
-			overrideNameStr = ability.AbilityOverride.Str;
-			if (ability.AbilityOverride.Hash != 0)
-				hash = ability.AbilityOverride.Hash;
-			else if (!string.IsNullOrEmpty(overrideNameStr))
-				hash = GameServer.Ability.Utils.AbilityHash(overrideNameStr);
-		}
-
-		if (hash == 0 && ability.AbilityName != null)
-		{
-			abilityNameStr = ability.AbilityName.Str;
-			if (ability.AbilityName.Hash != 0)
-				hash = ability.AbilityName.Hash;
-			else if (!string.IsNullOrEmpty(abilityNameStr))
-				hash = GameServer.Ability.Utils.AbilityHash(abilityNameStr);
-		}
-
-		if (hash == 0)
-		{
-			logger.LogWarning("AddAbility: unable to resolve ability hash from AbilityAppliedAbility (both override and base empty).");
+			logger.LogWarning("AddAbility: missing ability payload/name.");
 			return;
 		}
 
-		uint instancedId = ability.InstancedAbilityId;
-		InstancedAbilityHashMap[instancedId] = hash;
-
-		// Ensure this manager has a config entry for the ability hash.
-		// If it's not in the per-entity map yet, fall back to the global
-		// ConfigAbilityHashMap from ResourceManager (mirrors hk4e where
-		// applied abilities reference already-loaded configs).
-		if (!ConfigAbilityHashMap.ContainsKey(hash))
+		// hk4e resolves ConfigAbility from ability_name. ability_override is a
+		// separate runtime identity and must never replace the base config key.
+		string? baseName = ability.AbilityName.Str;
+		uint baseHash = ability.AbilityName.Hash != 0
+			? ability.AbilityName.Hash
+			: (!string.IsNullOrEmpty(baseName) ? GameServer.Ability.Utils.AbilityHash(baseName) : 0u);
+		if (baseHash == 0)
 		{
-			if (MainApp.resourceManager.ConfigAbilityHashMap != null &&
-				MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(hash, out var globalConfig) &&
-				globalConfig != null)
-			{
-				try
-				{
-					// Make sure invoke/mixin/modifier indices are ready for this ability.
-					globalConfig.Initialize().GetAwaiter().GetResult();
+			logger.LogWarning("AddAbility: unable to resolve base ability name/hash.");
+			return;
+		}
 
-					ConfigAbilityHashMap[hash] = globalConfig;
-					logger.LogInfo($"AddAbility: bound global ConfigAbility '{globalConfig.abilityName}' to hash {hash} for instancedId {instancedId}.");
-				}
-				catch (Exception ex)
-				{
-					logger.LogError($"AddAbility: failed to initialize/bind global ConfigAbility for hash {hash}: {ex.Message}");
-				}
-			}
-			else
+		if (!ConfigAbilityHashMap.TryGetValue(baseHash, out ConfigAbility? config) || config == null)
+		{
+			if (MainApp.resourceManager.ConfigAbilityHashMap == null ||
+				!MainApp.resourceManager.ConfigAbilityHashMap.TryGetValue(baseHash, out config) ||
+				config == null)
 			{
-				logger.LogWarning($"AddAbility: config not found for ability hash {hash} (override='{overrideNameStr}', base='{abilityNameStr}')");
+				logger.LogWarning($"AddAbility: config not found for base ability hash {baseHash}");
+				return;
 			}
 		}
 
-		if (ability.OverrideMaps.Any())
-		{
-			if (!AbilitySpecialOverrideMap.TryGetValue(hash, out var specials))
-			{
-				specials = new Dictionary<uint, float>();
-				AbilitySpecialOverrideMap[hash] = specials;
-			}
+		string? overrideName = ability.AbilityOverride?.Str;
+		uint overrideHash = ability.AbilityOverride?.Hash ?? 0u;
+		ActorAbility? actorAbility = AttachActorAbility(
+			config,
+			overrideName,
+			ability.InstancedAbilityId,
+			overrideHash,
+			ability.OverrideMaps);
+		if (actorAbility == null)
+			return;
 
-			foreach (var entry in ability.OverrideMaps)
-			{
-				switch (entry.ValueType)
-				{
-					case AbilityScalarType.AbilityScalarTypeFloat:
-						specials[entry.Key.Hash] = entry.FloatValue;
-						break;
-					default:
-						logger.LogWarning($"Unhandled value type {entry.ValueType} in AddAbility override for ability hash {hash}");
-						break;
-				}
-			}
+		// Compatibility projection for float-only callers. Authoritative typed
+		// values live in ActorAbility.OverrideMap.
+		if (!AbilitySpecialOverrideMap.TryGetValue(baseHash, out var floatMap))
+		{
+			floatMap = new Dictionary<uint, float>();
+			AbilitySpecialOverrideMap[baseHash] = floatMap;
+		}
+
+		foreach (var kvp in actorAbility.OverrideMap)
+		{
+			if (kvp.Value.Kind == AbilityScalarValueKind.Float)
+				floatMap[unchecked((uint)kvp.Key)] = kvp.Value.FloatValue;
 		}
 	}
+
 }
 
 public class ActiveModifierInfo

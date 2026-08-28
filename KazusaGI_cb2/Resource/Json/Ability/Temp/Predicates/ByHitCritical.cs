@@ -1,6 +1,6 @@
 ﻿namespace KazusaGI_cb2.Resource.Json.Ability.Temp.Predicates
 {
-    internal class ByHitCritical : BasePredicate
-    {
-    }
+	internal class ByHitCritical : BasePredicate
+	{
+	}
 }

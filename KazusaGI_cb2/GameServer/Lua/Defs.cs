@@ -1,57 +1,50 @@
-﻿using KazusaGI_cb2.Protocol;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KazusaGI_cb2.GameServer.Lua;
+﻿namespace KazusaGI_cb2.GameServer.Lua;
 
 public class Variable
 {
-    public string name;
-    public int value;
+	public string name;
+	public int value;
 }
 
 public class ScriptArgs
 {
-    public int param1;
-    public int param2;
-    public int param3;
-    public int source_eid; // Source entity
-    public int target_eid;
-    public int group_id;
-    public string source; // source string, used for timers
-    public int type;
+	public int param1;
+	public int param2;
+	public int param3;
+	public int source_eid; // Source entity
+	public int target_eid;
+	public int group_id;
+	public string source; // source string, used for timers
+	public int type;
 
-    public EventType eventTypeAsEnum()
-    {
-        return (EventType)type;
-    }
+	public EventType eventTypeAsEnum()
+	{
+		return (EventType)type;
+	}
 
-    public ScriptArgs(int groupId, int eventType, int param1, int param2)
-    {
-        this.group_id = groupId;
-        this.type = eventType;
-        this.param1 = param1;
-        this.param2 = param2;
-    }
-    public ScriptArgs(int groupId, int eventType)
-    {
-        this.group_id = groupId;
-        this.type = eventType;
-    }
-    public ScriptArgs(int groupId, int eventType, int param1)
-    {
-        this.group_id = groupId;
-        this.type = eventType;
-        this.param1 = param1;
-    }
+	public ScriptArgs(int groupId, int eventType, int param1, int param2)
+	{
+		this.group_id = groupId;
+		this.type = eventType;
+		this.param1 = param1;
+		this.param2 = param2;
+	}
+	public ScriptArgs(int groupId, int eventType)
+	{
+		this.group_id = groupId;
+		this.type = eventType;
+	}
+	public ScriptArgs(int groupId, int eventType, int param1)
+	{
+		this.group_id = groupId;
+		this.type = eventType;
+		this.param1 = param1;
+	}
 
-    public object toTable()
-    {
-        return new { param1 = param1, param2 = param2, param3 = param3, source_eid = source_eid, target_eid = target_eid, type = type, group_id = group_id, source = source };
-    }
+	public object toTable()
+	{
+		return new { param1 = param1, param2 = param2, param3 = param3, source_eid = source_eid, target_eid = target_eid, type = type, group_id = group_id, source = source };
+	}
 }
 
 public enum EventType

@@ -1,10 +1,5 @@
-﻿using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
-using KazusaGI_cb2.Resource.Json.Ability.Temp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using KazusaGI_cb2.Resource.Json.Ability.Temp;
+using KazusaGI_cb2.Resource.Json.Ability.Temp.AbilityMixins;
 
 namespace KazusaGI_cb2.GameServer.Ability.Handlers;
 
